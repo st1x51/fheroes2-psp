@@ -1,0 +1,23 @@
+K 25
+svn:wc:ra_dav:version-url
+V 69
+/svnroot/fheroes2/!svn/ver/2712/trunk/fheroes2/src/fheroes2/algorithm
+END
+pathfind.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 82
+/svnroot/fheroes2/!svn/ver/2712/trunk/fheroes2/src/fheroes2/algorithm/pathfind.cpp
+END
+algorithm.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 83
+/svnroot/fheroes2/!svn/ver/1379/trunk/fheroes2/src/fheroes2/algorithm/algorithm.cpp
+END
+algorithm.h
+K 25
+svn:wc:ra_dav:version-url
+V 81
+/svnroot/fheroes2/!svn/ver/2031/trunk/fheroes2/src/fheroes2/algorithm/algorithm.h
+END

@@ -1,0 +1,191 @@
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/svnroot/fheroes2/!svn/ver/2683/trunk/fheroes2/src/fheroes2/gui
+END
+splitter.h
+K 25
+svn:wc:ra_dav:version-url
+V 74
+/svnroot/fheroes2/!svn/ver/1717/trunk/fheroes2/src/fheroes2/gui/splitter.h
+END
+interface_cpanel.h
+K 25
+svn:wc:ra_dav:version-url
+V 82
+/svnroot/fheroes2/!svn/ver/1988/trunk/fheroes2/src/fheroes2/gui/interface_cpanel.h
+END
+interface_icons.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 83
+/svnroot/fheroes2/!svn/ver/2585/trunk/fheroes2/src/fheroes2/gui/interface_icons.cpp
+END
+cursor.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 74
+/svnroot/fheroes2/!svn/ver/2598/trunk/fheroes2/src/fheroes2/gui/cursor.cpp
+END
+sizecursor.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 78
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/gui/sizecursor.cpp
+END
+interface_icons.h
+K 25
+svn:wc:ra_dav:version-url
+V 81
+/svnroot/fheroes2/!svn/ver/2393/trunk/fheroes2/src/fheroes2/gui/interface_icons.h
+END
+selectarmybar.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 81
+/svnroot/fheroes2/!svn/ver/2583/trunk/fheroes2/src/fheroes2/gui/selectarmybar.cpp
+END
+cursor.h
+K 25
+svn:wc:ra_dav:version-url
+V 72
+/svnroot/fheroes2/!svn/ver/2598/trunk/fheroes2/src/fheroes2/gui/cursor.h
+END
+sizecursor.h
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/svnroot/fheroes2/!svn/ver/1379/trunk/fheroes2/src/fheroes2/gui/sizecursor.h
+END
+selectarmybar.h
+K 25
+svn:wc:ra_dav:version-url
+V 79
+/svnroot/fheroes2/!svn/ver/2246/trunk/fheroes2/src/fheroes2/gui/selectarmybar.h
+END
+statusbar.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 77
+/svnroot/fheroes2/!svn/ver/1379/trunk/fheroes2/src/fheroes2/gui/statusbar.cpp
+END
+statusbar.h
+K 25
+svn:wc:ra_dav:version-url
+V 75
+/svnroot/fheroes2/!svn/ver/1379/trunk/fheroes2/src/fheroes2/gui/statusbar.h
+END
+interface_list.h
+K 25
+svn:wc:ra_dav:version-url
+V 80
+/svnroot/fheroes2/!svn/ver/2393/trunk/fheroes2/src/fheroes2/gui/interface_list.h
+END
+text.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 72
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/gui/text.cpp
+END
+button.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 74
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/gui/button.cpp
+END
+text.h
+K 25
+svn:wc:ra_dav:version-url
+V 70
+/svnroot/fheroes2/!svn/ver/1908/trunk/fheroes2/src/fheroes2/gui/text.h
+END
+interface_border.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 84
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/gui/interface_border.cpp
+END
+interface_border.h
+K 25
+svn:wc:ra_dav:version-url
+V 82
+/svnroot/fheroes2/!svn/ver/1717/trunk/fheroes2/src/fheroes2/gui/interface_border.h
+END
+button.h
+K 25
+svn:wc:ra_dav:version-url
+V 72
+/svnroot/fheroes2/!svn/ver/1756/trunk/fheroes2/src/fheroes2/gui/button.h
+END
+interface_status.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 84
+/svnroot/fheroes2/!svn/ver/2615/trunk/fheroes2/src/fheroes2/gui/interface_status.cpp
+END
+interface_buttons.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 85
+/svnroot/fheroes2/!svn/ver/2126/trunk/fheroes2/src/fheroes2/gui/interface_buttons.cpp
+END
+interface_status.h
+K 25
+svn:wc:ra_dav:version-url
+V 82
+/svnroot/fheroes2/!svn/ver/2264/trunk/fheroes2/src/fheroes2/gui/interface_status.h
+END
+interface_radar.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 83
+/svnroot/fheroes2/!svn/ver/2664/trunk/fheroes2/src/fheroes2/gui/interface_radar.cpp
+END
+interface_buttons.h
+K 25
+svn:wc:ra_dav:version-url
+V 83
+/svnroot/fheroes2/!svn/ver/1717/trunk/fheroes2/src/fheroes2/gui/interface_buttons.h
+END
+interface_radar.h
+K 25
+svn:wc:ra_dav:version-url
+V 81
+/svnroot/fheroes2/!svn/ver/1730/trunk/fheroes2/src/fheroes2/gui/interface_radar.h
+END
+interface_gamearea.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 86
+/svnroot/fheroes2/!svn/ver/2683/trunk/fheroes2/src/fheroes2/gui/interface_gamearea.cpp
+END
+selectartifactbar.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 85
+/svnroot/fheroes2/!svn/ver/2584/trunk/fheroes2/src/fheroes2/gui/selectartifactbar.cpp
+END
+splitter.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/svnroot/fheroes2/!svn/ver/2506/trunk/fheroes2/src/fheroes2/gui/splitter.cpp
+END
+interface_cpanel.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 84
+/svnroot/fheroes2/!svn/ver/2590/trunk/fheroes2/src/fheroes2/gui/interface_cpanel.cpp
+END
+interface_gamearea.h
+K 25
+svn:wc:ra_dav:version-url
+V 84
+/svnroot/fheroes2/!svn/ver/2629/trunk/fheroes2/src/fheroes2/gui/interface_gamearea.h
+END
+selectartifactbar.h
+K 25
+svn:wc:ra_dav:version-url
+V 83
+/svnroot/fheroes2/!svn/ver/2253/trunk/fheroes2/src/fheroes2/gui/selectartifactbar.h
+END

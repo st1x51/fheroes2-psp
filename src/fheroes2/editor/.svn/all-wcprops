@@ -1,0 +1,53 @@
+K 25
+svn:wc:ra_dav:version-url
+V 66
+/svnroot/fheroes2/!svn/ver/2611/trunk/fheroes2/src/fheroes2/editor
+END
+editor_interface.h
+K 25
+svn:wc:ra_dav:version-url
+V 85
+/svnroot/fheroes2/!svn/ver/2036/trunk/fheroes2/src/fheroes2/editor/editor_interface.h
+END
+editor_dialogs.h
+K 25
+svn:wc:ra_dav:version-url
+V 83
+/svnroot/fheroes2/!svn/ver/2348/trunk/fheroes2/src/fheroes2/editor/editor_dialogs.h
+END
+editor_loadmaps.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 86
+/svnroot/fheroes2/!svn/ver/2516/trunk/fheroes2/src/fheroes2/editor/editor_loadmaps.cpp
+END
+editor_startgame.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 87
+/svnroot/fheroes2/!svn/ver/2611/trunk/fheroes2/src/fheroes2/editor/editor_startgame.cpp
+END
+editor_newmaps.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 85
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/editor/editor_newmaps.cpp
+END
+editor_interface.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 87
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/editor/editor_interface.cpp
+END
+editor_dialogs.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 85
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/editor/editor_dialogs.cpp
+END
+editor_mainmenu.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 86
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/editor/editor_mainmenu.cpp
+END

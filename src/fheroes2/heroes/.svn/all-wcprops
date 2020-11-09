@@ -1,0 +1,131 @@
+K 25
+svn:wc:ra_dav:version-url
+V 66
+/svnroot/fheroes2/!svn/ver/2716/trunk/fheroes2/src/fheroes2/heroes
+END
+heroes_recruits.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 86
+/svnroot/fheroes2/!svn/ver/2343/trunk/fheroes2/src/fheroes2/heroes/heroes_recruits.cpp
+END
+heroes_action.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 84
+/svnroot/fheroes2/!svn/ver/2716/trunk/fheroes2/src/fheroes2/heroes/heroes_action.cpp
+END
+heroes_base.h
+K 25
+svn:wc:ra_dav:version-url
+V 80
+/svnroot/fheroes2/!svn/ver/2595/trunk/fheroes2/src/fheroes2/heroes/heroes_base.h
+END
+heroes.h
+K 25
+svn:wc:ra_dav:version-url
+V 75
+/svnroot/fheroes2/!svn/ver/2668/trunk/fheroes2/src/fheroes2/heroes/heroes.h
+END
+route.h
+K 25
+svn:wc:ra_dav:version-url
+V 74
+/svnroot/fheroes2/!svn/ver/2642/trunk/fheroes2/src/fheroes2/heroes/route.h
+END
+heroes_recruits.h
+K 25
+svn:wc:ra_dav:version-url
+V 84
+/svnroot/fheroes2/!svn/ver/2343/trunk/fheroes2/src/fheroes2/heroes/heroes_recruits.h
+END
+skill.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/svnroot/fheroes2/!svn/ver/2647/trunk/fheroes2/src/fheroes2/heroes/skill.cpp
+END
+heroes_spell.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 83
+/svnroot/fheroes2/!svn/ver/2668/trunk/fheroes2/src/fheroes2/heroes/heroes_spell.cpp
+END
+skill.h
+K 25
+svn:wc:ra_dav:version-url
+V 74
+/svnroot/fheroes2/!svn/ver/2449/trunk/fheroes2/src/fheroes2/heroes/skill.h
+END
+heroes_indicator.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 87
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/heroes/heroes_indicator.cpp
+END
+portrait.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 79
+/svnroot/fheroes2/!svn/ver/2249/trunk/fheroes2/src/fheroes2/heroes/portrait.cpp
+END
+heroes_indicator.h
+K 25
+svn:wc:ra_dav:version-url
+V 85
+/svnroot/fheroes2/!svn/ver/2246/trunk/fheroes2/src/fheroes2/heroes/heroes_indicator.h
+END
+heroes_dialog.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 84
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/heroes/heroes_dialog.cpp
+END
+direction.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 80
+/svnroot/fheroes2/!svn/ver/2715/trunk/fheroes2/src/fheroes2/heroes/direction.cpp
+END
+portrait.h
+K 25
+svn:wc:ra_dav:version-url
+V 77
+/svnroot/fheroes2/!svn/ver/2249/trunk/fheroes2/src/fheroes2/heroes/portrait.h
+END
+direction.h
+K 25
+svn:wc:ra_dav:version-url
+V 78
+/svnroot/fheroes2/!svn/ver/2632/trunk/fheroes2/src/fheroes2/heroes/direction.h
+END
+heroes_meeting.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 85
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/heroes/heroes_meeting.cpp
+END
+heroes_move.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 82
+/svnroot/fheroes2/!svn/ver/2655/trunk/fheroes2/src/fheroes2/heroes/heroes_move.cpp
+END
+heroes_base.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 82
+/svnroot/fheroes2/!svn/ver/2675/trunk/fheroes2/src/fheroes2/heroes/heroes_base.cpp
+END
+heroes.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 77
+/svnroot/fheroes2/!svn/ver/2674/trunk/fheroes2/src/fheroes2/heroes/heroes.cpp
+END
+route.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/svnroot/fheroes2/!svn/ver/2644/trunk/fheroes2/src/fheroes2/heroes/route.cpp
+END

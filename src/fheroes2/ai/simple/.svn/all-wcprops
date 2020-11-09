@@ -1,0 +1,41 @@
+K 25
+svn:wc:ra_dav:version-url
+V 69
+/svnroot/fheroes2/!svn/ver/2708/trunk/fheroes2/src/fheroes2/ai/simple
+END
+ai_simple.h
+K 25
+svn:wc:ra_dav:version-url
+V 81
+/svnroot/fheroes2/!svn/ver/2518/trunk/fheroes2/src/fheroes2/ai/simple/ai_simple.h
+END
+ai_heroes.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 83
+/svnroot/fheroes2/!svn/ver/2708/trunk/fheroes2/src/fheroes2/ai/simple/ai_heroes.cpp
+END
+ai_battle.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 83
+/svnroot/fheroes2/!svn/ver/2496/trunk/fheroes2/src/fheroes2/ai/simple/ai_battle.cpp
+END
+ai_castle.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 83
+/svnroot/fheroes2/!svn/ver/2664/trunk/fheroes2/src/fheroes2/ai/simple/ai_castle.cpp
+END
+ai_kingdom.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 84
+/svnroot/fheroes2/!svn/ver/2664/trunk/fheroes2/src/fheroes2/ai/simple/ai_kingdom.cpp
+END
+ai_simple.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 83
+/svnroot/fheroes2/!svn/ver/2575/trunk/fheroes2/src/fheroes2/ai/simple/ai_simple.cpp
+END

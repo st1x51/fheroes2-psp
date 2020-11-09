@@ -1,0 +1,173 @@
+K 25
+svn:wc:ra_dav:version-url
+V 66
+/svnroot/fheroes2/!svn/ver/2693/trunk/fheroes2/src/fheroes2/dialog
+END
+dialog.h
+K 25
+svn:wc:ra_dav:version-url
+V 75
+/svnroot/fheroes2/!svn/ver/2632/trunk/fheroes2/src/fheroes2/dialog/dialog.h
+END
+dialog_selectfile.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 88
+/svnroot/fheroes2/!svn/ver/2647/trunk/fheroes2/src/fheroes2/dialog/dialog_selectfile.cpp
+END
+dialog_buyboat.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 85
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/dialog/dialog_buyboat.cpp
+END
+dialog_message.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 85
+/svnroot/fheroes2/!svn/ver/1498/trunk/fheroes2/src/fheroes2/dialog/dialog_message.cpp
+END
+dialog_arena.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 83
+/svnroot/fheroes2/!svn/ver/2600/trunk/fheroes2/src/fheroes2/dialog/dialog_arena.cpp
+END
+dialog_file.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 82
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/dialog/dialog_file.cpp
+END
+dialog_resourceinfo.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 90
+/svnroot/fheroes2/!svn/ver/2632/trunk/fheroes2/src/fheroes2/dialog/dialog_resourceinfo.cpp
+END
+dialog_box.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 81
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/dialog/dialog_box.cpp
+END
+dialog_marketplace.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 89
+/svnroot/fheroes2/!svn/ver/2623/trunk/fheroes2/src/fheroes2/dialog/dialog_marketplace.cpp
+END
+dialog_thievesguild.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 90
+/svnroot/fheroes2/!svn/ver/2603/trunk/fheroes2/src/fheroes2/dialog/dialog_thievesguild.cpp
+END
+dialog_gameinfo.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 86
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/dialog/dialog_gameinfo.cpp
+END
+dialog_recrut.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 84
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/dialog/dialog_recrut.cpp
+END
+dialog_adventure.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 87
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/dialog/dialog_adventure.cpp
+END
+dialog_settings.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 86
+/svnroot/fheroes2/!svn/ver/2693/trunk/fheroes2/src/fheroes2/dialog/dialog_settings.cpp
+END
+dialog_selectcount.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 89
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/dialog/dialog_selectcount.cpp
+END
+dialog_giftresources.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 91
+/svnroot/fheroes2/!svn/ver/2623/trunk/fheroes2/src/fheroes2/dialog/dialog_giftresources.cpp
+END
+dialog_spellinfo.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 87
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/dialog/dialog_spellinfo.cpp
+END
+dialog_armyinfo.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 86
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/dialog/dialog_armyinfo.cpp
+END
+dialog_frameborder.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 89
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/dialog/dialog_frameborder.cpp
+END
+dialog_selectscenario.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 92
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/dialog/dialog_selectscenario.cpp
+END
+dialog_quickinfo.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 87
+/svnroot/fheroes2/!svn/ver/2674/trunk/fheroes2/src/fheroes2/dialog/dialog_quickinfo.cpp
+END
+dialog_system.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 84
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/dialog/dialog_system.cpp
+END
+dialog_guardian.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 86
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/dialog/dialog_guardian.cpp
+END
+dialog_skillinfo.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 87
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/dialog/dialog_skillinfo.cpp
+END
+dialog_selectscenario.h
+K 25
+svn:wc:ra_dav:version-url
+V 90
+/svnroot/fheroes2/!svn/ver/2516/trunk/fheroes2/src/fheroes2/dialog/dialog_selectscenario.h
+END
+dialog_levelup.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 85
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/dialog/dialog_levelup.cpp
+END
+dialog_spriteinfo.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 88
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/dialog/dialog_spriteinfo.cpp
+END
+dialog_chest.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 83
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/dialog/dialog_chest.cpp
+END

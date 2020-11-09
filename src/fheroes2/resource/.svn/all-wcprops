@@ -1,0 +1,47 @@
+K 25
+svn:wc:ra_dav:version-url
+V 68
+/svnroot/fheroes2/!svn/ver/2647/trunk/fheroes2/src/fheroes2/resource
+END
+artifact_ultimate.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 90
+/svnroot/fheroes2/!svn/ver/2647/trunk/fheroes2/src/fheroes2/resource/artifact_ultimate.cpp
+END
+resource.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 81
+/svnroot/fheroes2/!svn/ver/2632/trunk/fheroes2/src/fheroes2/resource/resource.cpp
+END
+artifact.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 81
+/svnroot/fheroes2/!svn/ver/2632/trunk/fheroes2/src/fheroes2/resource/artifact.cpp
+END
+artifact_ultimate.h
+K 25
+svn:wc:ra_dav:version-url
+V 88
+/svnroot/fheroes2/!svn/ver/2647/trunk/fheroes2/src/fheroes2/resource/artifact_ultimate.h
+END
+resource.h
+K 25
+svn:wc:ra_dav:version-url
+V 79
+/svnroot/fheroes2/!svn/ver/2632/trunk/fheroes2/src/fheroes2/resource/resource.h
+END
+maps_text.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 82
+/svnroot/fheroes2/!svn/ver/1587/trunk/fheroes2/src/fheroes2/resource/maps_text.cpp
+END
+artifact.h
+K 25
+svn:wc:ra_dav:version-url
+V 79
+/svnroot/fheroes2/!svn/ver/2632/trunk/fheroes2/src/fheroes2/resource/artifact.h
+END

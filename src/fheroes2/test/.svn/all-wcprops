@@ -1,0 +1,23 @@
+K 25
+svn:wc:ra_dav:version-url
+V 64
+/svnroot/fheroes2/!svn/ver/2655/trunk/fheroes2/src/fheroes2/test
+END
+test.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 73
+/svnroot/fheroes2/!svn/ver/2589/trunk/fheroes2/src/fheroes2/test/test.cpp
+END
+test_monstersprite.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 87
+/svnroot/fheroes2/!svn/ver/2655/trunk/fheroes2/src/fheroes2/test/test_monstersprite.cpp
+END
+test.h
+K 25
+svn:wc:ra_dav:version-url
+V 71
+/svnroot/fheroes2/!svn/ver/1717/trunk/fheroes2/src/fheroes2/test/test.h
+END

@@ -1,0 +1,59 @@
+K 25
+svn:wc:ra_dav:version-url
+V 68
+/svnroot/fheroes2/!svn/ver/2664/trunk/fheroes2/src/fheroes2/pocketpc
+END
+pocketpc_mainmenu.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 90
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/pocketpc/pocketpc_mainmenu.cpp
+END
+pocketpc_castle.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 88
+/svnroot/fheroes2/!svn/ver/2664/trunk/fheroes2/src/fheroes2/pocketpc/pocketpc_castle.cpp
+END
+pocketpc_dialog.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 88
+/svnroot/fheroes2/!svn/ver/2621/trunk/fheroes2/src/fheroes2/pocketpc/pocketpc_dialog.cpp
+END
+pocketpc.h
+K 25
+svn:wc:ra_dav:version-url
+V 79
+/svnroot/fheroes2/!svn/ver/2146/trunk/fheroes2/src/fheroes2/pocketpc/pocketpc.h
+END
+pocketpc_heroes.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 88
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/pocketpc/pocketpc_heroes.cpp
+END
+pocketpc_armyinfo.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 90
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/pocketpc/pocketpc_armyinfo.cpp
+END
+pocketpc_selectscenario.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 96
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/pocketpc/pocketpc_selectscenario.cpp
+END
+pocketpc_meeting.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 89
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/pocketpc/pocketpc_meeting.cpp
+END
+pocketpc_thievesguild.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 94
+/svnroot/fheroes2/!svn/ver/2604/trunk/fheroes2/src/fheroes2/pocketpc/pocketpc_thievesguild.cpp
+END

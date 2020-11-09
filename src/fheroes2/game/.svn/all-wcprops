@@ -1,0 +1,161 @@
+K 25
+svn:wc:ra_dav:version-url
+V 64
+/svnroot/fheroes2/!svn/ver/2713/trunk/fheroes2/src/fheroes2/game
+END
+game_scenarioinfo.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 86
+/svnroot/fheroes2/!svn/ver/2628/trunk/fheroes2/src/fheroes2/game/game_scenarioinfo.cpp
+END
+game_focus.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 79
+/svnroot/fheroes2/!svn/ver/2585/trunk/fheroes2/src/fheroes2/game/game_focus.cpp
+END
+game_interface.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 83
+/svnroot/fheroes2/!svn/ver/2606/trunk/fheroes2/src/fheroes2/game/game_interface.cpp
+END
+gameevent.h
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/svnroot/fheroes2/!svn/ver/2632/trunk/fheroes2/src/fheroes2/game/gameevent.h
+END
+game_focus.h
+K 25
+svn:wc:ra_dav:version-url
+V 77
+/svnroot/fheroes2/!svn/ver/2585/trunk/fheroes2/src/fheroes2/game/game_focus.h
+END
+game_highscores.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 84
+/svnroot/fheroes2/!svn/ver/2682/trunk/fheroes2/src/fheroes2/game/game_highscores.cpp
+END
+game_interface.h
+K 25
+svn:wc:ra_dav:version-url
+V 81
+/svnroot/fheroes2/!svn/ver/2345/trunk/fheroes2/src/fheroes2/game/game_interface.h
+END
+game_battleonly.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 84
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/game/game_battleonly.cpp
+END
+game.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 73
+/svnroot/fheroes2/!svn/ver/2609/trunk/fheroes2/src/fheroes2/game/game.cpp
+END
+game_io.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/svnroot/fheroes2/!svn/ver/2707/trunk/fheroes2/src/fheroes2/game/game_io.cpp
+END
+game_hotkeys.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 81
+/svnroot/fheroes2/!svn/ver/2518/trunk/fheroes2/src/fheroes2/game/game_hotkeys.cpp
+END
+game.h
+K 25
+svn:wc:ra_dav:version-url
+V 71
+/svnroot/fheroes2/!svn/ver/2698/trunk/fheroes2/src/fheroes2/game/game.h
+END
+game_io.h
+K 25
+svn:wc:ra_dav:version-url
+V 74
+/svnroot/fheroes2/!svn/ver/2655/trunk/fheroes2/src/fheroes2/game/game_io.h
+END
+difficulty.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 79
+/svnroot/fheroes2/!svn/ver/2264/trunk/fheroes2/src/fheroes2/game/difficulty.cpp
+END
+game_static.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 80
+/svnroot/fheroes2/!svn/ver/2700/trunk/fheroes2/src/fheroes2/game/game_static.cpp
+END
+game_delays.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 80
+/svnroot/fheroes2/!svn/ver/2506/trunk/fheroes2/src/fheroes2/game/game_delays.cpp
+END
+difficulty.h
+K 25
+svn:wc:ra_dav:version-url
+V 77
+/svnroot/fheroes2/!svn/ver/2264/trunk/fheroes2/src/fheroes2/game/difficulty.h
+END
+game_static.h
+K 25
+svn:wc:ra_dav:version-url
+V 78
+/svnroot/fheroes2/!svn/ver/2517/trunk/fheroes2/src/fheroes2/game/game_static.h
+END
+game_over.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 78
+/svnroot/fheroes2/!svn/ver/2601/trunk/fheroes2/src/fheroes2/game/game_over.cpp
+END
+fheroes2.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 77
+/svnroot/fheroes2/!svn/ver/2703/trunk/fheroes2/src/fheroes2/game/fheroes2.cpp
+END
+game_mainmenu.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 82
+/svnroot/fheroes2/!svn/ver/2632/trunk/fheroes2/src/fheroes2/game/game_mainmenu.cpp
+END
+game_loadgame.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 82
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/game/game_loadgame.cpp
+END
+game_newgame.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 81
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/game/game_newgame.cpp
+END
+game_over.h
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/svnroot/fheroes2/!svn/ver/2601/trunk/fheroes2/src/fheroes2/game/game_over.h
+END
+game_startgame.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 83
+/svnroot/fheroes2/!svn/ver/2713/trunk/fheroes2/src/fheroes2/game/game_startgame.cpp
+END
+gameevent.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 78
+/svnroot/fheroes2/!svn/ver/2632/trunk/fheroes2/src/fheroes2/game/gameevent.cpp
+END

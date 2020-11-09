@@ -1,0 +1,137 @@
+K 25
+svn:wc:ra_dav:version-url
+V 67
+/svnroot/fheroes2/!svn/ver/2689/trunk/fheroes2/src/fheroes2/kingdom
+END
+payment.h
+K 25
+svn:wc:ra_dav:version-url
+V 77
+/svnroot/fheroes2/!svn/ver/2264/trunk/fheroes2/src/fheroes2/kingdom/payment.h
+END
+kingdom.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 79
+/svnroot/fheroes2/!svn/ver/2664/trunk/fheroes2/src/fheroes2/kingdom/kingdom.cpp
+END
+speed.h
+K 25
+svn:wc:ra_dav:version-url
+V 75
+/svnroot/fheroes2/!svn/ver/1797/trunk/fheroes2/src/fheroes2/kingdom/speed.h
+END
+morale.h
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/svnroot/fheroes2/!svn/ver/1717/trunk/fheroes2/src/fheroes2/kingdom/morale.h
+END
+kingdom.h
+K 25
+svn:wc:ra_dav:version-url
+V 77
+/svnroot/fheroes2/!svn/ver/2632/trunk/fheroes2/src/fheroes2/kingdom/kingdom.h
+END
+luck.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/svnroot/fheroes2/!svn/ver/1674/trunk/fheroes2/src/fheroes2/kingdom/luck.cpp
+END
+race.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/svnroot/fheroes2/!svn/ver/2400/trunk/fheroes2/src/fheroes2/kingdom/race.cpp
+END
+world.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 77
+/svnroot/fheroes2/!svn/ver/2689/trunk/fheroes2/src/fheroes2/kingdom/world.cpp
+END
+week.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/svnroot/fheroes2/!svn/ver/2480/trunk/fheroes2/src/fheroes2/kingdom/week.cpp
+END
+luck.h
+K 25
+svn:wc:ra_dav:version-url
+V 74
+/svnroot/fheroes2/!svn/ver/1717/trunk/fheroes2/src/fheroes2/kingdom/luck.h
+END
+race.h
+K 25
+svn:wc:ra_dav:version-url
+V 74
+/svnroot/fheroes2/!svn/ver/2403/trunk/fheroes2/src/fheroes2/kingdom/race.h
+END
+world.h
+K 25
+svn:wc:ra_dav:version-url
+V 75
+/svnroot/fheroes2/!svn/ver/2657/trunk/fheroes2/src/fheroes2/kingdom/world.h
+END
+week.h
+K 25
+svn:wc:ra_dav:version-url
+V 74
+/svnroot/fheroes2/!svn/ver/2480/trunk/fheroes2/src/fheroes2/kingdom/week.h
+END
+puzzle.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 78
+/svnroot/fheroes2/!svn/ver/2647/trunk/fheroes2/src/fheroes2/kingdom/puzzle.cpp
+END
+puzzle.h
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/svnroot/fheroes2/!svn/ver/2308/trunk/fheroes2/src/fheroes2/kingdom/puzzle.h
+END
+color.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 77
+/svnroot/fheroes2/!svn/ver/2632/trunk/fheroes2/src/fheroes2/kingdom/color.cpp
+END
+profit.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 78
+/svnroot/fheroes2/!svn/ver/2518/trunk/fheroes2/src/fheroes2/kingdom/profit.cpp
+END
+payment.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 79
+/svnroot/fheroes2/!svn/ver/2518/trunk/fheroes2/src/fheroes2/kingdom/payment.cpp
+END
+speed.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 77
+/svnroot/fheroes2/!svn/ver/1799/trunk/fheroes2/src/fheroes2/kingdom/speed.cpp
+END
+color.h
+K 25
+svn:wc:ra_dav:version-url
+V 75
+/svnroot/fheroes2/!svn/ver/2497/trunk/fheroes2/src/fheroes2/kingdom/color.h
+END
+profit.h
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/svnroot/fheroes2/!svn/ver/2264/trunk/fheroes2/src/fheroes2/kingdom/profit.h
+END
+morale.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 78
+/svnroot/fheroes2/!svn/ver/1674/trunk/fheroes2/src/fheroes2/kingdom/morale.cpp
+END

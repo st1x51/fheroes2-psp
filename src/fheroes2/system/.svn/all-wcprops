@@ -1,0 +1,59 @@
+K 25
+svn:wc:ra_dav:version-url
+V 66
+/svnroot/fheroes2/!svn/ver/2707/trunk/fheroes2/src/fheroes2/system
+END
+dir.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 74
+/svnroot/fheroes2/!svn/ver/2298/trunk/fheroes2/src/fheroes2/system/dir.cpp
+END
+gamedefs.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 79
+/svnroot/fheroes2/!svn/ver/1655/trunk/fheroes2/src/fheroes2/system/gamedefs.cpp
+END
+players.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 78
+/svnroot/fheroes2/!svn/ver/2603/trunk/fheroes2/src/fheroes2/system/players.cpp
+END
+dir.h
+K 25
+svn:wc:ra_dav:version-url
+V 72
+/svnroot/fheroes2/!svn/ver/1379/trunk/fheroes2/src/fheroes2/system/dir.h
+END
+settings.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 79
+/svnroot/fheroes2/!svn/ver/2675/trunk/fheroes2/src/fheroes2/system/settings.cpp
+END
+gamedefs.h
+K 25
+svn:wc:ra_dav:version-url
+V 77
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/system/gamedefs.h
+END
+players.h
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/svnroot/fheroes2/!svn/ver/2603/trunk/fheroes2/src/fheroes2/system/players.h
+END
+settings.h
+K 25
+svn:wc:ra_dav:version-url
+V 77
+/svnroot/fheroes2/!svn/ver/2707/trunk/fheroes2/src/fheroes2/system/settings.h
+END
+bitmodes.h
+K 25
+svn:wc:ra_dav:version-url
+V 77
+/svnroot/fheroes2/!svn/ver/1661/trunk/fheroes2/src/fheroes2/system/bitmodes.h
+END

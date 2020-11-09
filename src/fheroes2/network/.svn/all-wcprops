@@ -1,0 +1,83 @@
+K 25
+svn:wc:ra_dav:version-url
+V 67
+/svnroot/fheroes2/!svn/ver/2623/trunk/fheroes2/src/fheroes2/network
+END
+client.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 78
+/svnroot/fheroes2/!svn/ver/2248/trunk/fheroes2/src/fheroes2/network/client.cpp
+END
+localclient.h
+K 25
+svn:wc:ra_dav:version-url
+V 81
+/svnroot/fheroes2/!svn/ver/2251/trunk/fheroes2/src/fheroes2/network/localclient.h
+END
+localclient_startgame.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 93
+/svnroot/fheroes2/!svn/ver/2585/trunk/fheroes2/src/fheroes2/network/localclient_startgame.cpp
+END
+network.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 79
+/svnroot/fheroes2/!svn/ver/2536/trunk/fheroes2/src/fheroes2/network/network.cpp
+END
+client.h
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/svnroot/fheroes2/!svn/ver/2487/trunk/fheroes2/src/fheroes2/network/client.h
+END
+remoteclient.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 84
+/svnroot/fheroes2/!svn/ver/2522/trunk/fheroes2/src/fheroes2/network/remoteclient.cpp
+END
+player.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 78
+/svnroot/fheroes2/!svn/ver/2487/trunk/fheroes2/src/fheroes2/network/player.cpp
+END
+network.h
+K 25
+svn:wc:ra_dav:version-url
+V 77
+/svnroot/fheroes2/!svn/ver/2487/trunk/fheroes2/src/fheroes2/network/network.h
+END
+server.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 78
+/svnroot/fheroes2/!svn/ver/2578/trunk/fheroes2/src/fheroes2/network/server.cpp
+END
+remoteclient.h
+K 25
+svn:wc:ra_dav:version-url
+V 82
+/svnroot/fheroes2/!svn/ver/2477/trunk/fheroes2/src/fheroes2/network/remoteclient.h
+END
+player.h
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/svnroot/fheroes2/!svn/ver/2487/trunk/fheroes2/src/fheroes2/network/player.h
+END
+localclient.cpp
+K 25
+svn:wc:ra_dav:version-url
+V 83
+/svnroot/fheroes2/!svn/ver/2623/trunk/fheroes2/src/fheroes2/network/localclient.cpp
+END
+server.h
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/svnroot/fheroes2/!svn/ver/2259/trunk/fheroes2/src/fheroes2/network/server.h
+END
