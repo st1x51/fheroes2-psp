@@ -28,14 +28,22 @@
 #include "icn.h"
 #include "button.h"
 #include "splitter.h"
-#include "sprite.h"
+#include "settings.h"
 #include "cursor.h"
+#include "sprite.h"
 #include "gamedefs.h"
 
 namespace Interface
 {
+    struct ListBasic
+    {
+	virtual ~ListBasic(){}
+	virtual void Redraw(void) = 0;
+	virtual bool QueueEventProcessing(void) = 0;
+    };
+
     template<class Item> 
-    class ListBox
+    class ListBox : public ListBasic
     {
     public:
 	typedef std::vector<Item> Items;
@@ -45,21 +53,27 @@ namespace Interface
 	ListBox() : maxItems(0), useHotkeys(true), content(NULL) {}
 	virtual ~ListBox(){}
 
-	virtual void RedrawItem(const Item &, s16 ox, s16 oy, bool current) = 0;
+	virtual void RedrawItem(const Item &, s32 ox, s32 oy, bool current) = 0;
 	virtual void RedrawBackground(const Point &) = 0;
 
 	virtual void ActionCurrentUp(void) = 0;
 	virtual void ActionCurrentDn(void) = 0;
+
 	virtual void ActionListDoubleClick(Item &) = 0;
 	virtual void ActionListSingleClick(Item &) = 0;
 	virtual void ActionListPressRight(Item &) = 0;
 
+	virtual void ActionListDoubleClick(Item & item, const Point & cursor, s32 ox, s32 oy){ ActionListDoubleClick(item); };
+	virtual void ActionListSingleClick(Item & item, const Point & cursor, s32 ox, s32 oy){ ActionListSingleClick(item); };
+	virtual void ActionListPressRight(Item & item, const Point & cursor, s32 ox, s32 oy){ ActionListPressRight(item); };
+	virtual bool ActionListCursor(Item & item, const Point & cursor, s32 ox, s32 oy){ return false; };
+
 	/*
 	void SetTopLeft(const Point & top);
-	void SetScrollButtonUp(const ICN::icn_t, const u16, const u16, const Point &);
-	void SetScrollButtonDn(const ICN::icn_t, const u16, const u16, const Point &);
+	void SetScrollButtonUp(int, u32, u32, const Point &);
+	void SetScrollButtonDn(int, u32, u32, const Point &);
 	void SetScrollSplitter(const Sprite &, const Rect &);
-	void SetAreaMaxItems(const u8);
+	void SetAreaMaxItems(u32);
 	void SetAreaItems(const Rect &);
 	void SetListContent(std::vector<Item> &);
 	void Redraw(void);
@@ -80,13 +94,13 @@ namespace Interface
 	    ptRedraw = tl;
 	}
 
-	void SetScrollButtonUp(const ICN::icn_t icn, const u16 index1, const u16 index2, const Point & pos)
+	void SetScrollButtonUp(int icn, u32 index1, u32 index2, const Point & pos)
 	{
 	    buttonPgUp.SetSprite(icn, index1, index2);
     	    buttonPgUp.SetPos(pos);
         }
 
-	void SetScrollButtonDn(const ICN::icn_t icn, const u16 index1, const u16 index2, const Point & pos)
+	void SetScrollButtonDn(int icn, u32 index1, u32 index2, const Point & pos)
 	{
 	    buttonPgDn.SetSprite(icn, index1, index2);
     	    buttonPgDn.SetPos(pos);
@@ -94,7 +108,6 @@ namespace Interface
 
 	void SetScrollSplitter(const Sprite & sp, const Rect & area)
 	{
-	    splitter.SetOrientation(Splitter::VERTICAL);
 	    splitter.SetArea(area);
 	    splitter.SetSprite(sp);
 	}
@@ -104,7 +117,7 @@ namespace Interface
 	    return splitter;
 	}
 
-	void SetAreaMaxItems(const u8 max)
+	void SetAreaMaxItems(int max)
 	{
 	    maxItems = max;
 	}
@@ -119,7 +132,16 @@ namespace Interface
 	    content = &list;
 	    cur = content->begin();
 	    top = content->begin();
-	    splitter.SetRange(0, (maxItems < list.size() ? list.size() - maxItems : 0));
+	    if(maxItems < list.size())
+	    {
+		splitter.SetRange(0, list.size() - maxItems);
+		splitter.MoveIndex(0);
+	    }
+	    else
+	    {
+		splitter.SetRange(0, 0);
+		splitter.MoveCenter();
+	    }
 	}
 
 	void Reset(void)
@@ -128,7 +150,13 @@ namespace Interface
 	    {
 		cur = content->end();
 		top = content->begin();
-		splitter.Move(0);
+		UpdateSplitterRange();
+		splitter.MoveCenter();
+
+		if(maxItems < content->size())
+		    splitter.MoveIndex(0);
+		else
+		    splitter.MoveCenter();
 	    }
 	}
 
@@ -145,7 +173,7 @@ namespace Interface
 
             buttonPgUp.Draw();
             buttonPgDn.Draw();
-            splitter.Redraw();
+            splitter.RedrawCursor();
 
             ItemsIterator curt = top;
             ItemsIterator last = top + maxItems < content->end() ? top + maxItems : content->end();
@@ -180,7 +208,8 @@ namespace Interface
 	    {
 		top = cur + maxItems > content->end() ? content->end() - maxItems : cur;
 		if(top < content->begin()) top = content->begin();
-    		splitter.Move(top - content->begin());
+		UpdateSplitterRange();
+    		splitter.MoveIndex(top - content->begin());
 	    }
 	}
 
@@ -219,8 +248,9 @@ namespace Interface
 		    (top > content->begin()))
 	    {
 		cursor.Hide();
-		top = (top - content->begin() > maxItems ? top - maxItems : content->begin());
-    		splitter.Move(top - content->begin());
+		top = (top - content->begin() > static_cast<int>(maxItems) ? top - maxItems : content->begin());
+		UpdateSplitterRange();
+    		splitter.MoveIndex(top - content->begin());
 		return true;
 	    }
 	    else
@@ -230,7 +260,8 @@ namespace Interface
 		cursor.Hide();
 		top += maxItems;
 		if(top + maxItems > content->end()) top = content->end() - maxItems;
-		splitter.Move(top - content->begin());
+		UpdateSplitterRange();
+		splitter.MoveIndex(top - content->begin());
 		return true;
 	    }
 	    else
@@ -271,42 +302,17 @@ namespace Interface
 	    if(le.MousePressLeft(splitter.GetRect()) && (content->size() > maxItems))
 	    {
 		cursor.Hide();
-		s16 seek = (le.GetMouseCursor().y - splitter.GetRect().y) * 100 / splitter.GetStep();
+		UpdateSplitterRange();
+		s32 seek = (le.GetMouseCursor().y - splitter.GetRect().y) * 100 / splitter.GetStep();
 		if(seek < splitter.Min()) seek = splitter.Min();
 		else
 		if(seek > splitter.Max()) seek = splitter.Max();
 		top = content->begin() + seek;
-		splitter.Move(seek);
+		splitter.MoveIndex(seek);
 		return true;
 	    }
-	    else
-	    if(le.MouseClickLeft(rtAreaItems) && content->size())
-	    {
-		float offset = (le.GetMouseReleaseLeft().y - rtAreaItems.y) * maxItems / rtAreaItems.h;
 
-		if(offset >= 0)
-		{
-		    cursor.Hide();
-
-		    ItemsIterator click = top + static_cast<size_t>(offset);
-
-		    if(click >= content->begin() && click < content->end())
-		    {
-			if(click == cur)
-			{
-			    ActionListDoubleClick(*cur);
-			}
-			else
-			{
-			    cur = click;
-			    ActionListSingleClick(*cur);
-			}
-			return true;
-		    }
-		}
-	    }
-	    else
-	    if(le.MousePressRight(rtAreaItems) && content->size())
+	    if(content->size())
 	    {
 		float offset = (le.GetMouseCursor().y - rtAreaItems.y) * maxItems / rtAreaItems.h;
 
@@ -314,13 +320,37 @@ namespace Interface
 		{
 		    cursor.Hide();
 
-		    ItemsIterator click = top + static_cast<size_t>(offset);
+		    ItemsIterator pos = top + static_cast<size_t>(offset);
 
-		    if(click >= content->begin() && click < content->end())
+		    if(pos >= content->begin() && pos < content->end())
 		    {
-			ActionListPressRight(*click);
-			return true;
+			const s32 posy = rtAreaItems.y + (pos - top) * rtAreaItems.h / maxItems;
+
+			if(ActionListCursor(*pos, le.GetMouseCursor(), rtAreaItems.x, posy))
+			    return true;
+
+			if(le.MouseClickLeft(rtAreaItems))
+			{
+			    if(pos == cur)
+			    {
+				ActionListDoubleClick(*cur, le.GetMouseCursor(), rtAreaItems.x, posy);
+			    }
+			    else
+			    {
+				cur = pos;
+				ActionListSingleClick(*cur, le.GetMouseCursor(), rtAreaItems.x, posy);
+			    }
+			    return true;
+			}
+			else
+			if(le.MousePressRight(rtAreaItems))
+			{
+			    ActionListPressRight(*pos, le.GetMouseCursor(), rtAreaItems.x, posy);
+			    return true;
+			}
 		    }
+
+		    cursor.Show();
 		}
 	    }
 
@@ -328,20 +358,28 @@ namespace Interface
 	}
 
     protected:
-	Point ptRedraw;
-	Rect rtAreaItems;
+	void UpdateSplitterRange(void)
+	{
+	    int max = content && maxItems < content->size() ? content->size() - maxItems : 0;
 
-	Button buttonPgUp;
-	Button buttonPgDn;
+	    if(splitter.Max() != max)
+		splitter.SetRange(0, max);
+	}
 
-	Splitter splitter;
+	Point		ptRedraw;
+	Rect		rtAreaItems;
 
-	u8 maxItems;
-	bool useHotkeys;
+	Button		buttonPgUp;
+	Button		buttonPgDn;
 
-	Items *content;
-	ItemsIterator cur;
-	ItemsIterator top;
+	Splitter	splitter;
+
+	u32		maxItems;
+	bool		useHotkeys;
+
+	Items*		content;
+	ItemsIterator	cur;
+	ItemsIterator	top;
     };
 }
 

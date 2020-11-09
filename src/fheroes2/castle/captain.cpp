@@ -24,10 +24,11 @@
 #include "luck.h"
 #include "morale.h"
 #include "race.h"
-#include "captain.h"
+#include "agg.h"
 #include "settings.h"
+#include "captain.h"
 
-Captain::Captain(Castle & cstl) : HeroBase(Skill::Primary::CAPTAIN, cstl.GetRace()), home(cstl)
+Captain::Captain(Castle & cstl) : HeroBase(HeroBase::CAPTAIN, cstl.GetRace()), home(cstl)
 {
     SetCenter(home.GetCenter());
 }
@@ -37,29 +38,29 @@ bool Captain::isValid(void) const
     return home.isBuild(BUILD_CAPTAIN);
 }
 
-u8 Captain::GetAttack(void) const
+int Captain::GetAttack(void) const
 {
     return attack + GetAttackModificator(NULL);
 }
 
-u8 Captain::GetDefense(void) const
+int Captain::GetDefense(void) const
 {
     return defense + GetDefenseModificator(NULL);
 }
 
-u8 Captain::GetPower(void) const
+int Captain::GetPower(void) const
 {
    return power + GetPowerModificator(NULL);
 }
 
-u8 Captain::GetKnowledge(void) const
+int Captain::GetKnowledge(void) const
 {
     return knowledge + GetKnowledgeModificator(NULL);
 }
 
-s8 Captain::GetMorale(void) const
+int Captain::GetMorale(void) const
 {
-    s8 result = Morale::NORMAL;
+    int result = Morale::NORMAL;
 
     // global modificator
     result += GetMoraleModificator(NULL);
@@ -80,9 +81,9 @@ s8 Captain::GetMorale(void) const
     return Morale::BLOOD;
 }
 
-s8 Captain::GetLuck(void) const
+int Captain::GetLuck(void) const
 {
-    s8 result = Luck::NORMAL;
+    int result = Luck::NORMAL;
 
     // global modificator
     result += GetLuckModificator(NULL);
@@ -103,12 +104,12 @@ s8 Captain::GetLuck(void) const
     return Luck::IRISH;
 }
 
-u8 Captain::GetRace(void) const
+int Captain::GetRace(void) const
 {
     return home.GetRace();
 }
 
-Color::color_t Captain::GetColor(void) const
+int Captain::GetColor(void) const
 {
     return home.GetColor();
 }
@@ -118,37 +119,37 @@ const std::string & Captain::GetName(void) const
     return home.GetName();
 }
 
-u8 Captain::GetType(void) const
+int Captain::GetType(void) const
 {
-    return Skill::Primary::CAPTAIN;
+    return HeroBase::CAPTAIN;
 }
 
-u8 Captain::GetLevelSkill(u8) const
-{
-    return 0;
-}
-
-u16 Captain::GetSecondaryValues(u8) const
+int Captain::GetLevelSkill(int) const
 {
     return 0;
 }
 
-const Army::army_t & Captain::GetArmy(void) const
+u32 Captain::GetSecondaryValues(int) const
+{
+    return 0;
+}
+
+const Army & Captain::GetArmy(void) const
 {
     return home.GetArmy();
 }
 
-Army::army_t & Captain::GetArmy(void)
+Army & Captain::GetArmy(void)
 {
     return home.GetArmy();
 }
 
-u16 Captain::GetMaxSpellPoints(void) const
+u32 Captain::GetMaxSpellPoints(void) const
 {
     return knowledge * 10;
 }
 
-u8 Captain::GetControl(void) const
+int Captain::GetControl(void) const
 {
     return home.GetControl();
 }
@@ -171,4 +172,44 @@ void Captain::ActionPreBattle(void)
 const Castle* Captain::inCastle(void) const
 {
     return &home;
+}
+
+Surface Captain::GetPortrait(int type) const
+{
+    switch(type)
+    {
+        case PORT_BIG:
+            switch(GetRace())
+            {
+                case Race::KNGT:        return AGG::GetICN(ICN::PORT0090, 0);
+                case Race::BARB:        return AGG::GetICN(ICN::PORT0091, 0);
+                case Race::SORC:        return AGG::GetICN(ICN::PORT0092, 0);
+                case Race::WRLK:        return AGG::GetICN(ICN::PORT0093, 0);
+                case Race::WZRD:        return AGG::GetICN(ICN::PORT0094, 0);
+                case Race::NECR:        return AGG::GetICN(ICN::PORT0095, 0);
+                default: break;
+            }
+            break;
+
+        case PORT_MEDIUM:
+        case PORT_SMALL:
+            switch(GetRace())
+            {
+                case Race::KNGT:        return AGG::GetICN(ICN::MINICAPT, 0);
+                case Race::BARB:        return AGG::GetICN(ICN::MINICAPT, 1);
+                case Race::SORC:        return AGG::GetICN(ICN::MINICAPT, 2);
+                case Race::WRLK:        return AGG::GetICN(ICN::MINICAPT, 3);
+                case Race::WZRD:        return AGG::GetICN(ICN::MINICAPT, 4);
+                case Race::NECR:        return AGG::GetICN(ICN::MINICAPT, 5);
+                default: break;
+            }
+            break;
+    }
+
+    return Surface();
+}
+
+void Captain::PortraitRedraw(s32 px, s32 py, int type, Surface & dstsf) const
+{
+    GetPortrait(type).Blit(px, py, dstsf);
 }

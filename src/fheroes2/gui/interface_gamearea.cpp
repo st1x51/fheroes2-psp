@@ -24,8 +24,8 @@
 #include "settings.h"
 #include "world.h"
 #include "maps.h"
+#include "ground.h"
 #include "game.h"
-#include "game_focus.h"
 #include "game_interface.h"
 #include "route.h"
 #include "interface_gamearea.h"
@@ -36,18 +36,13 @@
 namespace Game
 {
     // game_startgame.cpp
-    Cursor::themes_t GetCursor(s32);
+    int GetCursor(s32);
     void MouseCursorAreaClickLeft(s32);
     void MouseCursorAreaPressRight(s32);
 }
 
-Interface::GameArea & Interface::GameArea::Get(void)
-{
-    static Interface::GameArea ga;
-    return ga;
-}
-
-Interface::GameArea::GameArea() : oldIndexPos(0), updateCursor(false)
+Interface::GameArea::GameArea(Basic & basic) : interface(basic), oldIndexPos(0), scrollDirection(0),
+				scrollStepX(32), scrollStepY(32), tailX(0), tailY(0), updateCursor(false)
 {
 }
 
@@ -61,21 +56,16 @@ const Rect & Interface::GameArea::GetRectMaps(void) const
 { return rectMaps; }
 
 /* fixed src rect image */
-void Interface::GameArea::SrcRectFixed(Rect & src, Point & dst, const u16 rw, const u16 rh)
+Rect Interface::GameArea::RectFixed(Point & dst, int rw, int rh) const
 {
-    const Rect & areaPosition = Interface::GameArea::Get().GetArea();
-    ToolsSrcRectFixed(src, dst.x, dst.y, rw, rh, areaPosition);
-}
-
-void Interface::GameArea::SrcRectFixed(Rect & src, s16 & dst_x, s16 & dst_y, const u16 rw, const u16 rh)
-{
-    const Rect & areaPosition = Interface::GameArea::Get().GetArea();
-    ToolsSrcRectFixed(src, dst_x, dst_y, rw, rh, areaPosition);
+    std::pair<Rect, Point> res = Rect::Fixed4Blit(Rect(dst.x, dst.y, rw, rh), interface.GetGameArea().GetArea());
+    dst = res.second;
+    return res.first;
 }
 
 void Interface::GameArea::Build(void)
 {
-    if(Settings::Get().HideInterface())
+    if(Settings::Get().ExtGameHideInterface())
 	SetAreaPosition(0, 0,
 		    Display::Get().w(),
 		    Display::Get().h());
@@ -85,7 +75,7 @@ void Interface::GameArea::Build(void)
 		    Display::Get().h() - 2 * BORDERWIDTH);
 }
 
-void Interface::GameArea::SetAreaPosition(s16 x, s16 y, u16 w, u16 h)
+void Interface::GameArea::SetAreaPosition(s32 x, s32 y, u32 w, u32 h)
 {
     areaPosition.x = x;
     areaPosition.y = y;
@@ -115,14 +105,6 @@ void Interface::GameArea::SetAreaPosition(s16 x, s16 y, u16 w, u16 h)
 	scrollStepY = SCROLL_MAX;
     }
 
-    if(Settings::Get().Editor())
-    {
-	rectMaps.w = (areaPosition.w / TILEWIDTH);
-	rectMaps.h = (areaPosition.h / TILEWIDTH);
-	scrollStepX = SCROLL_MAX;
-	scrollStepY = SCROLL_MAX;
-    }
-
     tailX = areaPosition.w - TILEWIDTH * (areaPosition.w / TILEWIDTH);
     tailY = areaPosition.h - TILEWIDTH * (areaPosition.h / TILEWIDTH);
 
@@ -135,71 +117,67 @@ void Interface::GameArea::BlitOnTile(Surface & dst, const Sprite & src, const Po
     BlitOnTile(dst, src, src.x(), src.y(), mp);
 }
 
-void Interface::GameArea::BlitOnTile(Surface & dst, const Surface & src, const s16 ox, const s16 oy, const Point & mp) const
+void Interface::GameArea::BlitOnTile(Surface & dst, const Surface & src, s32 ox, s32 oy, const Point & mp) const
 {
-    const s16 & dstx = rectMapsPosition.x + TILEWIDTH * (mp.x - rectMaps.x);
-    const s16 & dsty = rectMapsPosition.y + TILEWIDTH * (mp.y - rectMaps.y);
-
-    Point dstpt(dstx + ox, dsty + oy);
+    Point dstpt(rectMapsPosition.x + TILEWIDTH * (mp.x - rectMaps.x) + ox,
+		rectMapsPosition.y + TILEWIDTH * (mp.y - rectMaps.y) + oy);
 
     if(areaPosition & Rect(dstpt, src.w(), src.h()))
     {
-	Rect srcrt;
-	SrcRectFixed(srcrt, dstpt, src.w(), src.h());
-	src.Blit(srcrt, dstpt, dst);
+	src.Blit(RectFixed(dstpt, src.w(), src.h()), dstpt, dst);
     }
 }
 
-void Interface::GameArea::Redraw(Surface & dst, u8 flag) const
+void Interface::GameArea::Redraw(Surface & dst, int flag) const
 {
     return Redraw(dst, flag, Rect(0, 0, rectMaps.w, rectMaps.h));
 }
 
-void Interface::GameArea::Redraw(Surface & dst, u8 flag, const Rect & rt) const
+void Interface::GameArea::Redraw(Surface & dst, int flag, const Rect & rt) const
 {
     // tile
-    for(s16 oy = rt.y; oy < rt.y + rt.h; ++oy)
-	for(s16 ox = rt.x; ox < rt.x + rt.w; ++ox)
+    for(s32 oy = rt.y; oy < rt.y + rt.h; ++oy)
+	for(s32 ox = rt.x; ox < rt.x + rt.w; ++ox)
 	    world.GetTiles(rectMaps.x + ox, rectMaps.y + oy).RedrawTile(dst);
 
     // bottom
     if(flag & LEVEL_BOTTOM)
-    for(s16 oy = rt.y; oy < rt.y + rt.h; ++oy)
-	for(s16 ox = rt.x; ox < rt.x + rt.w; ++ox)
+    for(s32 oy = rt.y; oy < rt.y + rt.h; ++oy)
+	for(s32 ox = rt.x; ox < rt.x + rt.w; ++ox)
 	    world.GetTiles(rectMaps.x + ox, rectMaps.y + oy).RedrawBottom(dst, !(flag & LEVEL_OBJECTS));
 
     // ext object
     if(flag & LEVEL_OBJECTS)
-    for(s16 oy = rt.y; oy < rt.y + rt.h; ++oy)
-	for(s16 ox = rt.x; ox < rt.x + rt.w; ++ox)
+    for(s32 oy = rt.y; oy < rt.y + rt.h; ++oy)
+	for(s32 ox = rt.x; ox < rt.x + rt.w; ++ox)
 	    world.GetTiles(rectMaps.x + ox, rectMaps.y + oy).RedrawObjects(dst);
 
     // top
     if(flag & LEVEL_TOP)
-    for(s16 oy = rt.y; oy < rt.y + rt.h; ++oy)
-	for(s16 ox = rt.x; ox < rt.x + rt.w; ++ox)
+    for(s32 oy = rt.y; oy < rt.y + rt.h; ++oy)
+	for(s32 ox = rt.x; ox < rt.x + rt.w; ++ox)
 	    world.GetTiles(rectMaps.x + ox, rectMaps.y + oy).RedrawTop(dst);
 
     // heroes
-    for(s16 oy = rt.y; oy < rt.y + rt.h; ++oy)
-	for(s16 ox = rt.x; ox < rt.x + rt.w; ++ox)
+    for(s32 oy = rt.y; oy < rt.y + rt.h; ++oy)
+	for(s32 ox = rt.x; ox < rt.x + rt.w; ++ox)
     {
 	const Maps::Tiles & tile = world.GetTiles(rectMaps.x + ox, rectMaps.y + oy);
 
 	if(tile.GetObject() == MP2::OBJ_HEROES && (flag & LEVEL_HEROES))
 	{
-	    const Heroes *hero = tile.GetHeroes();
+	    const Heroes* hero = tile.GetHeroes();
 	    if(hero) hero->Redraw(dst, rectMapsPosition.x + TILEWIDTH * ox, rectMapsPosition.y + TILEWIDTH * oy, true);
 	}
     }
 
     // route
-    const Heroes* hero = flag & LEVEL_HEROES ? GameFocus::GetHeroes() : NULL;
+    const Heroes* hero = flag & LEVEL_HEROES ? GetFocusHeroes() : NULL;
 
     if(hero && hero->GetPath().isShow())
     {
-	s32 from = hero->GetIndex();
-	s16 green = hero->GetPath().GetAllowStep();
+	//s32 from = hero->GetIndex();
+	s32 green = hero->GetPath().GetAllowStep();
 
 	const bool skipfirst = hero->isEnableMove() && 45 > hero->GetSpriteIndex() && 2 < (hero->GetSpriteIndex() % 9);
 
@@ -209,21 +187,24 @@ void Interface::GameArea::Redraw(Surface & dst, u8 flag, const Rect & rt) const
 
 	for(; it1 != it2; ++it1)
 	{
-	    from = (*it1).GetIndex();
-    	    const Point mp(from % world.w(), from / world.h());
+	    const s32 & from = (*it1).GetIndex();
+    	    const Point mp = Maps::GetPoint(from);
 
  	    ++it3;
 	    --green;
 
-            if(!(Rect(rectMaps.x + rt.x, rectMaps.y + rt.y, rt.w, rt.h) & mp)) continue;
-	    if(it1 == hero->GetPath().begin() && skipfirst) continue;
+	    // is visible
+            if((Rect(rectMaps.x + rt.x, rectMaps.y + rt.y, rt.w, rt.h) & mp) &&
+	    // check skip first?
+	       ! (it1 == hero->GetPath().begin() && skipfirst))
+	    {
+		const u32 index = (it3 == it2 ? 0 :
+		    Route::Path::GetIndexSprite((*it1).GetDirection(), (*it3).GetDirection(), 
+			Maps::Ground::GetPenalty(from, Direction::CENTER, hero->GetLevelSkill(Skill::Secondary::PATHFINDING))));
 
-	    const u16 index = (it3 == it2 ? 0 :
-		    Route::Path::GetIndexSprite((*it1).direction, (*it3).direction, 
-			Maps::Ground::GetBasePenalty(from, hero->GetLevelSkill(Skill::Secondary::PATHFINDING))));
-
-	    const Sprite & sprite = AGG::GetICN(0 > green ? ICN::ROUTERED : ICN::ROUTE, index);
-	    BlitOnTile(dst, sprite, sprite.x() - 14, sprite.y(), mp);
+		const Sprite & sprite = AGG::GetICN(0 > green ? ICN::ROUTERED : ICN::ROUTE, index);
+		BlitOnTile(dst, sprite, sprite.x() - 14, sprite.y(), mp);
+	    }
 	}
     }
 
@@ -233,19 +214,15 @@ void Interface::GameArea::Redraw(Surface & dst, u8 flag, const Rect & rt) const
 	// redraw grid
 	if(flag & LEVEL_ALL)
 	{
-	    u32 col = dst.GetColorIndex(0x40);
+	    const RGBA col = RGBA(0x90, 0xA4, 0xE0);
 
-	    for(s16 oy = rt.y; oy < rt.y + rt.h; ++oy)
-		for(s16 ox = rt.x; ox < rt.x + rt.w; ++ox)
+	    for(s32 oy = rt.y; oy < rt.y + rt.h; ++oy)
+		for(s32 ox = rt.x; ox < rt.x + rt.w; ++ox)
 	    {
     		const Point dstpt(rectMapsPosition.x + TILEWIDTH * ox,
 				rectMapsPosition.y + TILEWIDTH * oy);
 		if(areaPosition & dstpt)
-    		{
-		    dst.Lock();
-    		    dst.SetPixel(dstpt.x, dstpt.y, col);
-    		    dst.Unlock();
-		}
+    		    dst.DrawPoint(dstpt, col);
 
 		world.GetTiles(rectMaps.x + ox, rectMaps.y + oy).RedrawPassable(dst);
 	    }
@@ -256,10 +233,10 @@ void Interface::GameArea::Redraw(Surface & dst, u8 flag, const Rect & rt) const
     // redraw fog
     if(flag & LEVEL_FOG)
     {
-	const u8 colors = Players::FriendColors();
+	const int colors = Players::FriendColors();
 
-	for(s16 oy = rt.y; oy < rt.y + rt.h; ++oy)
-	    for(s16 ox = rt.x; ox < rt.x + rt.w; ++ox)
+	for(s32 oy = rt.y; oy < rt.y + rt.h; ++oy)
+	    for(s32 ox = rt.x; ox < rt.x + rt.w; ++ox)
 	{
 	    const Maps::Tiles & tile = world.GetTiles(rectMaps.x + ox, rectMaps.y + oy);
 
@@ -272,8 +249,6 @@ void Interface::GameArea::Redraw(Surface & dst, u8 flag, const Rect & rt) const
 /* scroll area */
 void Interface::GameArea::Scroll(void)
 {
-    const Settings & conf = Settings::Get();
-
     if(scrollDirection & SCROLL_LEFT)
     {
 	if(0 < scrollOffset.x)
@@ -281,20 +256,19 @@ void Interface::GameArea::Scroll(void)
 	else
 	if(0 < rectMaps.x)
 	{
-	    scrollOffset.x = conf.Editor() ? 0 : SCROLL_MAX - scrollStepX;
+	    scrollOffset.x = SCROLL_MAX - scrollStepX;
 	    --rectMaps.x;
 	}
     }
     else
     if(scrollDirection & SCROLL_RIGHT)
     {
-	if(!conf.Editor() &&
-	    scrollOffset.x < SCROLL_MAX * 2 - tailX)
+	if(scrollOffset.x < SCROLL_MAX * 2 - tailX)
 	    scrollOffset.x += scrollStepX;
 	else
 	if(world.w() - rectMaps.w > rectMaps.x)
 	{
-	    scrollOffset.x = conf.Editor() ? 0 : SCROLL_MAX + scrollStepX - tailX;
+	    scrollOffset.x = SCROLL_MAX + scrollStepX - tailX;
 	    ++rectMaps.x;
 	}
     }
@@ -306,20 +280,19 @@ void Interface::GameArea::Scroll(void)
 	else
 	if(0 < rectMaps.y)
 	{
-	    scrollOffset.y = conf.Editor() ? 0 : SCROLL_MAX - scrollStepY;
+	    scrollOffset.y = SCROLL_MAX - scrollStepY;
 	    --rectMaps.y;
 	}
     }
     else
     if(scrollDirection & SCROLL_BOTTOM)
     {
-	if(!conf.Editor() &&
-	    scrollOffset.y < SCROLL_MAX * 2 - tailY)
+	if(scrollOffset.y < SCROLL_MAX * 2 - tailY)
 	    scrollOffset.y += scrollStepY;
 	else
 	if(world.h() - rectMaps.h > rectMaps.y)
 	{
-	    scrollOffset.y = conf.Editor() ? 0 : SCROLL_MAX + scrollStepY - tailY;
+	    scrollOffset.y = SCROLL_MAX + scrollStepY - tailY;
 	    ++rectMaps.y;
 	}
     }
@@ -330,13 +303,18 @@ void Interface::GameArea::Scroll(void)
     scrollDirection = 0;
 }
 
+void Interface::GameArea::SetRedraw(void) const
+{
+     interface.SetRedraw(REDRAW_GAMEAREA);
+}
+
 /* scroll area to center point maps */
 void Interface::GameArea::SetCenter(const Point &pt)
 {
     SetCenter(pt.x, pt.y);
 }
 
-void Interface::GameArea::SetCenter(s16 px, s16 py)
+void Interface::GameArea::SetCenter(s32 px, s32 py)
 {
     Point pos(px - rectMaps.w / 2, py - rectMaps.h / 2);
 
@@ -411,12 +389,6 @@ void Interface::GameArea::SetCenter(s16 px, s16 py)
 		    SCROLL_MAX + TILEWIDTH / 2 : SCROLL_MAX) - tailY;
 	}
 
-	if(Settings::Get().Editor())
-	{
-	    scrollOffset.x = 0;
-	    scrollOffset.y = 0;
-	}
-
 	rectMapsPosition.x = areaPosition.x - scrollOffset.x;
 	rectMapsPosition.y = areaPosition.y - scrollOffset.y;
 
@@ -430,32 +402,32 @@ void Interface::GameArea::SetCenter(s16 px, s16 py)
     if(scrollDirection) Scroll();
 }
 
-void Interface::GameArea::GenerateUltimateArtifactAreaSurface(const s32 index, Surface & sf)
+Surface Interface::GameArea::GenerateUltimateArtifactAreaSurface(s32 index)
 {
-    if(Interface::NoGUI()) return;
+    Surface sf;
 
     if(Maps::isValidAbsIndex(index))
     {
-	sf.Set(448, 448);
+	sf.Set(448, 448, false);
 
-	GameArea & gamearea = Get();
+	GameArea & gamearea = Basic::Get().GetGameArea();
 	const Rect origPosition(gamearea.areaPosition);
 	gamearea.SetAreaPosition(0, 0, sf.w(), sf.h());
 
 	const Rect & rectMaps = gamearea.GetRectMaps();
 	const Rect & areaPosition = gamearea.GetArea();
-	Point pt(index % world.w(), index / world.h());
+	Point pt = Maps::GetPoint(index);
 
         gamearea.SetCenter(pt);
 	gamearea.Redraw(sf, LEVEL_BOTTOM | LEVEL_TOP);
 
 	// blit marker
-	for(u8 ii = 0; ii < rectMaps.h; ++ii) if(index < Maps::GetIndexFromAbsPoint(rectMaps.x + rectMaps.w - 1, rectMaps.y + ii))
+	for(u32 ii = 0; ii < rectMaps.h; ++ii) if(index < Maps::GetIndexFromAbsPoint(rectMaps.x + rectMaps.w - 1, rectMaps.y + ii))
 	{
 	    pt.y = ii;
 	    break;
 	}
-	for(u8 ii = 0; ii < rectMaps.w; ++ii) if(index == Maps::GetIndexFromAbsPoint(rectMaps.x + ii, rectMaps.y + pt.y))
+	for(u32 ii = 0; ii < rectMaps.w; ++ii) if(index == Maps::GetIndexFromAbsPoint(rectMaps.x + ii, rectMaps.y + pt.y))
 	{
 	    pt.x = ii;
 	    break;
@@ -465,19 +437,17 @@ void Interface::GameArea::GenerateUltimateArtifactAreaSurface(const s32 index, S
 			    areaPosition.y + pt.y * TILEWIDTH - gamearea.scrollOffset.y);
 	marker.Blit(dst.x, dst.y + 8, sf);
 
-	Settings::Get().EvilInterface() ? sf.GrayScale() : sf.Sepia();
+	sf = (Settings::Get().ExtGameEvilInterface() ? sf.RenderGrayScale() : sf.RenderSepia());
 
 	if(Settings::Get().QVGA())
-	{
-    	    Surface sf2;
-    	    Surface::ScaleMinifyByTwo(sf2, sf);
-    	    Surface::Swap(sf2, sf);
-	}
+    	    sf = Sprite::ScaleQVGASurface(sf);
 
 	gamearea.SetAreaPosition(origPosition.x, origPosition.y, origPosition.w, origPosition.h);
     }
     else
     DEBUG(DBG_ENGINE, DBG_WARN, "artifact not found");
+
+    return sf;
 }
 
 bool Interface::GameArea::NeedScroll(void) const
@@ -485,7 +455,7 @@ bool Interface::GameArea::NeedScroll(void) const
     return scrollDirection;
 }
 
-Cursor::themes_t Interface::GameArea::GetScrollCursor(void) const
+int Interface::GameArea::GetScrollCursor(void) const
 {
     switch(scrollDirection)
     {
@@ -504,7 +474,7 @@ Cursor::themes_t Interface::GameArea::GetScrollCursor(void) const
     return Cursor::NONE;
 }
 
-void Interface::GameArea::SetScroll(scroll_t direct)
+void Interface::GameArea::SetScroll(int direct)
 {
     switch(direct)
     {
@@ -574,30 +544,28 @@ void Interface::GameArea::QueueEventProcessing(void)
     // out of range
     if(index < 0) return;
 
-    const Rect tile_pos(rectMapsPosition.x + ((u16) (mp.x - rectMapsPosition.x) / TILEWIDTH) * TILEWIDTH,
-	                rectMapsPosition.y + ((u16) (mp.y - rectMapsPosition.y) / TILEWIDTH) * TILEWIDTH,
+    const Rect tile_pos(rectMapsPosition.x + ((mp.x - rectMapsPosition.x) / TILEWIDTH) * TILEWIDTH,
+	                rectMapsPosition.y + ((mp.y - rectMapsPosition.y) / TILEWIDTH) * TILEWIDTH,
 	                TILEWIDTH, TILEWIDTH);
 
     // change cusor if need
     if(updateCursor || index != oldIndexPos)
     {
-	cursor.SetThemes(Game::GetCursor(index));
+	cursor.SetThemes(interface.GetCursorTileIndex(index));
 	oldIndexPos = index;
 	updateCursor = false;
     }
 
     // fixed pocket pc tap mode
-    if(conf.HideInterface() && conf.ShowControlPanel() && le.MouseCursor(Interface::ControlPanel::Get().GetArea())) return;
+    if(conf.ExtGameHideInterface() && conf.ShowControlPanel() &&
+	    le.MouseCursor(interface.GetControlPanel().GetArea())) return;
 
-
-
-    if(conf.ExtTapMode())
+    if(conf.ExtPocketTapMode())
     {
 	// drag&drop gamearea: scroll
-	if(conf.ExtDragDropScroll() && le.MousePressLeft())
+	if(conf.ExtPocketDragDropScroll() && le.MousePressLeft())
 	{
 	    Point pt1 = le.GetMouseCursor();
-	    Interface::Basic & I = Interface::Basic::Get();
 
     	    while(le.HandleEvents() && le.MousePressLeft())
 	    {
@@ -605,10 +573,10 @@ void Interface::GameArea::QueueEventProcessing(void)
 
 		if(pt1 != pt2)
 		{
-		    s16 dx = pt2.x - pt1.x;
-		    s16 dy = pt2.y - pt1.y;
-		    s16 d2x = scrollStepX;
-		    s16 d2y = scrollStepY;
+		    s32 dx = pt2.x - pt1.x;
+		    s32 dy = pt2.y - pt1.y;
+		    s32 d2x = scrollStepX;
+		    s32 d2y = scrollStepY;
 
 		    while(1)
 		    {
@@ -624,16 +592,14 @@ void Interface::GameArea::QueueEventProcessing(void)
 			{
 			    cursor.Hide();
 			    Scroll();
-			    I.SetRedraw(REDRAW_GAMEAREA);
-			    I.Redraw();
+			    interface.SetRedraw(REDRAW_GAMEAREA);
+			    interface.Redraw();
 			    cursor.Show();
 			    display.Flip();
 			}
 			else break;
 		    }
 		}
-
-		DELAY(10);
 	    }
 	}
 
@@ -643,8 +609,8 @@ void Interface::GameArea::QueueEventProcessing(void)
     }
 
     if(le.MouseClickLeft(tile_pos) && Cursor::POINTER != cursor.Themes())
-        Game::MouseCursorAreaClickLeft(index);
+        interface.MouseCursorAreaClickLeft(index);
     else
     if(le.MousePressRight(tile_pos))
-        Game::MouseCursorAreaPressRight(index);
+        interface.MouseCursorAreaPressRight(index);
 }

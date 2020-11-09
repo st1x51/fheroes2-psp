@@ -29,8 +29,13 @@
  * 11/08/2004 - Compr fix, levels -1,1-7 now work - Tyler Montbriand
  */
 #include <stdlib.h>
+#include <zlib.h>
 #include "SDL.h"
 #include "IMG_savepng.h"
+
+#if SDL_VERSION_ATLEAST(2, 0, 0)
+    // SDL2 also supported png, skipped...
+#else
 
 #ifdef WITH_IMAGE
 #include "png.h"
@@ -129,11 +134,7 @@ int IMG_SavePNG_RW(SDL_RWops *src, SDL_Surface *surf,int compression){
 		png_set_PLTE(png_ptr,info_ptr,palette,fmt->palette->ncolors);
 		if (surf->flags&SDL_SRCCOLORKEY) {
 			Uint32 colorkey = 0;
-#if SDL_VERSION_ATLEAST(1, 3, 0)
-			SDL_GetColorKey(surf, &colorkey);
-#else
 			colorkey = fmt->colorkey + 1;
-#endif
 			palette_alpha=(Uint8 *)malloc((colorkey+1)*sizeof(Uint8));
 			if (!palette_alpha) {
 				SDL_SetError("Couldn't create memory for palette transparency");
@@ -216,12 +217,7 @@ int IMG_SavePNG_RW(SDL_RWops *src, SDL_Surface *surf,int compression){
 				goto savedone;
 			}
 			if(surf->flags&SDL_SRCALPHA){
-#if SDL_VERSION_ATLEAST(1, 3, 0)
-				SDL_GetSurfaceAlphaMod(surf, &temp_alpha);
-#else
-
 				temp_alpha=fmt->alpha;
-#endif
 				used_alpha=1;
 				SDL_SetAlpha(surf,0,255); /* Set for an opaque blit */
 			}else{
@@ -277,4 +273,5 @@ savedone: /* clean up and return */
 	return ret;
 }
 
+#endif
 #endif

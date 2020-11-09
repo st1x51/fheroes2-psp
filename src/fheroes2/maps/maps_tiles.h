@@ -24,12 +24,8 @@
 
 #include <list>
 #include <functional>
-#include "ground.h"
-#include "mp2.h"
-#include "direction.h"
 #include "gamedefs.h"
-#include "game_io.h"
-#include "color.h"
+#include "direction.h"
 #include "skill.h"
 #include "artifact.h"
 #include "army_troop.h"
@@ -40,6 +36,11 @@ class Heroes;
 class Spell;
 class Monster;
 
+namespace  MP2
+{
+    struct mp2tile_t; struct mp2addon_t;
+}
+
 namespace Maps
 {
     struct TilesAddon
@@ -47,13 +48,13 @@ namespace Maps
 	enum level_t { GROUND = 0, DOWN = 1, SHADOW = 2, UPPER = 3 };
 
 	TilesAddon();
-	TilesAddon(u8 lv, u32 gid, u8 obj, u8 ii);
+	TilesAddon(int lv, u32 gid, int obj, u32 ii);
 
 	TilesAddon & operator= (const TilesAddon & ta);
 
 	bool isUniq(u32) const;
-	bool isRoad(u16) const;
-	bool isICN(u16) const;
+	bool isRoad(int) const;
+	bool isICN(int) const;
 
 	std::string String(int level) const;
 
@@ -67,7 +68,6 @@ namespace Maps
 	static bool isArtifact(const TilesAddon &);
 	static bool isCampFire(const TilesAddon &);
 	static bool isMonster(const TilesAddon &);
-	static bool isBarrier(const TilesAddon &);
 	static bool isArtesianSpring(const TilesAddon &);
 	static bool isOasis(const TilesAddon &);
 	static bool isWateringHole(const TilesAddon &);
@@ -98,17 +98,24 @@ namespace Maps
 	static bool isDeadTrees(const TilesAddon &);
 	static bool isCactus(const TilesAddon &);
 	static bool isStump(const TilesAddon &);
-	static u16  GetPassable(const TilesAddon &);
-	static u8   GetActionObject(const TilesAddon &);
-	static u8   GetLoyaltyObject(const TilesAddon &);
+	static int  GetPassable(const TilesAddon &);
+	static int  GetActionObject(const TilesAddon &);
+	static int  GetLoyaltyObject(const TilesAddon &);
+
+	static bool isBarrier(const TilesAddon &);
+	static int  ColorFromBarrierSprite(const TilesAddon &);
+	static int  ColorFromTravellerTentSprite(const TilesAddon &);
+
+	static std::pair<int, int>
+		    ColorRaceFromHeroSprite(const TilesAddon &);
 
 	static bool PredicateSortRules1(const TilesAddon &, const TilesAddon &);
 	static bool PredicateSortRules2(const TilesAddon &, const TilesAddon &);
 
 	static void UpdateFountainSprite(TilesAddon &);
 	static void UpdateTreasureChestSprite(TilesAddon &);
-	static u8   UpdateStoneLightsSprite(TilesAddon &);
-	static void UpdateAbandoneMineLeftSprite(TilesAddon &, u8 resource);
+	static int  UpdateStoneLightsSprite(TilesAddon &);
+	static void UpdateAbandoneMineLeftSprite(TilesAddon &, int resource);
 	static void UpdateAbandoneMineRightSprite(TilesAddon &);
 
 	static bool ForceLevel1(const TilesAddon &);
@@ -133,147 +140,153 @@ namespace Maps
 
 	void Init(s32, const MP2::mp2tile_t &);
 
-	s32 GetIndex(void) const;
-	MP2::object_t GetObject(bool skip_hero = true) const;
-	u8 GetQuantity1(void) const{ return quantity1; }
-	u8 GetQuantity2(void) const{ return quantity2; }
-	u16 GetPassable(void) const;
-	Ground::ground_t GetGround(void) const;
-	bool isWater(void) const;
+	s32	GetIndex(void) const;
+	Point	GetCenter(void) const;
+	int	GetObject(bool skip_hero = true) const;
+	u32	GetObjectUID(int obj) const;
+	int	GetQuantity1(void) const{ return quantity1; }
+	int	GetQuantity2(void) const{ return quantity2; }
+	int	GetPassable(void) const;
+	int	GetGround(void) const;
+	bool	isWater(void) const;
 
-	u16 TileSpriteIndex(void) const;
-	u8  TileSpriteShape(void) const;
+	u32	TileSpriteIndex(void) const;
+	u32	TileSpriteShape(void) const;
 
-	const Surface & GetTileSurface(void) const;
+	Surface GetTileSurface(void) const;
 
-	bool isPassable(const Heroes*, Direction::vector_t, bool skipfog) const;
-	bool isRoad(u16 = DIRECTION_ALL) const;
-	bool isObject(MP2::object_t obj) const { return obj == mp2_object; };
-	bool isStream(void) const;
-	bool GoodForUltimateArtifact(void) const;
+	bool	isPassable(const Heroes &) const;
+	bool	isPassable(const Heroes*, int direct, bool skipfog) const;
+	bool	isRoad(int = DIRECTION_ALL) const;
+	bool	isObject(int obj) const { return obj == mp2_object; };
+	bool	isStream(void) const;
+	bool	GoodForUltimateArtifact(void) const;
 
-	TilesAddon* FindAddonICN1(u16 icn1);
-	TilesAddon* FindAddonICN2(u16 icn2);
+	TilesAddon* 		FindAddonICN1(int icn1);
+	TilesAddon* 		FindAddonICN2(int icn2);
 
-	TilesAddon* FindAddonLevel1(u32 uniq1);
-	TilesAddon* FindAddonLevel2(u32 uniq2);
+	TilesAddon* 		FindAddonLevel1(u32 uniq1);
+	TilesAddon* 		FindAddonLevel2(u32 uniq2);
 
-	TilesAddon* FindObject(u8);
-	const TilesAddon* FindObjectConst(u8) const;
+	TilesAddon* 		FindObject(int);
+	const TilesAddon*	FindObjectConst(int) const;
 
-	void SetTile(const u16 sprite_index, const u8 shape);
-	void SetObject(u8 object);
+	void	SetTile(u32 sprite_index, u32 shape /* 0: none, 1 : vert, 2: horz, 3: both */);
+	void 	SetObject(int object);
+	void	SetIndex(int);
 
-	void FixObject(void);
-	void FixLoadOldVersion(u16 version, u8 quantity3, u8 quantity4, u8 quantity5, u8 quantity6, u8 quantity7);
-	void FixLoadOldVersion2(u16 version);
+	void	FixObject(void);
 
-	void UpdatePassable(void);
-	void CaptureFlags32(u8 obj, u8 col);
+	void	UpdatePassable(void);
+	void	CaptureFlags32(int obj, int col);
 
-	void RedrawTile(Surface &) const;
-	void RedrawBottom(Surface &, bool skip_objs = false) const;
-	void RedrawBottom4Hero(Surface &) const;
-	void RedrawTop(Surface &, const TilesAddon* skip = NULL) const;
-	void RedrawTop4Hero(Surface &, bool skip_ground) const;
-	void RedrawObjects(Surface &) const;
-	void RedrawFogs(Surface &, u8) const;
-	void RedrawPassable(Surface &) const;
+	void	RedrawTile(Surface &) const;
+	void	RedrawBottom(Surface &, bool skip_objs = false) const;
+	void 	RedrawBottom4Hero(Surface &) const;
+	void 	RedrawTop(Surface &, const TilesAddon* skip = NULL) const;
+	void 	RedrawTop4Hero(Surface &, bool skip_ground) const;
+	void 	RedrawObjects(Surface &) const;
+	void 	RedrawFogs(Surface &, int) const;
+	void 	RedrawPassable(Surface &) const;
 
-	void AddonsPushLevel1(const MP2::mp2tile_t & mt);
-	void AddonsPushLevel1(const MP2::mp2addon_t & ma);
-	void AddonsPushLevel1(const TilesAddon & ta);
-	void AddonsPushLevel2(const MP2::mp2tile_t & mt);
-	void AddonsPushLevel2(const MP2::mp2addon_t & ma);
-	void AddonsPushLevel2(const TilesAddon & ta);
+	void	AddonsPushLevel1(const MP2::mp2tile_t &);
+	void	AddonsPushLevel1(const MP2::mp2addon_t &);
+	void	AddonsPushLevel1(const TilesAddon &);
+	void	AddonsPushLevel2(const MP2::mp2tile_t &);
+	void	AddonsPushLevel2(const MP2::mp2addon_t &);
+	void	AddonsPushLevel2(const TilesAddon &);
 
-	void AddonsSort(void);
-	void Remove(u32 uniq);
-	void RemoveObjectSprite(void);
+	void	AddonsSort(void);
+	void	Remove(u32 uniq);
+	void	RemoveObjectSprite(void);
 
 	std::string String(void) const;
 	
-	bool isFog(u8 color) const;
-	void ClearFog(u8 color);
+	bool	isFog(int color) const;
+	void	ClearFog(int color);
 
 	/* monster operation */
 	bool MonsterJoinConditionSkip(void) const;
 	bool MonsterJoinConditionMoney(void) const;
 	bool MonsterJoinConditionFree(void) const;
 	bool MonsterJoinConditionForce(void) const;
-	u8   MonsterJoinCondition(void) const;
-	void MonsterSetJoinCondition(u8);
+	int  MonsterJoinCondition(void) const;
+	void MonsterSetJoinCondition(int);
 	void MonsterSetFixedCount(void);
 	bool MonsterFixedCount(void) const;
-	void MonsterSetCount(const u16 count);
-	u16  MonsterCount(void) const;
+	void MonsterSetCount(u32 count);
+	u32  MonsterCount(void) const;
 
 	bool CaptureObjectIsProtection(void) const;
 
 	/* object quantity operation */
-	void QuantityUpdate(void);
-	void QuantityReset(void);
-	bool QuantityIsValid(void) const;
-	void QuantitySetColor(u8);
-	u8		QuantityTeleportType(void) const;
-	u8   		QuantityVariant(void) const;
-	u8   		QuantityExt(void) const;
-	u8   		QuantityColor(void) const;
-	u16   		QuantityGold(void) const;
+	void		QuantityUpdate(void);
+	void		QuantityReset(void);
+	bool		QuantityIsValid(void) const;
+	void		QuantitySetColor(int);
+	int		QuantityTeleportType(void) const;
+	int   		QuantityVariant(void) const;
+	int  		QuantityExt(void) const;
+	int  		QuantityColor(void) const;
+	u32   		QuantityGold(void) const;
 	Spell		QuantitySpell(void) const;
 	Skill::Secondary QuantitySkill(void) const;
 	Artifact	QuantityArtifact(void) const;
 	ResourceCount	QuantityResourceCount(void) const;
 	Funds         	QuantityFunds(void) const;
 	Monster		QuantityMonster(void) const;
-	Army::Troop	QuantityTroop(void) const;
+	Troop		QuantityTroop(void) const;
 
-	void SetObjectPassable(bool);
+	void 		SetObjectPassable(bool);
 
-	Heroes* GetHeroes(void) const;
-	void    SetHeroes(Heroes*);
+	Heroes* 	GetHeroes(void) const;
+	void    	SetHeroes(Heroes*);
 
-	static void PlaceMonsterOnTile(Tiles &, const Monster &, u16, u32);
-	static void UpdateAbandoneMineSprite(Tiles &);
-	static void FixedPreload(Tiles &);
-
-    private:
-	TilesAddon* FindFlags(void);
-	void CorrectFlags32(const u8 index, bool);
-	void RemoveJailSprite(void);
-	void RemoveBarrierSprite(void);
-	bool isLongObject(u16 direction);
-
-	void RedrawBoat(Surface &) const;
-	void RedrawMonster(Surface &) const;
-
-	void QuantitySetVariant(u8);
-	void QuantitySetExt(u8);
-	void QuantitySetSkill(u8);
-	void QuantitySetSpell(u8);
-	void QuantitySetArtifact(u8);
-	void QuantitySetResource(u8, u16);
-	void QuantitySetTeleportType(u8);
-
-	u8 GetQuantity3(void) const;
-	void SetQuantity3(u8);
-
-	static void UpdateMonsterInfo(Tiles &);
-	static void UpdateDwellingPopulation(Tiles &);
-	static void UpdateMonsterPopulation(Tiles &);
-	static void UpdateRNDArtifactSprite(Tiles &);
-	static void UpdateRNDResourceSprite(Tiles &);
-	static void UpdateStoneLightsSprite(Tiles &);
-	static void UpdateFountainSprite(Tiles &);
-	static void UpdateTreasureChestSprite(Tiles &);
+	static void 	PlaceMonsterOnTile(Tiles &, const Monster &, u32);
+	static void 	UpdateAbandoneMineSprite(Tiles &);
+	static void 	FixedPreload(Tiles &);
 
     private:
-	friend class Game::IO;
+	TilesAddon*	FindFlags(void);
+	void		CorrectFlags32(u32 index, bool);
+	void		RemoveJailSprite(void);
+	void		RemoveBarrierSprite(void);
+	bool		isLongObject(int direction);
+
+	void 		RedrawBoat(Surface &) const;
+	void 		RedrawMonster(Surface &) const;
+
+	void 		QuantitySetVariant(int);
+	void 		QuantitySetExt(int);
+	void 		QuantitySetSkill(int);
+	void 		QuantitySetSpell(int);
+	void 		QuantitySetArtifact(int);
+	void 		QuantitySetResource(int, u32);
+	void 		QuantitySetTeleportType(int);
+
+	int		GetQuantity3(void) const;
+	void		SetQuantity3(int);
+
+	static void 	UpdateMonsterInfo(Tiles &);
+	static void 	UpdateDwellingPopulation(Tiles &);
+	static void 	UpdateMonsterPopulation(Tiles &);
+	static void 	UpdateRNDArtifactSprite(Tiles &);
+	static void 	UpdateRNDResourceSprite(Tiles &);
+	static void 	UpdateStoneLightsSprite(Tiles &);
+	static void 	UpdateFountainSprite(Tiles &);
+	static void 	UpdateTreasureChestSprite(Tiles &);
+
+    private:
+	friend StreamBase & operator<< (StreamBase &, const Tiles &);
+	friend StreamBase & operator>> (StreamBase &, Tiles &);
+#ifdef WITH_XML
+	friend TiXmlElement & operator>> (TiXmlElement &, Tiles &);
+#endif
 
         Addons addons_level1;
         Addons addons_level2; // 16
 
-	u32	pack_maps_index;
+	u32	maps_index;
 	u16	pack_sprite_index;
 
 	u16	tile_passable;
@@ -282,11 +295,17 @@ namespace Maps
 
         u8      quantity1;
         u8      quantity2;
+        u8      quantity3;
 
 #ifdef WITH_DEBUG
 	u8	passable_disable;
 #endif
     };
+
+    StreamBase & operator<< (StreamBase &, const TilesAddon &);
+    StreamBase & operator<< (StreamBase &, const Tiles &);
+    StreamBase & operator>> (StreamBase &, TilesAddon &);
+    StreamBase & operator>> (StreamBase &, Tiles &);
 }
 
 #endif

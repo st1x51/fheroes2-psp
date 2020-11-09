@@ -25,27 +25,29 @@
 
 #include "gamedefs.h"
 
-namespace Maps
+class MapPosition
 {
-    class Position
-    {
-    public:
-	Position() {};
-	Position(const Point &);
+public:
+    MapPosition(const Point & = Point(-1, -1));
 
-	bool operator== (s32) const;
+    bool operator== (s32) const;
 
-	const Point & GetCenter(void) const;
-	s32 GetIndex(void) const;
+    const Point &	GetCenter(void) const;
+    s32			GetIndex(void) const;
 
-	void SetCenter(const Point &);
-	void SetIndex(s32);
+    void		SetCenter(const Point &);
+    void		SetIndex(s32);
 
-	bool isPosition(s32) const;
+    bool		isPosition(const Point &) const;
 
-    protected:
-	Point center;
-    };
-}
+protected:
+    friend StreamBase & operator<< (StreamBase &, const MapPosition &);
+    friend StreamBase & operator>> (StreamBase &, MapPosition &);
+
+    Point	center;
+};
+
+StreamBase & operator<< (StreamBase &, const MapPosition &);
+StreamBase & operator>> (StreamBase &, MapPosition &);
 
 #endif

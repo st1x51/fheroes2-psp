@@ -20,8 +20,9 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
-#include "error.h"
 #include "engine.h"
+#include "error.h"
+#include "system.h"
 #include "font.h"
 #include "sdlnet.h"
 
@@ -39,27 +40,13 @@ namespace Cdrom
 }
 #endif
 
-#ifdef _WIN32_WCE
-namespace WINCE
-{
-    bool isRunning(void);
-    int  CreateTrayIcon(void);
-    void DeleteTrayIcon(void);
-}
-#endif
-
 bool SDL::Init(const u32 system)
 {
-#ifdef _WIN32_WCE
-    SDL_putenv("DEBUG_VIDEO=1");
-    SDL_putenv("DEBUG_VIDEO_GAPI=1");
-
-    if(WINCE::isRunning()) return false;
-#endif
+    if(System::isRunning()) return false;
 
     if(0 > SDL_Init(system))
     {
-	std::cerr << "SDL::Init: error: " << SDL_GetError() << std::endl;
+	ERROR(SDL_GetError());
 	return false;
     }
 
@@ -68,32 +55,34 @@ bool SDL::Init(const u32 system)
     if(SDL_INIT_CDROM & system) Cdrom::Open();
 #endif
 #ifdef WITH_TTF
-    SDL::Font::Init();
+    FontTTF::Init();
 #endif
 #ifdef WITH_NET
     Network::Init();
 #endif
 
+#if SDL_VERSION_ATLEAST(2, 0, 0)
+#else
     SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
-
-#ifdef _WIN32_WCE
-    WINCE::CreateTrayIcon();
 #endif
+
+    System::CreateTrayIcon(true);
+    System::PowerManagerOff(true);
+    Surface::SetDefaultColorKey(0xFF, 0, 0xFF);
 
     return true;
 }
 
 void SDL::Quit(void)
 {
-#ifdef _WIN32_WCE
-    WINCE::DeleteTrayIcon();
-#endif
+    System::CreateTrayIcon(false);
+    System::PowerManagerOff(false);
 
 #ifdef WITH_NET
     Network::Quit();
 #endif
 #ifdef WITH_TTF
-    SDL::Font::Quit();
+    FontTTF::Quit();
 #endif
 #ifdef WITH_AUDIOCD
     if(SubSystem(SDL_INIT_CDROM)) Cdrom::Close();
@@ -107,59 +96,3 @@ bool SDL::SubSystem(const u32 system)
 {
     return system & SDL_WasInit(system);
 }
-
-#ifdef _WIN32_WCE
-#include <windows.h>
-#include <shellapi.h>
-
-#ifdef __MINGW32CE__
-#undef Shell_NotifyIcon
-extern "C" {
-BOOL WINAPI Shell_NotifyIcon(DWORD, PNOTIFYICONDATAW);
-}
-#endif
-
-// wincommon/SDL_sysevents.c
-extern HICON screen_icn;
-extern HINSTANCE SDL_Instance;
-extern HWND SDL_Window;
-
-bool WINCE::isRunning(void)
-{
-    HWND hwnd = FindWindow(NULL, L"SDL_app");
-
-    if(hwnd)
-    {
-        ShowWindow(hwnd, SW_SHOW);
-        SetForegroundWindow(hwnd);
-    }
-
-    return hwnd;
-}
-
-int WINCE::CreateTrayIcon(void)
-{
-#ifdef ID_ICON
-    NOTIFYICONDATA nid = {0};
-    nid.cbSize =  sizeof(nid);
-    nid.uID = ID_ICON;
-    nid.uFlags = NIF_ICON | NIF_MESSAGE;
-    nid.hWnd = SDL_Window;
-    nid.uCallbackMessage = WM_USER;
-    nid.hIcon = ::LoadIcon(SDL_Instance, MAKEINTRESOURCE(ID_ICON));
-    return Shell_NotifyIcon(NIM_ADD, &nid);
-#endif
-    return 0;
-}
-
-void WINCE::DeleteTrayIcon(void)
-{
-#ifdef ID_ICON
-    NOTIFYICONDATA nid = {0};
-    nid.cbSize =  sizeof(nid);
-    nid.uID = ID_ICON;
-    nid.hWnd = SDL_Window;
-    Shell_NotifyIcon(NIM_DELETE, &nid);
-#endif
-}
-#endif

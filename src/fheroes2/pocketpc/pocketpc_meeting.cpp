@@ -24,10 +24,11 @@
 #include "cursor.h"
 #include "text.h"
 #include "button.h"
+#include "dialog.h"
 #include "heroes.h"
+#include "game.h"
 #include "heroes_indicator.h"
-#include "selectarmybar.h"
-#include "selectartifactbar.h"
+#include "army_bar.h"
 #include "world.h"
 #include "kingdom.h"
 #include "pocketpc.h"
@@ -41,75 +42,44 @@ void PocketPC::HeroesMeeting(Heroes & hero1, Heroes & hero2)
     cursor.Hide();
     cursor.SetThemes(cursor.POINTER);
 
-    const u16 window_w = 320;
-    const u16 window_h = 236;
-
-    Dialog::FrameBorder frameborder;
-    frameborder.SetPosition((display.w() - window_w) / 2 - BORDERWIDTH, (display.h() - window_h) / 2 - BORDERWIDTH, window_w, window_h);
-    frameborder.Redraw();
-
+    Dialog::FrameBorder frameborder(Size(320, 236));
     const Rect & dst_rt = frameborder.GetArea();
-    const Sprite & background = AGG::GetICN(ICN::STONEBAK, 0);
-    const Sprite & backSprite = AGG::GetICN(ICN::SWAPWIN, 0);
-    background.Blit(Rect(0, 0, window_w, window_h), dst_rt);
 
     // portrait
     AGG::GetICN(ICN::BRCREST, 6).Blit(dst_rt.x + 4, dst_rt.y + 4, display);
-    hero1.GetPortrait50x46().Blit(dst_rt.x + 8, dst_rt.y + 8, display);
+    hero1.PortraitRedraw(dst_rt.x + 8, dst_rt.y + 8, PORT_MEDIUM, display);
 
     AGG::GetICN(ICN::BRCREST, 6).Blit(dst_rt.x + 4, dst_rt.y + 118, display);
-    hero2.GetPortrait50x46().Blit(dst_rt.x + 8, dst_rt.y + 122, display);
+    hero2.PortraitRedraw(dst_rt.x + 8, dst_rt.y + 122, PORT_MEDIUM, display);
 
     // art bar
-    const Rect rt2(23, 347, 34, 34);
-    Surface sfb2(rt2.w, rt2.h);
-    backSprite.Blit(rt2, 0, 0, sfb2);
-    Surface sfc2(rt2.w, rt2.h);
-    Cursor::DrawCursor(sfc2, 0xd6, true);
-
-    SelectArtifactsBar selectArtifacts1(hero1);
+    ArtifactsBar selectArtifacts1(&hero1, true, false);
+    selectArtifacts1.SetColRows(7, 2);
+    selectArtifacts1.SetHSpace(2);
+    selectArtifacts1.SetVSpace(2);
+    selectArtifacts1.SetContent(hero1.GetBagArtifacts());
     selectArtifacts1.SetPos(dst_rt.x + 68, dst_rt.y + 2);
-    selectArtifacts1.SetInterval(2);
-    selectArtifacts1.SetBackgroundSprite(sfb2);
-    selectArtifacts1.SetCursorSprite(sfc2);
-    selectArtifacts1.SetUseArts32Sprite();
     selectArtifacts1.Redraw();
 
-    SelectArtifactsBar selectArtifacts2(hero2);
+    ArtifactsBar selectArtifacts2(&hero2, true, false);
+    selectArtifacts2.SetColRows(7, 2);
+    selectArtifacts2.SetHSpace(2);
+    selectArtifacts2.SetVSpace(2);
+    selectArtifacts2.SetContent(hero2.GetBagArtifacts());
     selectArtifacts2.SetPos(dst_rt.x + 68, dst_rt.y + 164);
-    selectArtifacts2.SetInterval(2);
-    selectArtifacts2.SetBackgroundSprite(sfb2);
-    selectArtifacts2.SetCursorSprite(sfc2);
-    selectArtifacts2.SetUseArts32Sprite();
     selectArtifacts2.Redraw();
 
     // army bar
-    const Rect rt1(36, 267, 43, 43);
-    Surface sfb1(rt1.w, rt1.h);
-    backSprite.Blit(rt1, 0, 0, sfb1);
-    Surface sfc1(rt1.w, rt1.h);
-    Cursor::DrawCursor(sfc1, 0xd6, true);
-
-    SelectArmyBar selectArmy1;
-    selectArmy1.SetArmy(hero1.GetArmy());
+    ArmyBar selectArmy1(&hero1.GetArmy(), true, false);
+    selectArmy1.SetColRows(5, 1);
     selectArmy1.SetPos(dst_rt.x + 68, dst_rt.y + 74);
-    selectArmy1.SetInterval(2);
-    selectArmy1.SetBackgroundSprite(sfb1);
-    selectArmy1.SetCursorSprite(sfc1);
-    selectArmy1.SetUseMons32Sprite();
-    selectArmy1.SetCount2Sprite();
-    selectArmy1.SetSaveLastTroop();
+    selectArmy1.SetHSpace(2);
     selectArmy1.Redraw();
 
-    SelectArmyBar selectArmy2;
-    selectArmy2.SetArmy(hero2.GetArmy());
+    ArmyBar selectArmy2(&hero2.GetArmy(), true, false);
+    selectArmy2.SetColRows(5, 1);
     selectArmy2.SetPos(dst_rt.x + 68, dst_rt.y + 119);
-    selectArmy2.SetInterval(2);
-    selectArmy2.SetBackgroundSprite(sfb1);
-    selectArmy2.SetCursorSprite(sfc1);
-    selectArmy2.SetUseMons32Sprite();
-    selectArmy2.SetCount2Sprite();
-    selectArmy2.SetSaveLastTroop();
+    selectArmy2.SetHSpace(2);
     selectArmy2.Redraw();
 
     const Rect rectExit(dst_rt.x + dst_rt.w - 25, dst_rt.y + (dst_rt.h - 25) / 2, 25, 25);
@@ -123,18 +93,40 @@ void PocketPC::HeroesMeeting(Heroes & hero1, Heroes & hero2)
         // exit
         if(le.MouseClickLeft(rectExit) || HotKeyCloseWindow) break;
 
-	if(SelectArmyBar::QueueEventProcessing(selectArmy1, selectArmy2))
-	{
-    	    if(selectArtifacts1.isSelected()) selectArtifacts1.Reset();
+        if((le.MouseCursor(selectArmy1.GetArea()) &&
+            selectArmy1.QueueEventProcessing(selectArmy2)) ||
+           (le.MouseCursor(selectArmy2.GetArea()) &&
+            selectArmy2.QueueEventProcessing(selectArmy1)))
+        {
+            cursor.Hide();
+
+    	    if(selectArtifacts1.isSelected()) selectArtifacts1.ResetSelected();
             else
-            if(selectArtifacts2.isSelected()) selectArtifacts2.Reset();
+            if(selectArtifacts2.isSelected()) selectArtifacts2.ResetSelected();
+
+            selectArmy1.Redraw();
+            selectArmy2.Redraw();
+
+            cursor.Show();
+            display.Flip();
 	}
 
-	if(SelectArtifactsBar::QueueEventProcessing(selectArtifacts1, selectArtifacts2))
+        if((le.MouseCursor(selectArtifacts1.GetArea()) &&
+            selectArtifacts1.QueueEventProcessing(selectArtifacts2)) ||
+           (le.MouseCursor(selectArtifacts2.GetArea()) &&
+            selectArtifacts2.QueueEventProcessing(selectArtifacts1)))
         {
-    	    if(selectArmy1.isSelected()) selectArmy1.Reset();
+            cursor.Hide();
+
+    	    if(selectArmy1.isSelected()) selectArmy1.ResetSelected();
             else
-            if(selectArmy2.isSelected()) selectArmy2.Reset();
+            if(selectArmy2.isSelected()) selectArmy2.ResetSelected();
+
+            selectArtifacts1.Redraw();
+            selectArtifacts2.Redraw();
+
+            cursor.Show();
+            display.Flip();
     	}
     }
 }

@@ -22,10 +22,11 @@
 
 #include "agg.h"
 #include "settings.h"
+#include "game.h"
 #include "game_interface.h"
 #include "interface_cpanel.h"
 
-Interface::ControlPanel::ControlPanel() : alpha(130)
+Interface::ControlPanel::ControlPanel(Basic & basic) : interface(basic)
 {
     w = 180;
     h = 36;
@@ -46,25 +47,21 @@ Interface::ControlPanel::ControlPanel() : alpha(130)
 
 void Interface::ControlPanel::ResetTheme(void)
 {
-    ICN::icn_t icn = Settings::Get().EvilInterface() ? ICN::ADVEBTNS : ICN::ADVBTNS;
+    int icn = Settings::Get().ExtGameEvilInterface() ? ICN::ADVEBTNS : ICN::ADVBTNS;
 
-    btn_radr.Set(AGG::GetICN(icn, 4));
-    btn_icon.Set(AGG::GetICN(icn, 0));
-    btn_bttn.Set(AGG::GetICN(icn, 12));
-    btn_stat.Set(AGG::GetICN(icn, 10));
-    btn_quit.Set(AGG::GetICN(icn, 8));
+    btn_radr = AGG::GetICN(icn, 4);
+    btn_icon = AGG::GetICN(icn, 0);
+    btn_bttn = AGG::GetICN(icn, 12);
+    btn_stat = AGG::GetICN(icn, 10);
+    btn_quit = AGG::GetICN(icn, 8);
 
-    btn_radr.SetAlpha(alpha);
-    btn_icon.SetAlpha(alpha);
-    btn_bttn.SetAlpha(alpha);
-    btn_stat.SetAlpha(alpha);
-    btn_quit.SetAlpha(alpha);
-}
+    int alpha = 130;
 
-Interface::ControlPanel & Interface::ControlPanel::Get(void)
-{
-    static ControlPanel cp;
-    return cp;
+    btn_radr.SetAlphaMod(alpha);
+    btn_icon.SetAlphaMod(alpha);
+    btn_bttn.SetAlphaMod(alpha);
+    btn_stat.SetAlphaMod(alpha);
+    btn_quit.SetAlphaMod(alpha);
 }
 
 const Rect & Interface::ControlPanel::GetArea(void)
@@ -72,7 +69,7 @@ const Rect & Interface::ControlPanel::GetArea(void)
     return *this;
 }
 
-void Interface::ControlPanel::SetPos(s16 ox, s16 oy)
+void Interface::ControlPanel::SetPos(s32 ox, s32 oy)
 {
     x = ox;
     y = oy;
@@ -100,17 +97,19 @@ void Interface::ControlPanel::Redraw(void)
     btn_quit.Blit(x + 144, y, display);
 }
 
-void Interface::ControlPanel::QueueEventProcessing(Game::menu_t & ret)
+int Interface::ControlPanel::QueueEventProcessing(void)
 {
     LocalEvent & le = LocalEvent::Get();
 
-    if(le.MouseClickLeft(rt_radr))	Game::EventSwitchShowRadar();
+    if(le.MouseClickLeft(rt_radr))	interface.EventSwitchShowRadar();
     else
-    if(le.MouseClickLeft(rt_icon))	Game::EventSwitchShowIcons();
+    if(le.MouseClickLeft(rt_icon))	interface.EventSwitchShowIcons();
     else
-    if(le.MouseClickLeft(rt_bttn))	Game::EventSwitchShowButtons();
+    if(le.MouseClickLeft(rt_bttn))	interface.EventSwitchShowButtons();
     else
-    if(le.MouseClickLeft(rt_stat))	Game::EventSwitchShowStatus();
+    if(le.MouseClickLeft(rt_stat))	interface.EventSwitchShowStatus();
     else
-    if(le.MouseClickLeft(rt_quit))	Game::EventEndTurn(ret);
+    if(le.MouseClickLeft(rt_quit))	return interface.EventEndTurn();
+
+    return Game::CANCEL;
 }

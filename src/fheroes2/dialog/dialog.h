@@ -26,9 +26,6 @@
 #include <list>
 #include <vector>
 #include "gamedefs.h"
-#include "skill.h"
-#include "text.h"
-#include "game.h"
 
 #define	SHADOWWIDTH	16
 #define BOXAREA_WIDTH   245
@@ -38,13 +35,14 @@ class Heroes;
 class Surface;
 class Artifact;
 class Spell;
-class SpriteCursor;
 class Monster;
 class Funds;
+class Troop;
+struct CapturedObject;
 
-namespace Army
+namespace Skill
 {
-    class Troop;
+    class Secondary;
 }
 
 namespace Maps
@@ -55,7 +53,7 @@ namespace Maps
 
 namespace Dialog
 {
-    enum answer_t
+    enum
     {
 	ZERO	= 0x0000,
 	YES     = 0x0001,
@@ -76,106 +74,89 @@ namespace Dialog
 	UPGRADE_DISABLE = MAX,
 
 	READONLY= 0x2000,
-	BATTLE	= 0x4000,
 	BUTTONS = (YES|OK|NO|CANCEL)
     };
 
-    answer_t AdventureOptions(const bool enabledig);
-    Game::menu_t FileOptions(void);
-    u8    SystemOptions(void);
-
-    bool SelectFileLoad(std::string &);
-    bool SelectFileSave(std::string &);
-
+    int		AdventureOptions(bool enabledig);
+    int		FileOptions(void);
+    int		SystemOptions(void);
+    std::string SelectFileLoad(void);
+    std::string SelectFileSave(void);
     // show info cell maps
-    void QuickInfo(const Maps::Tiles & tile);
-    void QuickInfo(const Castle & castle);
-    void QuickInfo(const Heroes & heroes);
-    
-    // buttons: OK : CANCEL : OK|CANCEL : YES|NO
-    u16 Message(const std::string &header, const std::string &message, Font::type_t ft, u16 buttons = 0);
+    void	QuickInfo(const Maps::Tiles &);
+    void	QuickInfo(const Castle &);
+    void	QuickInfo(const Heroes &);
+    int		Message(const std::string &, const std::string &, int ft, int buttons = 0 /* buttons: OK : CANCEL : OK|CANCEL : YES|NO */);
+    void	ExtSettings(bool);
+    int   	LevelUpSelectSkill(const std::string &, const std::string &, const Skill::Secondary &, const Skill::Secondary &, Heroes &);
+    bool	SelectGoldOrExp(const std::string &, const std::string &, u32 gold, u32 expr, const Heroes &);
+    void	SpellInfo(const Spell &, bool ok_button = true);
+    void	SpellInfo(const std::string &, const std::string &, const Spell &, bool ok_button = true);
+    void	SecondarySkillInfo(const Skill::Secondary &, const bool ok_button = true);
+    void	SecondarySkillInfo(const std::string &, const std::string &, const Skill::Secondary &, const bool ok_button = true);
+    void	PrimarySkillInfo(const std::string &, const std::string &, int);
+    int		SpriteInfo(const std::string &, const std::string &, const Surface &, int buttons = Dialog::OK);
+    int		ArtifactInfo(const std::string &, const std::string &, const Artifact &, int buttons = Dialog::OK);
+    int		ResourceInfo(const std::string &, const std::string &, const Funds &, int buttons = Dialog::OK);
+    int		SelectSkillFromArena(void);
+    bool	SelectCount(const std::string &, u32 min, u32 max, u32 & res, int step = 1);
+    bool	InputString(const std::string &, std::string &);
+    Troop	RecruitMonster(const Monster &, u32 available, bool);
+    void	DwellingInfo(const Monster &, u32 available);
+    bool	SetGuardian(Heroes &, Troop &, CapturedObject &, bool readonly);
+    int		ArmyInfo(const Troop & troop, int flags);
+    int		ArmyJoinFree(const Troop &, Heroes &);
+    int		ArmyJoinWithCost(const Troop &, u32 join, u32 gold, Heroes &);
+    int		ArmySplitTroop(int free_slots, u32 max, u32 &, bool);
+    void	Marketplace(bool fromTradingPost = false);
+    void	MakeGiftResource(void);
+    int		BuyBoat(bool enable);
+    void	PuzzleMaps(void);
+    void	ThievesGuild(bool oracle);
+    void	GameInfo(void);
 
-    void ExtSettings(bool);
+    class FrameBox
+    {
+    public:
+	FrameBox(int height, bool buttons = false);
+	~FrameBox();
 
-    // other info
-    u8   LevelUpSelectSkill(const std::string &, const std::string &, const Skill::Secondary &, const Skill::Secondary &);
-    bool SelectGoldOrExp(const std::string &header, const std::string &message, const u16 gold, const u16 expr);
+	const Rect &	GetArea(void){ return area; };
 
-    void SpellInfo(const Spell &, const bool ok_button = true);
-    void SpellInfo(const std::string &, const std::string &, const Spell &, const bool ok_button = true);
-    void SecondarySkillInfo(const Skill::Secondary &, const bool ok_button = true);
-    void SecondarySkillInfo(const std::string &, const std::string &, const Skill::Secondary &, const bool ok_button = true);
-    void PrimarySkillInfo(const std::string &, const std::string &, const Skill::Primary::skill_t);
-    u16  SpriteInfo(const std::string &, const std::string &, const Surface &, u16 buttons = Dialog::OK);
-    u16  ArtifactInfo(const std::string &, const std::string &, const Artifact &, const u16 buttons = Dialog::OK);
-    u16  ResourceInfo(const std::string &, const std::string &, const Funds &, u16 buttons = Dialog::OK);
+    protected:
+	SpriteBack	background;
+	Rect		area;
+    };
 
-    Skill::Primary::skill_t SelectSkillFromArena(void);
+    class FrameBorder
+    {
+    public:
+	FrameBorder(int v = BORDERWIDTH);
+	FrameBorder(const Size &);
+	FrameBorder(const Size &, const Surface &);
+	FrameBorder(s32, s32, u32, u32);
+	~FrameBorder();
 
-    // redistribute count
-    bool SelectCount(const std::string &header, u32 min, u32 max, u32 & res, u8 step = 1);
-    bool InputString(const std::string &, std::string &);
+	void	SetBorder(int);
+	int	BorderWidth(void) const;
+	int	BorderHeight(void) const;
+	bool	isValid(void) const;
+	void	SetPosition(s32, s32, u32 = 0, u32 = 0);
 
-    // recruit monster
-    u16 RecruitMonster(const Monster & monster, u16 available);
-    void DwellingInfo(const Monster & monster, u16 available);
-    bool SetGuardian(Heroes &, Army::Troop &, bool readonly);
+	const Rect & GetRect(void) const;
+	const Rect & GetArea(void) const;
+	const Rect & GetTop(void) const;
 
-    // army info
-    answer_t ArmyInfo(const Army::Troop & troop, u16 flags);
-    // dialog marketplace
-    void Marketplace(bool fromTradingPost = false);
-    void MakeGiftResource(void);
+	static void RenderRegular(const Rect &);
+	static void RenderOther(const Surface &, const Rect &);
 
-
-    // dialog buy boat
-    answer_t BuyBoat(bool enable);
-    
-    // puzzle
-    void PuzzleMaps(void);
-
-    // thieves guild
-    void ThievesGuild(bool oracle);
-
-    void GameInfo(void);
-
-class Box : protected Background
-{
-public:
-    Box(u16 height, bool buttons = false);
-    ~Box();
-
-    const Rect & GetArea(void){ return area; };
-
-private:
-    Rect area;
-};
-
-class FrameBorder : protected Background
-{
-public:
-    FrameBorder();
-    ~FrameBorder();
-
-    bool isValid(void) const;
-
-    void SetBorder(u8);
-    void SetSize(u16, u16);
-    void SetPosition(s16, s16, u16 = 0, u16 = 0);
-    void Redraw(void);
-    void Redraw(const Surface &);
-    const Rect & GetRect(void) const;
-    const Rect & GetArea(void) const;
-    const Rect & GetTop(void) const;
-
-    static void Redraw(const Rect &, const Surface &);
-
-private:
-    Rect area;
-    Rect top;
-    u8 border;
-};
-
+    protected:
+	SpriteBack	background;
+	Rect		rect;
+	Rect		area;
+	Rect		top;
+	int		border;
+    };
 }
 
 #endif

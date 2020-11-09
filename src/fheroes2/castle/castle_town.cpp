@@ -22,7 +22,6 @@
 
 #include <string>
 #include <vector>
-#include <bitset>
 #include "agg.h"
 #include "world.h"
 #include "button.h"
@@ -33,29 +32,28 @@
 #include "heroes.h"
 #include "text.h"
 #include "race.h"
+#include "game.h"
 #include "statusbar.h"
 #include "payment.h"
 #include "buildinginfo.h"
 #include "kingdom.h"
-#include "localclient.h"
 
-Dialog::answer_t Castle::DialogBuyHero(const Heroes* hero)
+int Castle::DialogBuyHero(const Heroes* hero)
 {
     if(!hero) return Dialog::CANCEL;
 
-    const ICN::icn_t system = (Settings::Get().EvilInterface() ? ICN::SYSTEME : ICN::SYSTEM);
+    const int system = (Settings::Get().ExtGameEvilInterface() ? ICN::SYSTEME : ICN::SYSTEM);
 
     Display & display = Display::Get();
     Cursor & cursor = Cursor::Get();
-
     cursor.Hide();
 
-    const u8 spacer = Settings::Get().QVGA() ? 5 : 10;
+    const int spacer = Settings::Get().QVGA() ? 5 : 10;
     const Sprite & portrait_frame = AGG::GetICN(ICN::SURRENDR, 4);
 
     Text text(_("Recruit Hero"), Font::BIG);
 
-    u8 count = hero->GetCountArtifacts();
+    u32 count = hero->GetCountArtifacts();
     if(hero->HasArtifact(Artifact::MAGIC_BOOK)) count--;
 
     std::string str = _("%{name} is a level %{value} %{race}");
@@ -67,16 +65,16 @@ Dialog::answer_t Castle::DialogBuyHero(const Heroes* hero)
 	str += count > 1 ? _(" with %{count} artifacts") : _(" with one artifact");
     }
 
-    String::Replace(str, "%{name}", hero->GetName());
-    String::Replace(str, "%{value}", hero->GetLevel());
-    String::Replace(str, "%{race}", Race::String(hero->GetRace()));
-    String::Replace(str, "%{count}", count);
+    StringReplace(str, "%{name}", hero->GetName());
+    StringReplace(str, "%{value}", hero->GetLevel());
+    StringReplace(str, "%{race}", Race::String(hero->GetRace()));
+    StringReplace(str, "%{count}", count);
 
     TextBox box2(str, Font::BIG, BOXAREA_WIDTH);
 
     Resource::BoxSprite rbs(PaymentConditions::RecruitHero(hero->GetLevel()), BOXAREA_WIDTH);
 
-    Dialog::Box box(text.h() + spacer + portrait_frame.h() + spacer + box2.h() + spacer + rbs.GetArea().h, true);
+    Dialog::FrameBox box(text.h() + spacer + portrait_frame.h() + spacer + box2.h() + spacer + rbs.GetArea().h, true);
     const Rect & box_rt = box.GetArea();
     LocalEvent & le = LocalEvent::Get();
     Point dst_pt;
@@ -92,7 +90,7 @@ Dialog::answer_t Castle::DialogBuyHero(const Heroes* hero)
 
     dst_pt.x = dst_pt.x + 5;
     dst_pt.y = dst_pt.y + 5;
-    hero->GetPortrait101x93().Blit(dst_pt, display);
+    hero->PortraitRedraw(dst_pt.x, dst_pt.y, PORT_BIG, display);
 
     dst_pt.x = box_rt.x;
     dst_pt.y = dst_pt.y + portrait_frame.h() + spacer;
@@ -103,7 +101,7 @@ Dialog::answer_t Castle::DialogBuyHero(const Heroes* hero)
 
     dst_pt.x = box_rt.x;
     dst_pt.y = box_rt.y + box_rt.h - AGG::GetICN(system, 1).h();
-    Button button1(dst_pt, system, 1, 2);
+    Button button1(dst_pt.x, dst_pt.y, system, 1, 2);
 
     if(! AllowBuyHero(*hero))
     {
@@ -113,7 +111,7 @@ Dialog::answer_t Castle::DialogBuyHero(const Heroes* hero)
 
     dst_pt.x = box_rt.x + box_rt.w - AGG::GetICN(system, 3).w();
     dst_pt.y = box_rt.y + box_rt.h - AGG::GetICN(system, 3).h();
-    Button button2(dst_pt, system, 3, 4);
+    Button button2(dst_pt.x, dst_pt.y, system, 3, 4);
 
     button1.Draw();
     button2.Draw();
@@ -129,16 +127,16 @@ Dialog::answer_t Castle::DialogBuyHero(const Heroes* hero)
 
         if(button1.isEnable() &&
     	    (le.MouseClickLeft(button1) ||
-    	    Game::HotKeyPress(Game::EVENT_DEFAULT_READY))) return Dialog::OK;
+    	    Game::HotKeyPressEvent(Game::EVENT_DEFAULT_READY))) return Dialog::OK;
 
         if(le.MouseClickLeft(button2) ||
-    	    Game::HotKeyPress(Game::EVENT_DEFAULT_EXIT)) break;
+    	    Game::HotKeyPressEvent(Game::EVENT_DEFAULT_EXIT)) break;
     }
 
     return Dialog::CANCEL;
 }
 
-Dialog::answer_t Castle::DialogBuyCastle(bool buttons) const
+int Castle::DialogBuyCastle(bool buttons) const
 {
     BuildingInfo info(*this, BUILD_CASTLE);
     return info.DialogBuyBuilding(buttons) ? Dialog::OK : Dialog::CANCEL;
@@ -147,21 +145,15 @@ Dialog::answer_t Castle::DialogBuyCastle(bool buttons) const
 u32 Castle::OpenTown(void)
 {
     Display & display = Display::Get();
-
-    // cursor
     Cursor & cursor = Cursor::Get();
     cursor.Hide();
 
-    Dialog::FrameBorder background;
-    background.SetPosition((display.w() - 640 - BORDERWIDTH * 2) / 2, (display.h() - 480 - BORDERWIDTH * 2) / 2, 640, 480);
-    background.Redraw();
-    
-    const Point cur_pt(background.GetArea().x, background.GetArea().y);
+    Dialog::FrameBorder background(Size(640, 480));
+
+    const Point & cur_pt = background.GetArea();
     Point dst_pt(cur_pt);
 
     AGG::GetICN(ICN::CASLWIND, 0).Blit(dst_pt);
-
-    const Heroes* castle_heroes = GetHeroes().Guest();
 
     // hide captain options
     if(! (building & BUILD_CAPTAIN))
@@ -171,14 +163,18 @@ u32 Castle::OpenTown(void)
 	const Rect rect(dst_pt, 110, 84);
 	dst_pt.x += cur_pt.x;
 	dst_pt.y += cur_pt.y;
-		
+
 	AGG::GetICN(ICN::STONEBAK, 0).Blit(rect, dst_pt);
     }
 
     // draw castle sprite
     dst_pt.x = cur_pt.x + 460;
-    dst_pt.y = cur_pt.y + 0;
+    dst_pt.y = cur_pt.y + 5;
     DrawImageCastle(dst_pt);
+
+    // castle name
+    Text text(GetName(), Font::SMALL);
+    text.Blit(cur_pt.x + 536 - text.w() / 2, cur_pt.y + 1);
 
     //
     BuildingInfo dwelling1(*this, DWELLING_MONSTER1);
@@ -220,7 +216,7 @@ u32 Castle::OpenTown(void)
     buildingMageGuild.Redraw();
 
     // tavern
-    BuildingInfo buildingTavern(*this, (race == Race::NECR ? BUILD_SHRINE : BUILD_TAVERN));
+    BuildingInfo buildingTavern(*this, BUILD_TAVERN);
     buildingTavern.SetPos(cur_pt.x + 149, cur_pt.y + 157);
     buildingTavern.Redraw();
 
@@ -288,28 +284,26 @@ u32 Castle::OpenTown(void)
     const std::string descriptionGroupedArmyFormat(_("'Grouped' combat formation bunches your army toget her in the center of your side of the battlefield."));
     const Point pointSpreadArmyFormat(rectSpreadArmyFormat.x - 1, rectSpreadArmyFormat.y - 1);
     const Point pointGroupedArmyFormat(rectGroupedArmyFormat.x - 1, rectGroupedArmyFormat.y - 1);
-    SpriteCursor cursorFormat(AGG::GetICN(ICN::HSICONS, 11), Army::FORMAT_SPREAD == army.GetCombatFormat() ? pointSpreadArmyFormat : pointGroupedArmyFormat);
+
+    SpriteMove cursorFormat(AGG::GetICN(ICN::HSICONS, 11));
+
     if(isBuild(BUILD_CAPTAIN))
     {
-	Text text(_("Attack Skill") + std::string(" "), Font::SMALL);
+	text.Set(_("Attack Skill") + std::string(" "), Font::SMALL);
 	dst_pt.x = cur_pt.x + 535;
 	dst_pt.y = cur_pt.y + 168;
 	text.Blit(dst_pt);
 
-	std::string message;
-	String::AddInt(message, captain.GetAttack());
-	text.Set(message);
+	text.Set(GetString(captain.GetAttack()));
 	dst_pt.x += 90;
 	text.Blit(dst_pt);
-	
+
 	text.Set(_("Defense Skill") + std::string(" "));
 	dst_pt.x = cur_pt.x + 535;
 	dst_pt.y += 12;
 	text.Blit(dst_pt);
 
-	message.clear();
-	String::AddInt(message, captain.GetDefense());
-	text.Set(message);
+	text.Set(GetString(captain.GetDefense()));
 	dst_pt.x += 90;
 	text.Blit(dst_pt);
 
@@ -318,9 +312,7 @@ u32 Castle::OpenTown(void)
 	dst_pt.y += 12;
 	text.Blit(dst_pt);
 
-	message.clear();
-	String::AddInt(message, captain.GetPower());
-	text.Set(message);
+	text.Set(GetString(captain.GetPower()));
 	dst_pt.x += 90;
 	text.Blit(dst_pt);
 
@@ -329,27 +321,24 @@ u32 Castle::OpenTown(void)
 	dst_pt.y += 12;
 	text.Blit(dst_pt);
 
-	message.clear();
-	String::AddInt(message, captain.GetKnowledge());
-	text.Set(message);
+	text.Set(GetString(captain.GetKnowledge()));
 	dst_pt.x += 90;
 	text.Blit(dst_pt);
-	
+
 	spriteSpreadArmyFormat.Blit(rectSpreadArmyFormat.x, rectSpreadArmyFormat.y);
 	spriteGroupedArmyFormat.Blit(rectGroupedArmyFormat.x, rectGroupedArmyFormat.y);
 
-	cursorFormat.Show(Army::FORMAT_SPREAD == army.GetCombatFormat() ? pointSpreadArmyFormat : pointGroupedArmyFormat);
+	cursorFormat.Move(army.isSpreadFormat() ? pointSpreadArmyFormat : pointGroupedArmyFormat);
     }
 
-    Kingdom & kingdom = world.GetKingdom(GetColor());
+    Kingdom & kingdom = GetKingdom();
 
     Heroes* hero1 = kingdom.GetRecruits().GetHero1();
     Heroes* hero2 = kingdom.GetLastLostHero() && kingdom.GetLastLostHero() != hero1 ? kingdom.GetLastLostHero() : kingdom.GetRecruits().GetHero2();
 
-    const bool many_hero1 = hero1 ? !kingdom.AllowRecruitHero(false, hero1->GetLevel()) : false;
-    const bool many_hero2 = hero2 ? !kingdom.AllowRecruitHero(false, hero2->GetLevel()) : false;
-    const bool allow_buy_hero1 = hero1 ? AllowBuyHero(*hero1) : false;
-    const bool allow_buy_hero2 = hero2 ? AllowBuyHero(*hero2) : false;
+    std::string not_allow1_msg, not_allow2_msg;
+    const bool allow_buy_hero1 = hero1 ? AllowBuyHero(*hero1, &not_allow1_msg) : false;
+    const bool allow_buy_hero2 = hero2 ? AllowBuyHero(*hero2, &not_allow2_msg) : false;
 
     // first hero
     dst_pt.x = cur_pt.x + 443;
@@ -357,12 +346,12 @@ u32 Castle::OpenTown(void)
     const Rect rectHero1(dst_pt, 102, 93);
     if(hero1)
     {
-	hero1->GetPortrait101x93().Blit(dst_pt, display);
+	hero1->PortraitRedraw(dst_pt.x, dst_pt.y, PORT_BIG, display);
     }
     else
-	display.FillRect(0, 0, 0, rectHero1);
+	display.FillRect(rectHero1, ColorBlack);
     // indicator
-    if(many_hero1 || !allow_buy_hero1)
+    if(!allow_buy_hero1)
     {
 	dst_pt.x += 83;
 	dst_pt.y += 75;
@@ -375,12 +364,12 @@ u32 Castle::OpenTown(void)
     const Rect rectHero2(dst_pt, 102, 94);
     if(hero2)
     {
-	hero2->GetPortrait101x93().Blit(dst_pt, display);
+	hero2->PortraitRedraw(dst_pt.x, dst_pt.y, PORT_BIG, display);
     }
     else
-	display.FillRect(0, 0, 0, rectHero2);
+	display.FillRect(rectHero2, ColorBlack);
     // indicator
-    if(many_hero2 || !allow_buy_hero2)
+    if(!allow_buy_hero2)
     {
 	dst_pt.x += 83;
 	dst_pt.y += 75;
@@ -402,7 +391,7 @@ u32 Castle::OpenTown(void)
     // button exit
     dst_pt.x = cur_pt.x + 554;
     dst_pt.y = cur_pt.y + 428;
-    Button buttonExit(dst_pt, ICN::SWAPBTN, 0, 1);
+    Button buttonExit(dst_pt.x, dst_pt.y, ICN::SWAPBTN, 0, 1);
 
     buttonExit.Draw();
 
@@ -468,38 +457,31 @@ u32 Castle::OpenTown(void)
 	if(hero2 && le.MouseClickLeft(rectHero2) &&
 	    Dialog::OK == DialogBuyHero(hero2))
         {
-    	    RecruitHero(hero2);
+	    RecruitHero(hero2);
 
 	    return BUILD_NOTHING;
         }
 	else
 	if(isBuild(BUILD_CAPTAIN))
 	{
-	    if(le.MouseClickLeft(rectSpreadArmyFormat) && Army::FORMAT_SPREAD != army.GetCombatFormat())
+	    if(le.MouseClickLeft(rectSpreadArmyFormat) && ! army.isSpreadFormat())
     	    {
         	cursor.Hide();
         	cursorFormat.Move(pointSpreadArmyFormat);
         	cursor.Show();
         	display.Flip();
-        	army.SetCombatFormat(Army::FORMAT_SPREAD);
-#ifdef WITH_NET
-        	FH2LocalClient::SendArmyCombatFormation(army);
-#endif
+        	army.SetSpreadFormat(true);
     	    }
 	    else
-    	    if(le.MouseClickLeft(rectGroupedArmyFormat) && Army::FORMAT_SPREAD == army.GetCombatFormat())
+    	    if(le.MouseClickLeft(rectGroupedArmyFormat) && army.isSpreadFormat())
     	    {
         	cursor.Hide();
         	cursorFormat.Move(pointGroupedArmyFormat);
         	cursor.Show();
         	display.Flip();
-        	army.SetCombatFormat(Army::FORMAT_GROUPED);
-#ifdef WITH_NET
-        	FH2LocalClient::SendArmyCombatFormation(army);
-#endif
+        	army.SetSpreadFormat(false);
     	    }
 	}
-
 
 	// right
 	if(le.MousePressRight(rectSpreadArmyFormat)) Dialog::Message(_("Spread Formation"), descriptionSpreadArmyFormat, Font::BIG);
@@ -525,7 +507,7 @@ u32 Castle::OpenTown(void)
 	else
 	if(le.MouseCursor(buildingMageGuild.GetArea())) buildingMageGuild.SetStatusMessage(statusBar);
 	else
-	if(le.MouseCursor(buildingTavern.GetArea()) && !buildingTavern.IsDisable()) buildingTavern.SetStatusMessage(statusBar);
+	if(le.MouseCursor(buildingTavern.GetArea())) buildingTavern.SetStatusMessage(statusBar);
 	else
 	if(le.MouseCursor(buildingThievesGuild.GetArea())) buildingThievesGuild.SetStatusMessage(statusBar);
 	else
@@ -551,38 +533,26 @@ u32 Castle::OpenTown(void)
 	else
 	if(hero1 && le.MouseCursor(rectHero1))
 	{
-	    if(many_hero1)
-		statusBar.ShowMessage(_("Cannot recruit - you have too many Heroes."));
-	    else
-	    if(castle_heroes)
-		statusBar.ShowMessage(_("Cannot recruit - you already have a Hero in this town."));
-	    else
 	    if(! allow_buy_hero1)
-		statusBar.ShowMessage(_("Cannot afford a Hero"));
+		statusBar.ShowMessage(not_allow1_msg);
 	    else
 	    {
 		std::string str = _("Recruit %{name} the %{race}");
-		String::Replace(str, "%{name}", hero1->GetName());
-		String::Replace(str, "%{race}", Race::String(hero1->GetRace()));
+		StringReplace(str, "%{name}", hero1->GetName());
+		StringReplace(str, "%{race}", Race::String(hero1->GetRace()));
 	    	statusBar.ShowMessage(str);
 	    }
 	}
 	else
 	if(hero2 && le.MouseCursor(rectHero2))
 	{
-	    if(many_hero2)
-		statusBar.ShowMessage(_("Cannot recruit - you have too many Heroes."));
-	    else
-	    if(castle_heroes)
-		statusBar.ShowMessage(_("Cannot recruit - you already have a Hero in this town."));
-	    else
 	    if(! allow_buy_hero2)
-		statusBar.ShowMessage(_("Cannot afford a Hero"));
+		statusBar.ShowMessage(not_allow2_msg);
 	    else
 	    {
 		std::string str = _("Recruit %{name} the %{race}");
-		String::Replace(str, "%{name}", hero2->GetName());
-		String::Replace(str, "%{race}", Race::String(hero2->GetRace()));
+		StringReplace(str, "%{name}", hero2->GetName());
+		StringReplace(str, "%{race}", Race::String(hero2->GetRace()));
 	    	statusBar.ShowMessage(str);
 	    }
 	}

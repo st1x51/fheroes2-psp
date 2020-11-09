@@ -21,86 +21,75 @@
  ***************************************************************************/
 
 #include "agg.h"
+#include "text.h"
 #include "button.h"
 #include "cursor.h"
 #include "settings.h"
-#include "background.h"
+#include "game.h"
 #include "dialog.h"
 
 namespace Dialog
 {
-    void DrawSystemInfo(const Point & dst);
+    void DrawSystemInfo(const Rects &);
 }
 
 /* return 0x01 - change speed, 0x02 - change sound, 0x04 - change music, 0x08 - change interface, 0x10 - change scroll  */
-u8 Dialog::SystemOptions(void)
+int Dialog::SystemOptions(void)
 {
-    // FIXME: QVGA version
-    if(Settings::Get().QVGA())
-    {
-       Dialog::Message("", _("For the QVGA version is not available."), Font::SMALL, Dialog::OK);
-       return 0;
-    }
-
     Display & display = Display::Get();
     Settings & conf = Settings::Get();
 
-    // preload
-    const ICN::icn_t spanbkg = conf.EvilInterface() ? ICN::SPANBKGE : ICN::SPANBKG;
-    const ICN::icn_t spanbtn = conf.EvilInterface() ? ICN::SPANBTNE : ICN::SPANBTN;
-
-    AGG::PreloadObject(spanbkg);
-    AGG::PreloadObject(spanbtn);
-    AGG::PreloadObject(ICN::SPANEL);
-
     // cursor
     Cursor & cursor = Cursor::Get();
-    const Cursor::themes_t oldcursor = cursor.Themes();
+    const int oldcursor = cursor.Themes();
     cursor.Hide();
     cursor.SetThemes(cursor.POINTER);
 
-    // image box
-    const Sprite &box = AGG::GetICN(spanbkg, 0);
+    Dialog::FrameBorder frameborder((display.w() - 300 - BORDERWIDTH * 2) / 2,
+	(display.h() - 320 - BORDERWIDTH * 2) / 2 - (conf.QVGA() ? 25 : 0), 300, 315);
+    const Rect & area = frameborder.GetArea();
 
-    Rect rb((display.w() - box.w()) / 2, (display.h() - box.h()) / 2, box.w(), box.h());
-    Background back(rb);
-    back.Save();
-    box.Blit(rb.x, rb.y);
+    Rects rects;
+    const s32 posx = (area.w - 256) / 2;
+    rects.push_back(Rect(area.x + posx,  area.y + 17,  64, 64));
+    rects.push_back(Rect(area.x + posx + 92, area.y + 17,  64, 64));
+    rects.push_back(Rect(area.x + posx + 184, area.y + 17,  64, 64));
+    rects.push_back(Rect(area.x + posx,  area.y + 107, 64, 64));
+    rects.push_back(Rect(area.x + posx + 92, area.y + 107, 64, 64));
+    rects.push_back(Rect(area.x + posx + 184, area.y + 107, 64, 64));
+    rects.push_back(Rect(area.x + posx,  area.y + 197, 64, 64));
+    rects.push_back(Rect(area.x + posx + 92, area.y + 197, 64, 64));
+    rects.push_back(Rect(area.x + posx + 184, area.y + 197, 64, 64));
 
-    const Rect rect1(rb.x + 36,  rb.y + 47,  64, 64);
-    const Rect rect2(rb.x + 128, rb.y + 47,  64, 64);
-    //const Rect rect3(rb.x + 220, rb.y + 47,  64, 64);
-    const Rect rect4(rb.x + 36,  rb.y + 157, 64, 64);
-    const Rect rect5(rb.x + 128, rb.y + 157, 64, 64);
-    const Rect rect6(rb.x + 220, rb.y + 157, 64, 64);
-    const Rect rect7(rb.x + 36,  rb.y + 267, 64, 64);
-    //const Rect rect8(rb.x + 128, rb.y + 267, 64, 64);
-    //const Rect rect9(rb.x + 220, rb.y + 267, 64, 64);
+    const Rect & rect1 = rects[0];
+    const Rect & rect2 = rects[1];
+//    const Rect & rect3 = rects[2];
+    const Rect & rect4 = rects[3];
+    const Rect & rect5 = rects[4];
+    const Rect & rect6 = rects[5];
+    const Rect & rect7 = rects[6];
+    const Rect & rect8 = rects[7];
+//    const Rect & rect9 = rects[8];
 
-    Surface back2(rb.w, rb.h);
-    display.Blit(rb, 0, 0, back2);
-
-    DrawSystemInfo(rb);
+    Surface back2 = display.GetSurface(Rect(area.x, area.y, area.w, area.h - 30));
+    DrawSystemInfo(rects);
 
     LocalEvent & le = LocalEvent::Get();
 
-    Button buttonOk(rb.x + 113, rb.y + 362, spanbtn, 0, 1);
-
-    buttonOk.Draw();
+    ButtonGroups btnGroups(area, Dialog::OK);
+    btnGroups.Draw();
 
     cursor.Show();
     display.Flip();
 
-    u8 result = 0;
+    int btnres = Dialog::ZERO;
+    int result = 0;
     bool redraw = false;
 
     // dialog menu loop
-    while(le.HandleEvents())
+    while(btnres == Dialog::ZERO && le.HandleEvents())
     {
-        le.MousePressLeft(buttonOk) ? buttonOk.PressDraw() : buttonOk.ReleaseDraw();
-
-        if(le.MouseClickLeft(buttonOk) || Game::HotKeyPress(Game::EVENT_DEFAULT_READY)){ break; }
-        if(Game::HotKeyPress(Game::EVENT_DEFAULT_EXIT)){ result = false; break; }
+	btnres = btnGroups.QueueEventProcessing();
 
         // set sound volume
         if(conf.Sound() && le.MouseClickLeft(rect1))
@@ -144,19 +133,27 @@ u8 Dialog::SystemOptions(void)
 	    redraw = true;
     	}
 
-        // set interface
+        // set interface theme
         if(le.MouseClickLeft(rect7))
         {
-    	    conf.SetEvilInterface(!conf.EvilInterface());
+    	    conf.SetEvilInterface(!conf.ExtGameEvilInterface());
     	    result |= 0x08;
+	    redraw = true;
+    	}
+
+        // set interface hide/show
+        if(le.MouseClickLeft(rect8) && !conf.QVGA())
+        {
+    	    conf.SetHideInterface(!conf.ExtGameHideInterface());
+    	    result |= 0x04;
 	    redraw = true;
     	}
 
 	if(redraw)
 	{
     	    cursor.Hide();
-    	    back2.Blit(rb, display);
-	    DrawSystemInfo(rb);
+    	    back2.Blit(area, display);
+	    DrawSystemInfo(rects);
     	    cursor.Show();
     	    display.Flip();
 	    redraw = false;
@@ -165,7 +162,6 @@ u8 Dialog::SystemOptions(void)
 
     // restore background
     cursor.Hide();
-    back.Restore();
     cursor.SetThemes(oldcursor);
     cursor.Show();
     display.Flip();
@@ -173,7 +169,7 @@ u8 Dialog::SystemOptions(void)
     return result;
 }
 
-void Dialog::DrawSystemInfo(const Point & dst)
+void Dialog::DrawSystemInfo(const Rects & rects)
 {
     Display & display = Display::Get();
     Settings & conf = Settings::Get();
@@ -181,40 +177,38 @@ void Dialog::DrawSystemInfo(const Point & dst)
     std::string str;
     Text text;
 
-    Surface black(65, 65);
-    black.Fill(0, 0, 0);
+    Surface black(Size(65, 65), false);
+    black.Fill(ColorBlack);
 
     // sound
     const Sprite & sprite1 = AGG::GetICN(ICN::SPANEL, conf.Sound() ? 1 : 0);
-    const Rect rect1(dst.x + 36, dst.y + 47, sprite1.w(), sprite1.h());
+    const Rect & rect1 = rects[0];
     sprite1.Blit(rect1);
-    str.clear();
     str = _("sound");
-    str += " ";
+    str.append(" ");
     if(conf.Sound() && conf.SoundVolume())
-	String::AddInt(str, conf.SoundVolume());
+	str.append(GetString(conf.SoundVolume()));
     else
-	str += _("off");
+	str.append(_("off"));
     text.Set(str, Font::SMALL);
     text.Blit(rect1.x + (rect1.w - text.w()) / 2, rect1.y + rect1.h + 5);
 
     // music
     const Sprite & sprite2 = AGG::GetICN(ICN::SPANEL, conf.Music() ? 3 : 2);
-    const Rect rect2(dst.x + 128, dst.y + 47, sprite2.w(), sprite2.h());
+    const Rect & rect2 = rects[1];
     sprite2.Blit(rect2);
-    str.clear();
     str = _("music");
-    str += " ";
+    str.append(" ");
     if(conf.Music() && conf.MusicVolume())
-	String::AddInt(str, conf.MusicVolume());
+	str.append(GetString(conf.MusicVolume()));
     else
-	str += _("off");
+	str.append(_("off"));
     text.Set(str);
     text.Blit(rect2.x + (rect2.w - text.w()) / 2, rect2.y + rect2.h + 5);
 
     // unused
-    const Sprite & sprite3 = AGG::GetICN(ICN::SPANEL, 17);
-    const Rect rect3(dst.x + 220, dst.y + 47, sprite3.w(), sprite3.h());
+    //const Sprite & sprite3 = AGG::GetICN(ICN::SPANEL, 17);
+    const Rect & rect3 = rects[2];
     black.Blit(rect3, display);
     str.clear();
     str = "unused";
@@ -222,73 +216,82 @@ void Dialog::DrawSystemInfo(const Point & dst)
     text.Blit(rect3.x + (rect3.w - text.w()) / 2, rect3.y + rect3.h + 5);
 
     // hero move speed
-    const u8 is4 = conf.HeroesMoveSpeed() ? (conf.HeroesMoveSpeed() < 9 ? (conf.HeroesMoveSpeed() < 7 ? (conf.HeroesMoveSpeed() < 4 ? 4 : 5) : 6) : 7) : 9;
+    const u32 is4 = conf.HeroesMoveSpeed() ? (conf.HeroesMoveSpeed() < 9 ? (conf.HeroesMoveSpeed() < 7 ? (conf.HeroesMoveSpeed() < 4 ? 4 : 5) : 6) : 7) : 9;
     const Sprite & sprite4 = AGG::GetICN(ICN::SPANEL, is4);
-    const Rect rect4(dst.x + 36, dst.y + 157, sprite4.w(), sprite4.h());
+    const Rect & rect4 = rects[3];
     sprite4.Blit(rect4);
-    str.clear();
     str = _("hero speed");
-    str += " ";
+    str.append(" ");
     if(conf.HeroesMoveSpeed())
-	String::AddInt(str, conf.HeroesMoveSpeed());
+	str.append(GetString(conf.HeroesMoveSpeed()));
     else
-	str += _("off");
+	str.append(_("off"));
     text.Set(str);
     text.Blit(rect4.x + (rect4.w - text.w()) / 2, rect4.y + rect4.h + 5);
 
     // ai move speed
-    const u8 is5 = conf.AIMoveSpeed() ? (conf.AIMoveSpeed() < 9 ? (conf.AIMoveSpeed() < 7 ? (conf.AIMoveSpeed() < 4 ? 4 : 5) : 6) : 7) : 9;
+    const u32 is5 = conf.AIMoveSpeed() ? (conf.AIMoveSpeed() < 9 ? (conf.AIMoveSpeed() < 7 ? (conf.AIMoveSpeed() < 4 ? 4 : 5) : 6) : 7) : 9;
     const Sprite & sprite5 = AGG::GetICN(ICN::SPANEL, is5);
-    const Rect rect5(dst.x + 128, dst.y + 157, sprite5.w(), sprite5.h());
+    const Rect & rect5 = rects[4];
     sprite5.Blit(rect5);
-    str.clear();
     str = _("ai speed");
-    str += " ";
+    str.append(" ");
     if(conf.AIMoveSpeed())
-	String::AddInt(str, conf.AIMoveSpeed());
+	str.append(GetString(conf.AIMoveSpeed()));
     else
-	str += _("off");
+	str.append(_("off"));
     text.Set(str);
     text.Blit(rect5.x + (rect5.w - text.w()) / 2, rect5.y + rect5.h + 5);
 
     // scroll speed
-    const u8 is6 = (conf.ScrollSpeed() < SCROLL_FAST2 ? (conf.ScrollSpeed() < SCROLL_FAST1 ? (conf.ScrollSpeed() < SCROLL_NORMAL ? 4 : 5) : 6) : 7);
+    const u32 is6 = (conf.ScrollSpeed() < SCROLL_FAST2 ? (conf.ScrollSpeed() < SCROLL_FAST1 ? (conf.ScrollSpeed() < SCROLL_NORMAL ? 4 : 5) : 6) : 7);
     const Sprite & sprite6 = AGG::GetICN(ICN::SPANEL, is6);
-    const Rect rect6(dst.x + 220, dst.y + 157, sprite6.w(), sprite6.h());
+    const Rect & rect6 = rects[5];
     sprite6.Blit(rect6);
-    str.clear();
     str = _("scroll speed");
-    str += " ";
-    String::AddInt(str, conf.ScrollSpeed());
+    str.append(" ");
+    str.append(GetString(conf.ScrollSpeed()));
     text.Set(str);
     text.Blit(rect6.x + (rect6.w - text.w()) / 2, rect6.y + rect6.h + 5);
 
-    // interface
-    const Sprite & sprite7 = AGG::GetICN(ICN::SPANEL, (conf.EvilInterface() ? 17 : 16));
-    const Rect rect7(dst.x + 36, dst.y + 267, sprite7.w(), sprite7.h());
+    // interface themes
+    const Sprite & sprite7 = AGG::GetICN(ICN::SPANEL, (conf.ExtGameEvilInterface() ? 17 : 16));
+    const Rect & rect7 = rects[6];
     sprite7.Blit(rect7);
     str.clear();
     str = _("Interface");
     str += ": ";
-    if(conf.EvilInterface())
+    if(conf.ExtGameEvilInterface())
 	str += _("Evil");
     else
 	str += _("Good");
     text.Set(str);
     text.Blit(rect7.x + (rect7.w - text.w()) / 2, rect7.y + rect7.h + 5);
 
-    // unused
-    const Sprite & sprite8 = AGG::GetICN(ICN::SPANEL, 17);
-    const Rect rect8(dst.x + 128, dst.y + 267, sprite8.w(), sprite8.h());
-    black.Blit(rect8, display);
+    // interface show/hide
+    const Sprite & sprite8 = AGG::GetICN(ICN::SPANEL, 16);
+    const Sprite & sprite81 = AGG::GetICN(ICN::ESPANEL, 4);
+    const Rect & rect8 = rects[7];
     str.clear();
-    str = "unused";
+    str = _("Interface");
+    str += ": ";
+    if(conf.ExtGameHideInterface())
+    {
+	sprite81.Blit(rect8, display);
+	str += _("Hide");
+    }
+    else
+    {
+	sprite8.Blit(rect8, display);
+	sprite81.Blit(Rect(13, 13, 38, 38), rect8.x + 13, rect8.y + 13);
+	str += _("Show");
+    }
     text.Set(str);
     text.Blit(rect8.x + (rect8.w - text.w()) / 2, rect8.y + rect8.h + 5);
 
     // unused
-    const Sprite & sprite9 = AGG::GetICN(ICN::SPANEL, 17);
-    const Rect rect9(dst.x + 220, dst.y + 267, sprite9.w(), sprite9.h());
+    //const Sprite & sprite9 = AGG::GetICN(ICN::SPANEL, 17);
+    const Rect & rect9 = rects[8];
     black.Blit(rect9, display);
     str.clear();
     str = "unused";

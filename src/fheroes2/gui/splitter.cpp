@@ -21,119 +21,127 @@
  ***************************************************************************/
 
 #include <iostream>
-#include "cursor.h"
 #include "settings.h"
+#include "cursor.h"
 #include "splitter.h"
 
 /* splitter constructor */
-Splitter::Splitter() : position(HORIZONTAL)
+Splitter::Splitter() : step(0), min(0), max(0), cur(0)
 {
 }
 
-Splitter::Splitter(const Surface &sf, const Rect &rt, positions_t pos)
-    : SpriteCursor(sf, rt.x, rt.y), area(rt), step(0), min(0), max(0), cur(0), position(pos)
+Splitter::Splitter(const Surface & sf, const Rect & rt)
+    : SpriteMove(sf), area(rt), step(0), min(0), max(0), cur(0)
 {
-    SpriteCursor::Hide();
-    SpriteCursor::Move(rt.x, rt.y);
-    SpriteCursor::Show();
 }
 
-void Splitter::SetArea(s16 rx, s16 ry, u16 rw, u16 rh)
+void Splitter::SetSprite(const Surface & sf)
 {
-    area.x = rx;
-    area.y = ry;
-    area.w = rw;
-    area.h = rh;
+    Surface::Set(sf, true);
 }
 
 void Splitter::SetArea(const Rect & rt)
 {
     area = rt;
-    SpriteCursor::Move(rt.x, rt.y);
 }
 
-void Splitter::SetOrientation(positions_t ps)
+bool Splitter::isVertical(void) const
 {
-    position = ps;
+    return area.w < area.h;
 }
 
 /* set range */
-void Splitter::SetRange(u16 smin, u16 smax)
+void Splitter::SetRange(int smin, int smax)
 {
     min = smin;
     max = smax;
+    Point move;
 
-    // recalculate step
-    if(max) step = (Splitter::VERTICAL == position ? 100 * (area.h - h()) / (max - min) : 100 * (area.w - w()) / (max - min));
-    
-    Splitter::Move(min);
+    if(min < max)
+    {
+        step = 100 * (isVertical() ? (area.h - SpriteMove::h()) : (area.w - SpriteMove::w())) / (max - min);
+	cur = min;
+	move = GetPositionCursor();
+    }
+    else
+    {
+	step = 0;
+	move = Point(area.x + (area.w - SpriteMove::w()) / 2,
+			    area.y + (area.h - SpriteMove::h()) / 2);
+    }
+
+    SpriteMove::background.SetPos(move);
+}
+
+Point Splitter::GetPositionCursor(void)
+{
+    Point res;
+
+    if(isVertical())
+    {
+	res.x = area.x + (area.w - SpriteMove::w()) / 2;
+    	res.y = area.y + cur * step / 100;
+    }
+    else
+    {
+	res.x = area.x + cur * step / 100;
+	res.y = area.y + (area.h - SpriteMove::h()) / 2;
+    }
+
+    return res;
+}
+
+void Splitter::RedrawCursor(void)
+{
+    Redraw();
+}
+
+void Splitter::HideCursor(void)
+{
+    Hide();
+}
+
+void Splitter::ShowCursor(void)
+{
+    Show();
+}
+
+void Splitter::MoveCenter(void)
+{
+    Move(area.x + (area.w - SpriteMove::w()) / 2,
+		    area.y + (area.h - SpriteMove::h()) / 2);
 }
 
 /* move splitter to pos */
-void Splitter::Move(u16 pos)
+void Splitter::MoveIndex(int num)
 {
-    if(pos && cur == pos) return;
-
-    if(pos > max || pos < min){ DEBUG(DBG_ENGINE, DBG_WARN, "out of range" << ", min: " << min << ", max: " << max << ", cur: " << cur << ", step: " << step); return; }
-
-    Point pt(GetRect().x, GetRect().y);
-
-    cur = pos;
-
-    if(Splitter::VERTICAL == position)
-        pt.y = area.y + cur * step / 100;
-    else
-        pt.x = area.x + cur * step / 100;
-
-    // move center
-    if(!max) Splitter::VERTICAL == position ? pt.y = area.y + (area.h - h()) / 2 : pt.x = area.x + (area.w - w());
-
-    if(Cursor::Get().isVisible()) Cursor::Get().Hide();
-
-    if(isVisible())
+    if(num > max || num < min)
     {
-	SpriteCursor::Hide();
-	SpriteCursor::Move(pt);
-	SpriteCursor::Show();
+	DEBUG(DBG_ENGINE, DBG_WARN, "out of range" << ": " << num << ", min: " << min << ", max: " << max << ", cur: " << cur << ", step: " << step);
     }
     else
-	SpriteCursor::Save(pt);
+    {
+	cur = num;
+	Move(GetPositionCursor());
+    }
 }
 
 /* forward spliter */
 void Splitter::Forward(void)
 {
-    if(cur == max) return;
-
-    Point pt(GetRect().x, GetRect().y);
-
-    ++cur;
-
-    if(Splitter::VERTICAL == position)
-        pt.y = area.y + cur * step / 100;
-    else
-        pt.x = area.x + cur * step / 100;
-
-    SpriteCursor::Hide();
-    SpriteCursor::Move(pt);
-    SpriteCursor::Show();
+    if(cur != max)
+    {
+	++cur;
+	Move(GetPositionCursor());
+    }
 }
 
 /* backward spliter */
 void Splitter::Backward(void)
 {
-    if(! cur) return;
-
-    Point pt(GetRect().x, GetRect().y);
-
-    --cur;
-		    
-    if(Splitter::VERTICAL == position)
-	pt.y = area.y + cur * step / 100;
-    else
-        pt.x = area.x + cur * step / 100;
-
-    SpriteCursor::Hide();
-    SpriteCursor::Move(pt);
-    SpriteCursor::Show();
+    if(cur)
+    {
+	--cur;
+	Move(GetPositionCursor());
+    }
 }

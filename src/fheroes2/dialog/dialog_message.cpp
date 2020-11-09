@@ -21,29 +21,26 @@
  ***************************************************************************/
 
 #include "agg.h"
+#include "text.h"
 #include "settings.h"
 #include "cursor.h"
 #include "button.h"
 #include "dialog.h"
 
-u16 Dialog::Message(const std::string &header, const std::string &message, Font::type_t ft, u16 buttons)
+int Dialog::Message(const std::string &header, const std::string &message, int ft, int buttons)
 {
     Display & display = Display::Get();
-    const ICN::icn_t system = Settings::Get().EvilInterface() ? ICN::SYSTEME : ICN::SYSTEM;
-
-    // preload
-    AGG::PreloadObject(system);
 
     // cursor
     Cursor & cursor = Cursor::Get();
-    Cursor::themes_t oldthemes = cursor.Themes();
+    int oldthemes = cursor.Themes();
     cursor.Hide();
     cursor.SetThemes(cursor.POINTER);
 
     TextBox textbox1(header, Font::YELLOW_BIG, BOXAREA_WIDTH);
     TextBox textbox2(message, ft, BOXAREA_WIDTH);
 
-    Box box(10 + (header.size() ? textbox1.h() + 10 : 0) + textbox2.h(), buttons);
+    FrameBox box(10 + (header.size() ? textbox1.h() + 10 : 0) + textbox2.h(), buttons);
     const Rect & pos = box.GetArea();
 
     if(header.size()) textbox1.Blit(pos.x, pos.y + 10);
@@ -53,17 +50,16 @@ u16 Dialog::Message(const std::string &header, const std::string &message, Font:
 
     ButtonGroups btnGroups(box.GetArea(), buttons);
     btnGroups.Draw();
-    
+
     cursor.Show();
     display.Flip();
 
     // message loop
-    u16 result = Dialog::ZERO;
+    int result = Dialog::ZERO;
 
     while(result == Dialog::ZERO && le.HandleEvents())
     {
         if(!buttons && !le.MousePressRight()) break;
-
 	result = btnGroups.QueueEventProcessing();
     }
 

@@ -22,61 +22,69 @@
 #ifndef H2BUTTON_H
 #define H2BUTTON_H
 
-#include "icn.h"
 #include "gamedefs.h"
 
-class Sprite;
+class Surface;
 
 class Button : public Rect
 {
 public:
     Button();
-    Button(const Point &pt, const ICN::icn_t icn, u16 index1, u16 index2);
-    Button(u16 ox, u16 oy, const ICN::icn_t icn, u16 index1, u16 index2);
+    Button(s32, s32, int, u32 index1, u32 index2);
 
-    bool isEnable(void) const{ return !disable; }
-    bool isDisable(void) const{ return disable; }
-    bool isPressed(void) const{ return pressed; }
-    bool isReleased(void) const{ return !pressed; }
+    bool	isEnable(void) const;
+    bool	isDisable(void) const;
+    bool	isPressed(void) const;
+    bool	isReleased(void) const;
 
-    void Press(void);
-    void Release(void);
+    void	Press(void);
+    void	Release(void);
 
-    void SetPos(const Point & pt);
-    void SetPos(const u16 ox, const u16 oy);
-    void SetSprite(const ICN::icn_t icn, const u16 index1, const u16 index2);
-    void SetDisable(bool fl){ disable = fl; pressed = fl; }
+    void	SetPos(s32, s32);
+    void	SetPos(const Point &);
+    void	SetSize(u32, u32);
+    void	SetSprite(int icn, u32, u32);
+    void	SetSprite(const Surface &, const Surface &);
+    void	SetDisable(bool);
 
-    void Draw(void);
-    void PressDraw(void);
-    void ReleaseDraw(void);
+    void	Draw(void);
+    void	PressDraw(void);
+    void	ReleaseDraw(void);
 
-private:
-    ICN::icn_t icn;
-    u16 index1;
-    u16 index2;
-    bool pressed;
-    bool disable;
+protected:
+    Surface	sf1;
+    Surface	sf2;
+
+    u32		flags;
+};
+
+class ButtonSprite : public Button
+{
+public:
+    ButtonSprite(){}
+
+protected:
+    Surface sf;
 };
 
 class ButtonGroups
 {
 public:
-    ButtonGroups(const Rect &, u16);
+    ButtonGroups(const Rect &, u32);
     ~ButtonGroups();
     
-    void Draw(void);
-    u16 QueueEventProcessing(void);
+    void	Draw(void);
+    int		QueueEventProcessing(void);
 
-    void DisableButton1(bool);
-    void DisableButton2(bool);
+    void	DisableButton1(bool);
+    void	DisableButton2(bool);
 
-private:
-    Button *button1;
-    Button *button2;
-    u16 result1;
-    u16 result2;
-    u16 buttons;
+protected:
+    Button*	button1;
+    Button*	button2;
+    int		result1;
+    int		result2;
+    int		buttons;
 };
 
 #endif

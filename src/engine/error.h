@@ -22,8 +22,6 @@
 #ifndef H2ERROR_H
 #define H2ERROR_H
 
-#include <string>
-
 struct Error
 {
     class Exception{};

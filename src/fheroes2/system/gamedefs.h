@@ -27,25 +27,19 @@
 #define MAJOR_VERSION 0
 #define MINOR_VERSION 6
 
-const char* strip_context(const char* c);
+#ifdef WITH_XML
+#include "xmlccwrap.h"
+#endif
 
-/*
 #define GCC_VERSION (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)
 
 #if GCC_VERSION < 40300
 #define GCC_REFERENCE_FAIL
 #endif
-*/
 
-#ifdef WITH_TTF
-#include <libintl.h>
-#define _(s) strip_context(gettext(s))
-#else
-#define _(s) strip_context(s)
-#define ngettext(s1, s2, c) (c == 1 ? s1 : s2)
-#endif
-
-#define GETTEXT_PACKAGE "fheroes2"
+#include "translations.h"
+#define _(s)		Translation::gettext(s)
+#define _n(a,b,c)	Translation::ngettext(a,b,c)
 
 // hardcore defines: kingdom
 #define KINGDOMMAX			6

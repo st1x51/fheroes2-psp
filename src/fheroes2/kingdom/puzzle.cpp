@@ -26,6 +26,7 @@
 #include "settings.h"
 #include "agg.h"
 #include "button.h"
+#include "game.h"
 #include "game_interface.h"
 #include "interface_gamearea.h"
 #include "interface_radar.h"
@@ -38,11 +39,10 @@ const u8 zone3_index[] = { 14, 15, 32, 33 };
 const u8 zone4_index[] = { 20, 21, 26, 27 };
 
 bool ClosedTilesExists(const Puzzle &, const u8*, const u8*);
-void ZoneOpenFirstTiles(Puzzle &, u8 &, const u8*, const u8*);
-void ZoneOpenRandomTiles(Puzzle &, u8 &, const u8*, const u8*);
+void ZoneOpenFirstTiles(Puzzle &, u32 &, const u8*, const u8*);
 void ShowStandardDialog(const Puzzle &, const Surface &);
 void ShowExtendedDialog(const Puzzle &, const Surface &);
-void PuzzlesDraw(const Puzzle &, const Surface &, s16, s16);
+void PuzzlesDraw(const Puzzle &, const Surface &, s32, s32);
 
 Puzzle::Puzzle()
 {
@@ -69,10 +69,10 @@ Puzzle & Puzzle::operator= (const char* str)
     return *this;
 }
 
-void Puzzle::Update(u8 open_obelisk, u8 total_obelisk)
+void Puzzle::Update(u32 open_obelisk, u32 total_obelisk)
 {
-    u8 open_puzzle = open_obelisk * PUZZLETILES / total_obelisk;
-    u8 need_puzzle = open_puzzle > count() ? open_puzzle - count() : 0;
+    u32 open_puzzle = open_obelisk * PUZZLETILES / total_obelisk;
+    u32 need_puzzle = open_puzzle > count() ? open_puzzle - count() : 0;
 
 	if(need_puzzle && ClosedTilesExists(*this, zone1_order, ARRAY_COUNT_END(zone1_order)))
 	    ZoneOpenFirstTiles(*this, need_puzzle, zone1_order, ARRAY_COUNT_END(zone1_order));
@@ -91,7 +91,7 @@ void Puzzle::ShowMapsDialog(void) const
 {
     Cursor & cursor = Cursor::Get();
     Display & display = Display::Get();
-    Cursor::themes_t old_cursor = cursor.Themes();
+    int old_cursor = cursor.Themes();
 
     if(! Settings::Get().MusicMIDI()) AGG::PlayMusic(MUS::PUZZLE);
 
@@ -103,7 +103,7 @@ void Puzzle::ShowMapsDialog(void) const
 
 	AGG::PlayMusic(MUS::PUZZLE, false);
 
-	if(display.w() == 640 && display.h() == 480 && !Settings::Get().HideInterface())
+	if(display.w() == 640 && display.h() == 480 && !Settings::Get().ExtGameHideInterface())
 	    ShowStandardDialog(*this, sf);
 	else
 	    ShowExtendedDialog(*this, sf);
@@ -118,13 +118,11 @@ bool ClosedTilesExists(const Puzzle & pzl, const u8* it1, const u8* it2)
     return false;
 }
 
-void ZoneOpenFirstTiles(Puzzle & pzl, u8 & opens, const u8* it1, const u8* it2)
+void ZoneOpenFirstTiles(Puzzle & pzl, u32 & opens, const u8* it1, const u8* it2)
 {
-    const u8* it = NULL;
-
     while(opens)
     {
-	it = it1;
+	const u8* it = it1;
 	while(it < it2 && pzl.test(*it)) ++it;
 
 	if(it != it2)
@@ -137,39 +135,22 @@ void ZoneOpenFirstTiles(Puzzle & pzl, u8 & opens, const u8* it1, const u8* it2)
     }
 }
 
-void ZoneOpenRandomTiles(Puzzle & pzl, u8 & opens, const u8* it1, const u8* it2)
-{
-    std::vector<u8> values;
-    values.reserve(25);
-    const u8* it = NULL;
-
-    while(opens)
-    {
-	values.clear();
-	it = it1;
-	while(it < it2){ if(! pzl.test(*it)) values.push_back(*it); ++it; }
-	if(values.empty()) break;
-	pzl.set(*Rand::Get(values));
-	--opens;
-    }
-}
-
 void ShowStandardDialog(const Puzzle & pzl, const Surface & sf)
 {
     Display & display = Display::Get();
     Cursor & cursor = Cursor::Get();
 
-    const Rect & radar_pos = Interface::Radar::Get().GetArea();
-    bool evil_interface = Settings::Get().EvilInterface();
+    Interface::Radar & radar = Interface::Basic::Get().GetRadar();
+    const Rect & radar_pos = radar.GetArea();
+    bool evil_interface = Settings::Get().ExtGameEvilInterface();
 
-    Background back(BORDERWIDTH, BORDERWIDTH, sf.w(), sf.h());
-    back.Save();
+    SpriteBack back(Rect(BORDERWIDTH, BORDERWIDTH, sf.w(), sf.h()));
 
     AGG::GetICN((evil_interface ? ICN::EVIWPUZL : ICN::VIEWPUZL), 0).Blit(radar_pos);
     sf.Blit(BORDERWIDTH, BORDERWIDTH, display);
 
     Point dst_pt(radar_pos.x + 32, radar_pos.y + radar_pos.h - 37);
-    Button buttonExit(dst_pt, (evil_interface ? ICN::LGNDXTRE : ICN::LGNDXTRA), 4, 5);
+    Button buttonExit(dst_pt.x, dst_pt.y, (evil_interface ? ICN::LGNDXTRE : ICN::LGNDXTRA), 4, 5);
 
     buttonExit.Draw();
     PuzzlesDraw(pzl, sf, BORDERWIDTH, BORDERWIDTH);
@@ -185,7 +166,7 @@ void ShowStandardDialog(const Puzzle & pzl, const Surface & sf)
         if(le.MouseClickLeft(buttonExit) || HotKeyCloseWindow) break;
     }
 
-    Interface::Basic::Get().SetRedraw(REDRAW_RADAR);
+    radar.SetRedraw();
 
     cursor.Hide();
     back.Restore();
@@ -195,24 +176,22 @@ void ShowExtendedDialog(const Puzzle & pzl, const Surface & sf)
 {
     Display & display = Display::Get();
     Cursor & cursor = Cursor::Get();
-    bool evil_interface = Settings::Get().EvilInterface();
+    const Settings & conf = Settings::Get();
+    const Rect & gameArea = Interface::Basic::Get().GetGameArea().GetArea();
 
-    Dialog::FrameBorder frameborder;
-    frameborder.SetPosition((display.w() - BORDERWIDTH * 2 - sf.w()) / 2,
-	    (display.h() - sf.h() - BORDERWIDTH * 2 - 32) / 2,
-	    sf.w(),
-	    sf.h() + (Settings::Get().QVGA() ? 25 : 32));
-    frameborder.Redraw();
+    Dialog::FrameBorder frameborder(gameArea.x + (gameArea.w - sf.w() - BORDERWIDTH * 2) / 2,
+				    gameArea.y + (gameArea.h - sf.h() - BORDERWIDTH * 2) / 2,
+				    sf.w(), sf.h() + (Settings::Get().QVGA() ? 25 : 32));
 
-    if(evil_interface)
-	display.FillRect(80, 80, 80, frameborder.GetArea());
+    if(conf.ExtGameEvilInterface())
+	display.FillRect(frameborder.GetArea(), RGBA(80, 80, 80));
     else
-	display.FillRect(128, 64, 32, frameborder.GetArea());
+	display.FillRect(frameborder.GetArea(), RGBA(128, 64, 32));
     sf.Blit(frameborder.GetArea(), display);
 
     Button buttonExit(frameborder.GetArea().x + sf.w() / 2 - 40,
-	frameborder.GetArea().y + sf.h() + (Settings::Get().QVGA() ? 0 : 5),
-	(evil_interface ? ICN::LGNDXTRE : ICN::LGNDXTRA), 4, 5);
+	frameborder.GetArea().y + sf.h() + (conf.QVGA() ? 0 : 5),
+	(conf.ExtGameEvilInterface() ? ICN::LGNDXTRE : ICN::LGNDXTRA), 4, 5);
 
     buttonExit.Draw();
     PuzzlesDraw(pzl, sf, frameborder.GetArea().x, frameborder.GetArea().y);
@@ -226,11 +205,11 @@ void ShowExtendedDialog(const Puzzle & pzl, const Surface & sf)
     {
         le.MousePressLeft(buttonExit) ? buttonExit.PressDraw() : buttonExit.ReleaseDraw();
         if(le.MouseClickLeft(buttonExit) || HotKeyCloseWindow) break;
-        if(Settings::Get().QVGA() && le.MouseClickLeft(frameborder.GetArea())) break;
+        if(conf.QVGA() && le.MouseClickLeft(frameborder.GetArea())) break;
     }
 }
 
-void PuzzlesDraw(const Puzzle & pzl, const Surface & sf, s16 dstx, s16 dsty)
+void PuzzlesDraw(const Puzzle & pzl, const Surface & sf, s32 dstx, s32 dsty)
 {
     Display & display = Display::Get();
     Cursor & cursor = Cursor::Get();
@@ -238,32 +217,27 @@ void PuzzlesDraw(const Puzzle & pzl, const Surface & sf, s16 dstx, s16 dsty)
     // show all for debug
     if(IS_DEVEL()) return;
 
-    u8 alpha = 250;
+    int alpha = 250;
     LocalEvent & le = LocalEvent::Get();
 
     while(le.HandleEvents() && 0 < alpha)
     {
-        if(Game::AnimateInfrequent(Game::PUZZLE_FADE_DELAY))
+        if(Game::AnimateInfrequentDelay(Game::PUZZLE_FADE_DELAY))
         {
     	    cursor.Hide();
 	    sf.Blit(dstx, dsty, display);
 	    for(size_t ii = 0; ii < pzl.size(); ++ii)
 	    {
-    		const Sprite & piece = AGG::GetICN(ICN::PUZZLE, ii);
+		const Sprite & sprite = AGG::GetICN(ICN::PUZZLE, ii);
+		Sprite piece = Sprite(sprite.GetSurface(), sprite.x(), sprite.y());
+
 		if(pzl.test(ii))
-		{
-		    if(Settings::Get().QVGA())
-			piece.Blit(alpha, dstx + 8 + piece.x() - BORDERWIDTH, dsty + 8 + piece.y() - BORDERWIDTH);
-		    else
-			piece.Blit(alpha, dstx + piece.x() - BORDERWIDTH, dsty + piece.y() - BORDERWIDTH);
-		}
+		    piece.SetAlphaMod(alpha);
+
+		if(Settings::Get().QVGA())
+		    piece.Blit(dstx + 8 + piece.x() - BORDERWIDTH, dsty + 8 + piece.y() - BORDERWIDTH);
 		else
-		{
-		    if(Settings::Get().QVGA())
-			piece.Blit(dstx + 8 + piece.x() - BORDERWIDTH, dsty + 8 + piece.y() - BORDERWIDTH);
-		    else
-			piece.Blit(dstx + piece.x() - BORDERWIDTH, dsty + piece.y() - BORDERWIDTH);
-		}
+		    piece.Blit(dstx + piece.x() - BORDERWIDTH, dsty + piece.y() - BORDERWIDTH);
 	    }
 	    cursor.Show();
     	    display.Flip();
@@ -271,4 +245,48 @@ void PuzzlesDraw(const Puzzle & pzl, const Surface & sf, s16 dstx, s16 dsty)
 	}
     }
     cursor.Hide();
+}
+
+StreamBase & operator<< (StreamBase & msg, const Puzzle & pzl)
+{
+    msg << pzl.to_string< char, std::char_traits<char>, std::allocator<char> >();
+
+    // orders
+    msg << static_cast<u8>(ARRAY_COUNT(pzl.zone1_order));
+    for(u32 ii = 0; ii < ARRAY_COUNT(pzl.zone1_order); ++ii) msg << pzl.zone1_order[ii];
+
+    msg << static_cast<u8>(ARRAY_COUNT(pzl.zone2_order));
+    for(u32 ii = 0; ii < ARRAY_COUNT(pzl.zone2_order); ++ii) msg << pzl.zone2_order[ii];
+
+    msg << static_cast<u8>(ARRAY_COUNT(pzl.zone3_order));
+    for(u32 ii = 0; ii < ARRAY_COUNT(pzl.zone3_order); ++ii) msg << pzl.zone3_order[ii];
+
+    msg << static_cast<u8>(ARRAY_COUNT(pzl.zone4_order));
+    for(u32 ii = 0; ii < ARRAY_COUNT(pzl.zone4_order); ++ii) msg << pzl.zone4_order[ii];
+
+    return msg;
+}
+
+StreamBase & operator>> (StreamBase & msg, Puzzle & pzl)
+{
+    std::string str;
+
+    msg >> str;
+    pzl = str.c_str();
+
+    u8 size;
+
+    msg >> size;
+    for(u32 ii = 0; ii < size; ++ii) msg >> pzl.zone1_order[ii];
+
+    msg >> size;
+    for(u32 ii = 0; ii < size; ++ii) msg >> pzl.zone2_order[ii];
+
+    msg >> size;
+    for(u32 ii = 0; ii < size; ++ii) msg >> pzl.zone3_order[ii];
+
+    msg >> size;
+    for(u32 ii = 0; ii < size; ++ii) msg >> pzl.zone4_order[ii];
+
+    return msg;
 }

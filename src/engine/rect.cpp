@@ -20,9 +20,15 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
+#include <climits>
 #include <algorithm>
 #include <iterator>
+#include <sstream>
 #include "rect.h"
+
+Point::Point() : x(0), y(0)
+{
+}
 
 Point::Point(s16 px, s16 py) : x(px), y(py)
 {
@@ -32,13 +38,13 @@ bool Point::operator== (const Point & pt) const
 {
     return (x == pt.x && y == pt.y);
 }
-          
+
 bool Point::operator!= (const Point & pt) const
 {
     return !(*this == pt);
 }
 
-Point & Point::operator+=(const Point & pt)
+Point & Point::operator+= (const Point & pt)
 {
     x += pt.x;
     y += pt.y;
@@ -46,7 +52,7 @@ Point & Point::operator+=(const Point & pt)
     return *this;
 }
 
-Point & Point::operator-=(const Point & pt)
+Point & Point::operator-= (const Point & pt)
 {
     x -= pt.x;
     y -= pt.y;
@@ -54,17 +60,34 @@ Point & Point::operator-=(const Point & pt)
     return *this;
 }
 
-Point operator+(const Point& pt1, const Point& pt2)
+Point Point::operator+ (const Point & pt) const
 {
-    return Point(pt1.x + pt2.x, pt1.y + pt2.y);
+    return Point(x + pt.x, y + pt.y);
 }
 
-Point operator-(const Point& pt1, const Point& pt2)
+Point Point::operator- (const Point & pt) const
 {
-    return Point(pt1.x - pt2.x, pt1.y - pt2.y);
+    return Point(x - pt.x, y - pt.y);
+}
+
+bool Point::inABC(const Point & pt1, const Point & pt2, const Point & pt3) const
+{
+    s32 a = (pt1.x - x) * (pt2.y - pt1.y) - (pt2.x - pt1.x) * (pt1.y - y);
+    s32 b = (pt2.x - x) * (pt3.y - pt2.y) - (pt3.x - pt2.x) * (pt2.y - y);
+    s32 c = (pt3.x - x) * (pt1.y - pt3.y) - (pt1.x - pt3.x) * (pt3.y - y);
+
+    return ((a >= 0 && b >= 0 && c >= 0) || (a < 0 && b < 0 && c < 0));
+}
+
+Size::Size() : w(0), h(0)
+{
 }
 
 Size::Size(u16 sw, u16 sh) : w(sw), h(sh)
+{
+}
+
+Size::Size(const Point & pt) : w(std::abs(pt.x)), h(std::abs(pt.y))
 {
 }
 
@@ -78,16 +101,42 @@ bool Size::operator!= (const Size & sz) const
     return !(*this == sz);
 }
 
+Size & Size::operator+= (const Size & sz)
+{
+    w += sz.w;
+    h += sz.h;
+
+    return *this;
+}
+
+Size & Size::operator-= (const Size & sz)
+{
+    w -= sz.w;
+    h -= sz.h;
+
+    return *this;
+}
+
+Size Size::operator+ (const Size & sz) const
+{
+    return Size(w + sz.w, h + sz.h); 
+}
+
+Size Size::operator- (const Size & sz) const
+{
+    return Size(w - sz.w, h - sz.h); 
+}
+
 bool Size::isEmpty(void) const
 {
     return 0 == w && 0 == h;
 }
 
-Rect::Rect(s16 rx, s16 ry, u16 rw, u16 rh) : Point(rx, ry), Size(rw, rh)
+Rect::Rect()
 {
 }
 
-Rect::Rect(const SDL_Rect & rt) : Point(rt.x, rt.y), Size(rt.w, rt.h)
+Rect::Rect(s16 rx, s16 ry, u16 rw, u16 rh) : Point(rx, ry), Size(rw, rh)
 {
 }
 
@@ -97,6 +146,22 @@ Rect::Rect(const Point & pt, u16 rw, u16 rh) : Point(pt), Size(rw, rh)
 
 Rect::Rect(const Point & pt, const Size & sz) : Point(pt), Size(sz)
 {
+}
+
+Rect::Rect(const SDL_Rect & rt) : Point(rt.x, rt.y), Size(rt.w, rt.h)
+{
+}
+
+Rect Rect::Get(const Point & pt1, const Point & pt2)
+{
+    Rect res;
+
+    res.x = pt1.x < pt2.x ? pt1.x : pt2.x;
+    res.y = pt1.y < pt2.y ? pt1.y : pt2.y;
+    res.w = (pt1.x < pt2.x ? pt2.x - pt1.x : pt1.x - pt2.x) + 1;
+    res.h = (pt1.y < pt2.y ? pt2.y - pt1.y : pt1.y - pt2.y) + 1;
+
+    return res;
 }
 
 Rect Rect::Get(const Rect & rt1, const Rect & rt2, bool intersect)
@@ -153,23 +218,46 @@ bool Rect::operator& (const Rect & rt) const
     return ! (x > rt.x + rt.w || x + w < rt.x || y > rt.y + rt.h || y + h < rt.y);
 }
 
-Rect Rects::GetRect(void) const
+Rect Points::GetRect(void) const
 {
-    s32 x1 = 32766;
-    s32 y1 = 32766;
-    s32 x2 = -32766;
-    s32 y2 = -32766;
+    Rect res;
 
-    for(const_iterator
-	it = begin(); it != end(); ++it)
+    if(1 < size())
     {
-	if((*it).x < x1) x1 = (*it).x;
-	if((*it).y < y1) y1 = (*it).y;
-	if((*it).x + (*it).w > x2) x2 = (*it).x + (*it).w;
-	if((*it).y + (*it).h > y2) y2 = (*it).y + (*it).h;
+	res = Rect::Get(at(0), at(1));
+
+	for(const_iterator
+	    it = begin() + 2; it != end(); ++it)
+	{
+	    if((*it).x < res.x) res.x = (*it).x;
+	    else
+	    if((*it).x > res.x + res.w) res.w = (*it).x - res.x + 1;
+
+	    if((*it).y < res.y) res.y = (*it).y;
+	    else
+	    if((*it).y > res.y + res.h) res.h = (*it).y - res.y + 1;
+	}
     }
 
-    return Rect(x1, y1, x2 - x1, y2 - y1);
+    return res;
+}
+
+Rect Rects::GetRect(void) const
+{
+    Rect res;
+
+    if(size())
+    {
+	const_iterator it = begin();
+	res = *it;
+
+	++it;
+
+	for(; it != end(); ++it)
+	    res = Rect::Get(*it, res, false);
+    }
+
+    return res;
 }
 
 s32 Rects::GetIndex(const Point & pt) const
@@ -178,4 +266,65 @@ s32 Rects::GetIndex(const Point & pt) const
 	it = begin(); it != end(); ++it)
 	if(*it & pt) return std::distance(begin(), it);
     return -1;
+}
+
+std::pair<Rect, Point> Rect::Fixed4Blit(const Rect & srcrt, const Rect & dstrt)
+{
+    std::pair<Rect, Point> res = std::make_pair(Rect(), Point());
+    Rect & srcrtfix = res.first;
+    Point & dstptfix = res.second;
+
+    if(srcrt.w && srcrt.h &&
+        srcrt.x + srcrt.w > dstrt.x && srcrt.y + srcrt.h > dstrt.y &&
+        srcrt.x < dstrt.x + dstrt.w && srcrt.y < dstrt.y + dstrt.h)
+    {
+        srcrtfix.w = srcrt.w;
+        srcrtfix.h = srcrt.h;
+	dstptfix.x = srcrt.x;
+	dstptfix.y = srcrt.y;
+
+        if(srcrt.x < dstrt.x)
+        {
+            srcrtfix.x = dstrt.x - srcrt.x;
+            dstptfix.x = dstrt.x;
+        }
+
+        if(srcrt.y < dstrt.y)
+        {
+            srcrtfix.y = dstrt.y - srcrt.y;
+            dstptfix.y = dstrt.y;
+        }
+
+        if(dstptfix.x + srcrtfix.w > dstrt.x + dstrt.w)
+            srcrtfix.w = dstrt.x + dstrt.w - dstptfix.x;
+
+        if(dstptfix.y + srcrtfix.h > dstrt.y + dstrt.h)
+            srcrtfix.h = dstrt.y + dstrt.h - dstptfix.y;
+    }
+
+    return res;
+}
+
+SDL_Rect SDLRect(s32 x, s32 y, u32 w, u32 h)
+{
+    SDL_Rect res;
+
+    res.x = x;
+    res.y = y;
+    res.w = w;
+    res.h = h;
+
+    return res;
+}
+
+SDL_Rect SDLRect(const Rect & rt2)
+{
+    SDL_Rect res;
+
+    res.x = rt2.x;
+    res.y = rt2.y;
+    res.w = rt2.w;
+    res.h = rt2.h;
+
+    return res;
 }

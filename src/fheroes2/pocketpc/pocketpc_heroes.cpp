@@ -24,16 +24,17 @@
 #include "cursor.h"
 #include "text.h"
 #include "button.h"
+#include "dialog.h"
 #include "heroes.h"
+#include "game.h"
 #include "heroes_indicator.h"
-#include "selectarmybar.h"
-#include "selectartifactbar.h"
+#include "army_bar.h"
 #include "world.h"
 #include "race.h"
 #include "kingdom.h"
 #include "pocketpc.h"
 
-Dialog::answer_t PocketPC::HeroesOpenDialog(Heroes & hero, bool readonly)
+int PocketPC::HeroesOpenDialog(Heroes & hero, bool readonly)
 {
     Cursor & cursor = Cursor::Get();
     Display & display = Display::Get();
@@ -42,27 +43,19 @@ Dialog::answer_t PocketPC::HeroesOpenDialog(Heroes & hero, bool readonly)
     cursor.Hide();
     cursor.SetThemes(cursor.POINTER);
 
-    const u16 window_w = 320;
-    const u16 window_h = 224;
-
-    Dialog::FrameBorder frameborder;
-    frameborder.SetPosition((display.w() - window_w) / 2 - BORDERWIDTH, (display.h() - window_h) / 2 - BORDERWIDTH, window_w, window_h);
-    frameborder.Redraw();
-
+    Dialog::FrameBorder frameborder(Size(320, 224));
     const Rect & dst_rt = frameborder.GetArea();
-    const Sprite & background = AGG::GetICN(ICN::STONEBAK, 0);
     const Sprite & backSprite = AGG::GetICN(ICN::SWAPWIN, 0);
-    background.Blit(Rect(0, 0, window_w, window_h), dst_rt);
 
     // portrait
     AGG::GetICN(ICN::BRCREST, 6).Blit(dst_rt.x + 8, dst_rt.y, display);
-    hero.GetPortrait50x46().Blit(dst_rt.x + 12, dst_rt.y + 4, display);
+    hero.PortraitRedraw(dst_rt.x + 12, dst_rt.y + 4, PORT_MEDIUM, display);
 
     // name
     std::string message = _("%{name} the %{race} ( Level %{level} )");
-    String::Replace(message, "%{name}", hero.GetName());
-    String::Replace(message, "%{race}", Race::String(hero.GetRace()));
-    String::Replace(message, "%{level}", hero.GetLevel());
+    StringReplace(message, "%{name}", hero.GetName());
+    StringReplace(message, "%{race}", Race::String(hero.GetRace()));
+    StringReplace(message, "%{level}", hero.GetLevel());
     Text text(message, Font::SMALL);
     text.Blit(dst_rt.x + 73, dst_rt.y + 1);
 
@@ -87,78 +80,37 @@ Dialog::answer_t PocketPC::HeroesOpenDialog(Heroes & hero, bool readonly)
     luckIndicator.Redraw();
 
     // prim skill
-    const Rect ras(dst_rt.x + 74, dst_rt.y + 14, 34, 34);
-    backSprite.Blit(Rect(216, 51, ras.w, ras.h),  ras);
-    message.clear();
-    String::AddInt(message, hero.GetAttack());
-    text.Set(message);
-    text.Blit(dst_rt.x + 74 + (34 - text.w()) / 2, dst_rt.y + 47);
-
-    const Rect rds(dst_rt.x + 107, dst_rt.y + 14, 34, 34);
-    backSprite.Blit(Rect(216, 84, rds.w, rds.h),  rds);
-    message.clear();
-    String::AddInt(message, hero.GetDefense());
-    text.Set(message);
-    text.Blit(dst_rt.x + 107 + (34 - text.w()) / 2, dst_rt.y + 47);
-
-    const Rect rps(dst_rt.x + 140, dst_rt.y + 14, 34, 34);
-    backSprite.Blit(Rect(216, 117, rps.w, rps.h), rps);
-    message.clear();
-    String::AddInt(message, hero.GetPower());
-    text.Set(message);
-    text.Blit(dst_rt.x + 140 + (34 - text.w()) / 2, dst_rt.y + 47);
-
-    const Rect rks(dst_rt.x + 173, dst_rt.y + 14, 34, 34);
-    backSprite.Blit(Rect(216, 150, rks.w, rks.h), rks);
-    message.clear();
-    String::AddInt(message, hero.GetKnowledge());
-    text.Set(message);
-    text.Blit(dst_rt.x + 173 + (34 - text.w()) / 2, dst_rt.y + 47);
+    PrimarySkillsBar primskill_bar(&hero, true);
+    primskill_bar.SetColRows(4, 1);
+    primskill_bar.SetHSpace(-1);
+    primskill_bar.SetTextOff(0, -1);
+    primskill_bar.SetPos(dst_rt.x + 74, dst_rt.y + 14);
+    primskill_bar.Redraw();
 
     // sec skill
     backSprite.Blit(Rect(21, 198, 267, 36), dst_rt.x + 7, dst_rt.y + 57);
     // secondary skill
-    SecondarySkillBar secskill_bar;
-    secskill_bar.SetPos(dst_rt.x + 9, dst_rt.y + 59);
-    secskill_bar.SetUseMiniSprite();
-    secskill_bar.SetInterval(1);
-    secskill_bar.SetSkills(hero.GetSecondarySkills());
+    SecondarySkillsBar secskill_bar;
+    secskill_bar.SetColRows(8, 1);
+    secskill_bar.SetHSpace(-1);
+    secskill_bar.SetContent(hero.GetSecondarySkills().ToVector());
+    secskill_bar.SetPos(dst_rt.x + 8, dst_rt.y + 58);
     secskill_bar.Redraw();
 
     // army bar
-    const Rect rt1(36, 267, 43, 53);
-    Surface sfb1(rt1.w, rt1.h);
-    backSprite.Blit(rt1, 0, 0, sfb1);
-    Surface sfc1(rt1.w, rt1.h - 10);
-    Cursor::DrawCursor(sfc1, 0xd6, true);
-
-    SelectArmyBar selectArmy;
-    selectArmy.SetArmy(hero.GetArmy());
-    selectArmy.SetPos(dst_rt.x + 50, dst_rt.y + 170);
-    selectArmy.SetInterval(2);
-    selectArmy.SetBackgroundSprite(sfb1);
-    selectArmy.SetCursorSprite(sfc1);
-    selectArmy.SetUseMons32Sprite();
-    selectArmy.SetSaveLastTroop();
-    if(readonly) selectArmy.SetReadOnly();
-    const Castle* castle = hero.inCastle();
-    if(castle) selectArmy.SetCastle(*castle);
+    ArmyBar selectArmy(&hero.GetArmy(), true, readonly);
+    selectArmy.SetColRows(5, 1);
+    selectArmy.SetPos(dst_rt.x + 51, dst_rt.y + 170);
+    selectArmy.SetHSpace(-1);
     selectArmy.Redraw();
             
     // art bar
-    const Rect rt2(23, 347, 34, 34);
-    Surface sfb2(rt2.w, rt2.h);
-    backSprite.Blit(rt2, 0, 0, sfb2);
-    Surface sfc2(rt2.w, rt2.h);
-    Cursor::DrawCursor(sfc2, 0xd6, true);
-
-    SelectArtifactsBar selectArtifacts(hero);
+    ArtifactsBar selectArtifacts(&hero, true, readonly);
+    selectArtifacts.SetColRows(7, 2);
+    selectArtifacts.SetHSpace(2);
+    selectArtifacts.SetVSpace(2);
+    selectArtifacts.SetContent(hero.GetBagArtifacts());
     selectArtifacts.SetPos(dst_rt.x + 37, dst_rt.y + 95);
-    selectArtifacts.SetInterval(2);
-    selectArtifacts.SetBackgroundSprite(sfb2);
-    selectArtifacts.SetCursorSprite(sfc2);
-    selectArtifacts.SetUseArts32Sprite();
-    if(readonly) selectArtifacts.SetReadOnly();
     selectArtifacts.Redraw();
 
     Button buttonDismiss(dst_rt.x + dst_rt.w / 2 - 160, dst_rt.y + dst_rt.h - 125, ICN::HSBTNS, 0, 1);
@@ -167,13 +119,13 @@ Dialog::answer_t PocketPC::HeroesOpenDialog(Heroes & hero, bool readonly)
     Button buttonPrev(dst_rt.x + 34, dst_rt.y + 200, ICN::TRADPOST, 3, 4);
     Button buttonNext(dst_rt.x + 275, dst_rt.y + 200, ICN::TRADPOST, 5, 6);
 
-    if(castle || readonly)
+    if(hero.inCastle() || readonly)
     {
 	buttonDismiss.Press();
         buttonDismiss.SetDisable(true);
     }
 
-    if(readonly || 2 > world.GetKingdom(hero.GetColor()).GetHeroes().size())
+    if(readonly || 2 > hero.GetKingdom().GetHeroes().size())
     {
 	buttonNext.Press();
 	buttonPrev.Press();
@@ -202,43 +154,44 @@ Dialog::answer_t PocketPC::HeroesOpenDialog(Heroes & hero, bool readonly)
 	else
         // exit
         if(le.MouseClickLeft(buttonExit) ||
-		Game::HotKeyPress(Game::EVENT_DEFAULT_EXIT)) return Dialog::CANCEL;
+		Game::HotKeyPressEvent(Game::EVENT_DEFAULT_EXIT)) return Dialog::CANCEL;
 	else
         // dismiss
 	if(buttonDismiss.isEnable() && le.MouseClickLeft(buttonDismiss) &&
 	    Dialog::YES == Dialog::Message(hero.GetName(), _("Are you sure you want to dismiss this Hero?"), Font::BIG, Dialog::YES | Dialog::NO))
         { return Dialog::DISMISS; }
 
-        // primary click info
-        if(le.MouseClickLeft(ras)) Dialog::Message(_("Attack Skill"), _("Your attack skill is a bonus added to each creature's attack skill."), Font::BIG, Dialog::OK);
-        else
-        if(le.MouseClickLeft(rds)) Dialog::Message(_("Defense Skill"), _("Your defense skill is a bonus added to each creature's defense skill."), Font::BIG, Dialog::OK);
-        else
-        if(le.MouseClickLeft(rps)) Dialog::Message(_("Spell Power"), _("Your spell power determines the length or power of a spell."), Font::BIG, Dialog::OK);
-        else
-        if(le.MouseClickLeft(rks)) Dialog::Message(_("Knowledge"), _("Your knowledge determines how many spell points your hero may have. Under normal cirumstances, a hero is limited to 10 spell points per level of knowledge."), Font::BIG, Dialog::OK);
-
-	if(le.MouseCursor(secskill_bar.GetArea())) secskill_bar.QueueEventProcessing();
+	// skills click
+	if(le.MouseCursor(primskill_bar.GetArea()) && primskill_bar.QueueEventProcessing())
+	{
+            cursor.Show();
+    	    display.Flip();
+        }
+	else
+	if(le.MouseCursor(secskill_bar.GetArea()) && secskill_bar.QueueEventProcessing())
+	{
+            cursor.Show();
+    	    display.Flip();
+        }
 
         // selector troops event
-        if(le.MouseCursor(selectArmy.GetArea()))
-        {
-            if(selectArtifacts.isSelected()) selectArtifacts.Reset();
-	    if(SelectArmyBar::QueueEventProcessing(selectArmy))
-            {
-                cursor.Hide();
-                moraleIndicator.Redraw();
-                luckIndicator.Redraw();
-                cursor.Show();
-        	display.Flip();
-            }
+        if(le.MouseCursor(selectArmy.GetArea()) && selectArmy.QueueEventProcessing())
+	{
+	    if(selectArtifacts.isSelected()) selectArtifacts.ResetSelected();
+    	    moraleIndicator.Redraw();
+            luckIndicator.Redraw();
+	    selectArmy.Redraw();
+            cursor.Show();
+    	    display.Flip();
         }
 
         // selector artifacts event
-        if(le.MouseCursor(selectArtifacts.GetArea()))
-        {
-            if(selectArmy.isSelected()) selectArmy.Reset();
-            SelectArtifactsBar::QueueEventProcessing(selectArtifacts);
+        if(le.MouseCursor(selectArtifacts.GetArea()) && selectArtifacts.QueueEventProcessing())
+	{
+    	    if(selectArmy.isSelected()) selectArmy.ResetSelected();
+	    selectArtifacts.Redraw();
+    	    cursor.Show();
+    	    display.Flip();
         }
 
         if(le.MouseCursor(moraleIndicator.GetArea())) MoraleIndicator::QueueEventProcessing(moraleIndicator);

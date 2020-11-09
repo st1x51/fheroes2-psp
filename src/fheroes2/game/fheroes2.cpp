@@ -19,7 +19,6 @@
  *   Free Software Foundation, Inc.,                                       *
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
-
 #ifdef PSP
 #include <pspkernel.h>
 #include <psppower.h>
@@ -61,46 +60,37 @@ int setupCallbacks(void)
 	return thid;
 }
 #endif
-
-#include <unistd.h>
 #include <iostream>
 #include <string>
+#include <cstdlib>
 
-#include "gamedefs.h"
 #include "engine.h"
+#include "system.h"
+#include "gamedefs.h"
 #include "settings.h"
 #include "dir.h"
 #include "agg.h"
 #include "cursor.h"
 #include "game.h"
 #include "test.h"
-#include "sdlnet.h"
 #include "images_pack.h"
-#include "localclient.h"
-
 #include "zzlib.h"
 
 void LoadZLogo(void);
 void SetVideoDriver(const std::string &);
 void SetTimidityEnvPath(const Settings &);
 void SetLangEnvPath(const Settings &);
-void ReadConfigFile(Settings &);
-void LoadConfigFiles(Settings &, const std::string &);
-void ShowAGGError(void);
+void InitHomeDir(void);
+void ReadConfigs(void);
+int TestBlitSpeed(void);
 
 int PrintHelp(const char *basename)
 {
-    VERBOSE("Usage: " << basename << " [OPTIONS]");
-#ifdef WITH_EDITOR
-    VERBOSE("  -e\teditors mode");
-#endif
+    COUT("Usage: " << basename << " [OPTIONS]");
 #ifndef BUILD_RELEASE
-    VERBOSE("  -d\tdebug mode");
+    COUT("  -d\tdebug mode");
 #endif
-#ifdef WITH_NET
-    VERBOSE("  -s\tdedicated server");
-#endif
-    VERBOSE("  -h\tprint this help and exit");
+    COUT("  -h\tprint this help and exit");
 
     return EXIT_SUCCESS;
 }
@@ -110,59 +100,39 @@ std::string GetCaption(void)
     return std::string("Free Heroes II, version: " + Settings::GetVersion());
 }
 
-bool RunEditor(const char* name)
-{
-    const char* feditor2 = "feditor2";
-    return 0 == String::Lower(GetBasename(name)).compare(0, strlen(feditor2), feditor2);
-}
-
 int main(int argc, char **argv)
 {
-
-#ifdef PSP
+	#ifdef PSP
 	setupCallbacks();
 	scePowerSetClockFrequency(333,333,166);
 
 	sceCtrlSetSamplingCycle(0);
     sceCtrlSetSamplingMode(PSP_CTRL_MODE_ANALOG);
-#endif
-
+	#endif
 	Settings & conf = Settings::Get();
 	int test = 0;
 
 	DEBUG(DBG_ALL, DBG_INFO, "Free Heroes II, " + conf.GetVersion());
 
-	LoadConfigFiles(conf, GetDirname(argv[0]));
+	conf.SetProgramPath(argv[0]);
 
-
-#ifdef WITH_EDITOR
-	if(RunEditor(argv[0])) conf.SetEditor();
-#endif
+	InitHomeDir();
+	ReadConfigs();
 
 	// getopt
 	{
 	    int opt;
-	    while((opt = getopt(argc, argv, "hest:d:")) != -1)
+	    while((opt = System::GetCommandOptions(argc, argv, "ht:d:")) != -1)
     		switch(opt)
                 {
-#ifdef WITH_EDITOR
-                    case 'e':
-			conf.SetEditor();
-			break;
-#endif			
 #ifndef BUILD_RELEASE
                     case 't':
-			test = String::ToInt(optarg);
+			test = GetInt(System::GetOptionsArgument());
 			break;
 
                     case 'd':
-                	conf.SetDebug(optarg ? String::ToInt(optarg) : 0);
+                	conf.SetDebug(System::GetOptionsArgument() ? GetInt(System::GetOptionsArgument()) : 0);
                 	break;
-#endif
-
-#ifdef WITH_NET
-                    case 's':
-                	      return Network::RunDedicatedServer();
 #endif
                     case '?':
                     case 'h': return PrintHelp(argv[0]);
@@ -185,10 +155,6 @@ int main(int argc, char **argv)
         if(conf.MusicCD())
             subsystem |= INIT_CDROM | INIT_AUDIO;
 #endif
-#ifdef WITH_NET
-        Network::SetProtocolVersion(static_cast<u16>(MAJOR_VERSION << 8) | MINOR_VERSION);
-#endif
-
 	if(SDL::Init(subsystem))
 #if !defined(ANDROID) || !defined(PSP)
 	try
@@ -196,7 +162,7 @@ int main(int argc, char **argv)
 	{
 	    std::atexit(SDL::Quit);
 
-	    if(conf.Unicode()) SetLangEnvPath(conf);
+	    SetLangEnvPath(conf);
 
 	    if(Mixer::isValid())
 	    {
@@ -218,10 +184,10 @@ int main(int argc, char **argv)
 	    if(0 == conf.VideoMode().w || 0 == conf.VideoMode().h)
 	    	conf.SetAutoVideoMode();
 
-            Display::SetVideoMode(conf.VideoMode().w, conf.VideoMode().h, conf.DisplayFlags());
-
-	    Display::HideCursor();
-	    Display::SetCaption(GetCaption());
+            Display & display = Display::Get();
+	    display.SetVideoMode(conf.VideoMode().w, conf.VideoMode().h, conf.FullScreen());
+	    display.HideCursor();
+	    display.SetCaption(GetCaption().c_str());
 
     	    //Ensure the mouse position is updated to prevent bad initial values.
     	    LocalEvent::Get().GetMouseCursor();
@@ -230,65 +196,48 @@ int main(int argc, char **argv)
     	    ZSurface zicons;
 	    if(zicons.Load(_ptr_08067830.width, _ptr_08067830.height, _ptr_08067830.bpp, _ptr_08067830.pitch,
     		_ptr_08067830.rmask, _ptr_08067830.gmask, _ptr_08067830.bmask, _ptr_08067830.amask, _ptr_08067830.zdata, sizeof(_ptr_08067830.zdata)))
-	    Display::SetIcons(zicons);
+	    display.SetIcons(zicons);
 #endif
-	    AGG::Cache & cache = AGG::Cache::Get();
 
             DEBUG(DBG_GAME, DBG_INFO, conf.String());
-            DEBUG(DBG_GAME|DBG_ENGINE, DBG_INFO, Display::GetInfo());
+            DEBUG(DBG_GAME|DBG_ENGINE, DBG_INFO, display.GetInfo());
 
 	    // read data dir
-	    if(! cache.ReadDataDir())
-	    {
-		DEBUG(DBG_GAME, DBG_WARN, "data files not found");
-		ShowAGGError();
+	    if(! AGG::Init())
 		return EXIT_FAILURE;
-	    }
 
-            // load palette
-	    cache.LoadPAL();
+	    atexit(&AGG::Quit);
 
-	    // load font
-	    cache.LoadFNT();
-
+	    conf.SetBlitSpeed(TestBlitSpeed());
 #ifdef WITH_ZLIB
 	    LoadZLogo();
 #endif
 
 	    // init cursor
 	    Cursor::Get().SetThemes(Cursor::POINTER);
-	    AGG::ICNRegistryEnable(true);
 
 	    // init game data
-	    Game::Init(argv);
+	    Game::Init();
 
 	    // goto main menu
-#ifdef WITH_EDITOR
-	    Game::menu_t rs = (test ? Game::TESTING : (conf.Editor() ? Game::EDITMAINMENU : Game::MAINMENU));
-#else
-	    Game::menu_t rs = (test ? Game::TESTING : Game::MAINMENU);
-#endif
+	    int rs = (test ? Game::TESTING : Game::MAINMENU);
 
 	    while(rs != Game::QUITGAME)
 	    {
 		switch(rs)
 		{
-#ifdef WITH_EDITOR
-	    		case Game::EDITMAINMENU:   rs = Game::Editor::MainMenu();	break;
-	    		case Game::EDITNEWMAP:     rs = Game::Editor::NewMaps();	break;
-	    		case Game::EDITLOADMAP:    rs = Game::Editor::LoadMaps();       break;
-	    		case Game::EDITSTART:      rs = Game::Editor::StartGame();      break;
-#endif
 	    		case Game::MAINMENU:       rs = Game::MainMenu();		break;
 	    		case Game::NEWGAME:        rs = Game::NewGame();		break;
 	    		case Game::LOADGAME:       rs = Game::LoadGame();		break;
-	    		case Game::HIGHSCORES:     rs = Game::HighScores();		break;
+	    		case Game::HIGHSCORES:     rs = Game::HighScores(true);		break;
 	    		case Game::CREDITS:        rs = Game::Credits();		break;
 	    		case Game::NEWSTANDARD:    rs = Game::NewStandard();		break;
 	    		case Game::NEWCAMPAIN:     rs = Game::NewCampain();		break;
 	    		case Game::NEWMULTI:       rs = Game::NewMulti();		break;
 			case Game::NEWHOTSEAT:     rs = Game::NewHotSeat();		break;
+#ifdef NETWORK_ENABLE
 		        case Game::NEWNETWORK:     rs = Game::NewNetwork();		break;
+#endif
 		        case Game::NEWBATTLEONLY:  rs = Game::NewBattleOnly();		break;
 	    		case Game::LOADSTANDARD:   rs = Game::LoadStandard();		break;
 	    		case Game::LOADCAMPAIN:    rs = Game::LoadCampain();		break;
@@ -303,154 +252,140 @@ int main(int argc, char **argv)
 	    }
 	}
 #if !defined(ANDROID) || !defined(PSP)
-	catch(Error::Exception)
+	catch(Error::Exception&)
 	{
-    	    AGG::Cache::Get().Dump();
-#ifdef WITH_NET
-            if(conf.GameType(Game::TYPE_NETWORK)) FH2LocalClient::Get().Logout("internal error");
-#endif
 	    VERBOSE(std::endl << conf.String());
 	}
 #endif
-
-    sceKernelExitGame();
-
+	sceKernelExitGame();
 	return EXIT_SUCCESS;
+}
+
+int TestBlitSpeed(void)
+{
+    Display & display = Display::Get();
+    Surface sf(display.GetSize(), true);
+    Rect srcrt(0, 0, display.w() / 3, display.h());
+    SDL::Time t;
+
+    t.Start();
+    sf.Fill(RGBA(0xFF, 0, 0));
+    sf.Blit(srcrt, Point(0, 0), display);
+    display.Flip();
+    sf.Fill(RGBA(0, 0xFF, 0));
+    sf.Blit(srcrt, Point(srcrt.w, 0), display);
+    display.Flip();
+    sf.Fill(RGBA(0, 0, 0xFF));
+    sf.Blit(srcrt, Point(display.w() - srcrt.w, 0), display);
+    display.Flip();
+    sf.Fill(RGBA(0, 0, 0));
+    sf.Blit(display);
+    display.Flip();
+    t.Stop();
+
+    int res = t.Get();
+    DEBUG(DBG_GAME|DBG_ENGINE, DBG_INFO, res);
+    return res;
 }
 
 void LoadZLogo(void)
 {
 #ifdef BUILD_RELEASE
-#ifdef WITH_ZLIB
+    std::string file = Settings::GetLastFile("image", "sdl_logo.png");
     // SDL logo
-    if(Settings::Get().ExtShowSDL())
+    if(Settings::Get().ExtGameShowSDL() && ! file.empty())
     {
 	Display & display = Display::Get();
+    	Surface sf;
 
-    	ZSurface* zlogo = new ZSurface();
-	if(zlogo->Load(_ptr_0806f690.width, _ptr_0806f690.height, _ptr_0806f690.bpp, _ptr_0806f690.pitch,
-    		_ptr_0806f690.rmask, _ptr_0806f690.gmask, _ptr_0806f690.bmask, _ptr_0806f690.amask, _ptr_0806f690.zdata, sizeof(_ptr_0806f690.zdata)))
+	if(sf.Load(file))
 	{
-	    Surface* logo = zlogo;
+	    Surface black(display.GetSize(), false);
+	    black.Fill(ColorBlack);
 
 	    // scale logo
 	    if(Settings::Get().QVGA())
-	    {
-    		Surface* small = new Surface();
-		Surface::ScaleMinifyByTwo(*small, *zlogo);
-		delete zlogo;
-		zlogo = NULL;
-		logo = small;
-	    }
+		sf = Sprite::ScaleQVGASurface(sf);
 
-	    const u32 black = logo->MapRGB(0, 0, 0);
-	    const Point offset((display.w() - logo->w()) / 2, (display.h() - logo->h()) / 2);
+	    const Point offset((display.w() - sf.w()) / 2, (display.h() - sf.h()) / 2);
 
-	    u8 ii = 0;
-
-	    while(ii < 250)
-	    {
-		logo->Blit(ii, offset.x, offset.y, display);
-		display.Flip();
-		display.Fill(black);
-		ii += 10;
-	    }
-		
-	    DELAY(500);
-
-	    while(ii > 0)
-	    {
-		logo->Blit(ii, offset.x, offset.y, display);
-		display.Flip();
-		display.Fill(black);
-		ii -= 10;
-	    }
+	    display.Rise(sf, black, offset, 250, 500);
+	    display.Fade(sf, black, offset, 10, 500);
 	}
-	if(zlogo) delete zlogo;
     }
 #endif
-#endif
+}
+
+void ReadConfigs(void)
+{
+    Settings & conf = Settings::Get();
+    ListFiles files = conf.GetListFiles("", "fheroes2.cfg");
+
+    for(ListFiles::const_iterator
+	it = files.begin(); it != files.end(); ++it)
+    	if(System::IsFile(*it)) conf.Read(*it);
+}
+
+void InitHomeDir(void)
+{
+    const std::string home = System::GetHomeDirectory("fheroes2");
+
+    if(! home.empty())
+    {
+	const std::string home_maps  = System::ConcatePath(home, "maps");
+	const std::string home_files = System::ConcatePath(home, "files");
+	const std::string home_files_save = System::ConcatePath(home_files, "save");
+
+	if(! System::IsDirectory(home))
+	    System::MakeDirectory(home);
+
+	if(System::IsDirectory(home, true) && ! System::IsDirectory(home_maps))
+	    System::MakeDirectory(home_maps);
+
+	if(System::IsDirectory(home, true) && ! System::IsDirectory(home_files))
+	    System::MakeDirectory(home_files);
+
+	if(System::IsDirectory(home_files, true) && ! System::IsDirectory(home_files_save))
+	    System::MakeDirectory(home_files_save);
+    }
 }
 
 void SetVideoDriver(const std::string & driver)
 {
-    setenv("SDL_VIDEODRIVER", driver.c_str(), 1);
+    System::SetEnvironment("SDL_VIDEODRIVER", driver.c_str());
 }
 
 void SetTimidityEnvPath(const Settings & conf)
 {
-    const std::string timidity = conf.LocalPrefix() + SEPARATOR + "files" + SEPARATOR + "timidity";
-    if(FilePresent(timidity + SEPARATOR + "timidity.cfg"))
-    {
-	setenv("TIMIDITY_PATH", timidity.c_str(), 1);
-    }
+    const std::string prefix_timidity = System::ConcatePath("files", "timidity");
+    const std::string result = Settings::GetLastFile(prefix_timidity, "timidity.cfg");
+
+    if(System::IsFile(result))
+	System::SetEnvironment("TIMIDITY_PATH", System::GetDirname(result).c_str());
 }
 
 void SetLangEnvPath(const Settings & conf)
 {
 #ifdef WITH_TTF
-    if(conf.ForceLang().size())
+    if(conf.Unicode())
     {
-	setenv("LANGUAGE", conf.ForceLang().c_str(), 1);
-	setenv("LANG", conf.ForceLang().c_str(), 1);
-    }
+        System::SetLocale(LC_ALL, "");
+        System::SetLocale(LC_NUMERIC, "C");
 
-    const std::string strtmp = conf.LocalPrefix() + SEPARATOR + "files" + SEPARATOR + "lang";
-    setlocale(LC_ALL, "en_US.UTF8");
-    bindtextdomain(GETTEXT_PACKAGE, strtmp.c_str());
-    bind_textdomain_codeset(GETTEXT_PACKAGE, "UTF-8");
-    textdomain(GETTEXT_PACKAGE);
-#endif
-}
+	std::string mofile = conf.ForceLang().empty() ?
+		System::GetMessageLocale(1).append(".mo") :
+		std::string(conf.ForceLang()).append(".mo");
 
-void ReadConfigFile(Settings & conf)
-{
-    std::string strtmp = conf.LocalPrefix() + SEPARATOR + "fheroes2.cfg";
-    if(FilePresent(strtmp))
-    {
-	VERBOSE("config: " << strtmp << " load.");
-	conf.Read(strtmp);
-    }
-}
+	ListFiles translations = Settings::GetListFiles(System::ConcatePath("files", "lang"), mofile);
 
-void LoadConfigFiles(Settings & conf, const std::string & dirname)
-{
-    // prefix from build
-#ifdef CONFIGURE_FHEROES2_DATA
-    conf.SetLocalPrefix(CONFIGURE_FHEROES2_DATA);
-    if(conf.LocalPrefix().size()) ReadConfigFile(conf);
-#endif
-
-    // prefix from env
-    if(getenv("FHEROES2_DATA"))
-    {
-	conf.SetLocalPrefix(getenv("FHEROES2_DATA"));
-	ReadConfigFile(conf);
-    }
-
-    // prefix from dirname
-    if(conf.LocalPrefix().empty() && dirname.size())
-    {
-	conf.SetLocalPrefix(dirname.c_str());
-	ReadConfigFile(conf);
-    }
-}
-
-void ShowAGGError(void)
-{
-#ifdef WITH_ZLIB
-    ZSurface zerr;
-    if(zerr.Load(_ptr_080721d0.width, _ptr_080721d0.height, _ptr_080721d0.bpp, _ptr_080721d0.pitch,
-    	    _ptr_080721d0.rmask, _ptr_080721d0.gmask, _ptr_080721d0.bmask, _ptr_080721d0.amask, _ptr_080721d0.zdata, sizeof(_ptr_080721d0.zdata)))
-    {
-	Display & display = Display::Get();
-	LocalEvent & le = LocalEvent::Get();
-
-	display.Fill(zerr.MapRGB(0, 0, 0));
-	zerr.Blit((display.w() - zerr.w()) / 2, (display.h() - zerr.h()) / 2, display);
-	display.Flip();
-
-	while(le.HandleEvents() && !le.KeyPress() && !le.MouseClickLeft());
+	if(translations.size())
+	{
+    	    if(Translation::bindDomain("fheroes2", translations.back().c_str()))
+    		Translation::setDomain("fheroes2");
+	}
+	else
+	    ERROR("translation not found: " << mofile);
     }
 #endif
+    Translation::setStripContext('|');
 }

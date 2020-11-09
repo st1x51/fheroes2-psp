@@ -1,3 +1,60 @@
+Okt, 9,  2013 (3180 rev.)
++ Added: new editor, new map format support
+
+May, 14, 2012 (2860 rev.)
+
++ Fixed: battle: redraw castle interface
++ Fixed: battle: path with moat stop
++ Fixed: battle: redraw shield spell, captain init spell
++ Fixed: battle: option "heroes: remember MP/SP for retreat/surrender result"
++ Fixed: battle: wide fly animation
++ Fixed: battle: teleport spell
++ Fixed: battle: experience calculation
++ Fixed: world: add more info for recruit heroes
++ Fixed: world: allow payment with negative resource
++ Fixed: world: road direction, update pathfinding, update route penalty
++ Fixed: game: update save filename
++ Fixed: game: AI priority pickup objects
++ Added: game: origin (non-free) tilesets
++ Update: load alt resource (add index position), add store icn cache
+
+Apr, 11, 2012 (2824 rev.)
+
++ Fixed: castle: marketplace max button
++ Fixed: world: kingdom incomes, added a negative balance
++ Fixed: world: open a Jail from any direction
++ Fixed: world: monsters stacks have 1 level upg. stack in middle stack
++ Fixed: pocketpc: allow castle guardians
++ Fixed: pocketpc: add large buttons for battle
++ Added: world: Alhemist action
++ Added: world: Kingdom::Overview dialog
++ Added: castle: swap button for guardians
++ Added: option: "game: offer to continue the game afer victory condition"
++ Added: option: "world: disable Barrow Mounds"
++ Added: option: "world: each castle allows one hero to be recruited every week"
+
+Mar, 01, 2012 (2764 rev.)
+
++ Fixed: world: maps passable new version algorithm.
++ Fixed: world: capture object abandone mine
++ Fixed: world: hero join troop and recruit monster from tile
++ Fixed: world: capture objects WindMill and WaterWheel for AI, automatic collection from  Wind/Water mills, add Magic Garden
++ Fixed: world: bugs of monster units deployment at a "Month of ..."
++ Fixed: battle: disable resurrect for elemental
++ Fixed: battle: fixed animation attack with empty sprite (blink)
++ Fixed: game: remove stop hero, for invalid event maps
++ Fixed: game: default action key for hero focus
++ Fixed: game: close spell book (empty spell)
++ Fixed: game: redrawing window borders with black on calling NewGame or LoadGame menu with high resolution (thanks ghox@users.sourceforge.net)
++ Fixed: game: load game with incorrect hero path, fixed loadgame crash
++ Fixed: game: hero directly attack monster
++ Fixed: game: add always ask for poor morale/luck visiting
++ Fixed: game: update luck stats
++ Remove: option: "unions: allow view maps", set always on
++ Remove: option: "world: use enhanced artifact info dialog", add artifact description info to dialog box
++ Remove: game: old format game support
++ Added:  option: "unique artifacts for primary and secondary skills"
+
 Nov, 17, 2011 (2704 rev.)
 
 + Fixed: world: old format load: huge population

@@ -20,111 +20,138 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
-#ifdef WITH_TTF
-
-#include <iostream>
 #include "font.h"
 #include "engine.h"
 #include "surface.h"
-#include "SDL_ttf.h"
 
-SDL::Font::Font() : fnt(NULL)
+#ifdef WITH_TTF
+
+FontTTF::FontTTF() : ptr(NULL)
 {
 }
 
-SDL::Font::~Font()
+FontTTF::~FontTTF()
 {
-    if(fnt) TTF_CloseFont(fnt);
+    if(ptr) TTF_CloseFont(ptr);
 }
 
-void SDL::Font::Init(void)
+void FontTTF::Init(void)
 {
-    if(0 != TTF_Init()) std::cerr << "Font::Init: error" << std::endl;
+    if(0 != TTF_Init()) ERROR(SDL_GetError());
 }
 
-void SDL::Font::Quit(void)
+void FontTTF::Quit(void)
 {
     TTF_Quit();
 }
 
-bool SDL::Font::isValid(void) const
+bool FontTTF::isValid(void) const
 {
-    return fnt;
+    return ptr;
 }
 
-bool SDL::Font::Open(const std::string & filename, u8 size)
+bool FontTTF::Open(const std::string & filename, int size)
 {
-    if(fnt) TTF_CloseFont(fnt);
-    fnt = TTF_OpenFont(filename.c_str(), size);
-    if(!fnt) std::cerr << "Font::Open: error open: " << filename << std::endl;
-    return fnt;
+    if(ptr) TTF_CloseFont(ptr);
+    ptr = TTF_OpenFont(filename.c_str(), size);
+    if(!ptr) ERROR(SDL_GetError());
+    return ptr;
 }
 
-void SDL::Font::SetStyle(u8 style)
+void FontTTF::SetStyle(int style)
 {
-    if(fnt) TTF_SetFontStyle(fnt, style);
+    TTF_SetFontStyle(ptr, style);
 }
 
-void SDL::Font::RenderText(Surface & dst, const std::string & msg, const RGBColor & clr, render_t render)
+int FontTTF::Height(void) const
 {
-    if(fnt) switch(render)
-    {
-	case BLENDED:	dst.Set(TTF_RenderUTF8_Blended(fnt, msg.c_str(), clr));	break;
-	default:	dst.Set(TTF_RenderUTF8_Solid(fnt, msg.c_str(), clr));	break;
-    }
+    return TTF_FontHeight(ptr);
 }
 
-void SDL::Font::RenderChar(Surface & dst, char ch, const RGBColor & clr, render_t render)
+int FontTTF::Ascent(void) const
+{
+    return TTF_FontAscent(ptr);
+}
+
+int FontTTF::Descent(void) const
+{
+    return TTF_FontDescent(ptr);
+}
+
+int FontTTF::LineSkip(void) const
+{
+    return TTF_FontLineSkip(ptr);
+}
+
+Surface FontTTF::RenderText(const std::string & msg, const RGBA & clr, bool solid)
+{
+    return Surface(solid ? TTF_RenderUTF8_Solid(ptr, msg.c_str(), clr()) :
+                        TTF_RenderUTF8_Blended(ptr, msg.c_str(), clr()));
+}
+    
+Surface FontTTF::RenderChar(char ch, const RGBA & clr, bool solid)
 {
     char buf[2] = { '\0', '\0' };
          buf[0] = ch;
-
-    if(fnt) switch(render)
-    {
-	case BLENDED:	dst.Set(TTF_RenderUTF8_Blended(fnt, buf, clr));	break;
-	default:	dst.Set(TTF_RenderUTF8_Solid(fnt, buf, clr));	break;
-    }
+            
+    return Surface(solid ? TTF_RenderUTF8_Solid(ptr, buf, clr()) :
+                        TTF_RenderUTF8_Blended(ptr, buf, clr()));
 }
 
-void SDL::Font::RenderUnicodeText(Surface & dst, const u16 *msg, const RGBColor & clr, render_t render)
+Surface FontTTF::RenderUnicodeText(const std::vector<u16> & msg, const RGBA & clr, bool solid)
 {
-    if(fnt) switch(render)
-    {
-	case BLENDED:	dst.Set(TTF_RenderUNICODE_Blended(fnt, msg, clr));	break;
-	default:	dst.Set(TTF_RenderUNICODE_Solid(fnt, msg, clr));	break;
-    }
+    return Surface(solid ? TTF_RenderUNICODE_Solid(ptr, &msg[0], clr()) :
+                        TTF_RenderUNICODE_Blended(ptr, &msg[0], clr()));
 }
 
-void SDL::Font::RenderUnicodeChar(Surface & dst, u16 ch, const RGBColor & clr, render_t render)
+Surface FontTTF::RenderUnicodeChar(u16 ch, const RGBA & clr, bool solid)
 {
     u16 buf[2] = { L'\0', L'\0' };
         buf[0] = ch;
 
-    if(fnt) switch(render)
-    {
-	case BLENDED:	dst.Set(TTF_RenderUNICODE_Blended(fnt, buf, clr));	break;
-	default:	dst.Set(TTF_RenderUNICODE_Solid(fnt, buf, clr));	break;
-    }
-}
-
-int SDL::Font::Height(void) const
-{
-    return fnt ? TTF_FontHeight(fnt) : 0;
-}
-
-int SDL::Font::Ascent(void) const
-{
-    return fnt ? TTF_FontAscent(fnt) : 0;
-}
-
-int SDL::Font::Descent(void) const
-{
-    return fnt ? TTF_FontDescent(fnt) : 0;
-}
-
-int SDL::Font::LineSkip(void) const
-{
-    return fnt ? TTF_FontLineSkip(fnt) : 0;
+    return Surface(solid ? TTF_RenderUNICODE_Solid(ptr, buf, clr()) :
+                        TTF_RenderUNICODE_Blended(ptr, buf, clr()));
 }
 
 #endif
+
+FontPSF::FontPSF(const std::string & fn, const Size & sz) : size(sz)
+{
+    buf = LoadFileToMem(fn);
+    if(buf.empty())
+	ERROR("empty buffer");
+}
+
+Surface FontPSF::RenderText(const std::string & msg, const RGBA & color) const
+{
+    Surface res;
+
+    res.Set(msg.size() * size.w, size.h, false);
+    int posx = 0;
+
+    for(std::string::const_iterator
+	it = msg.begin(); it != msg.end(); ++it)
+    {
+	// render char
+	u32 offsetx = *it * size.w * size.h / 8; // bits -> byte
+
+	for(u32 yy = 0; yy < size.h; ++yy)
+	{
+	    u32 offsety = yy * size.w / 8; // bits -> byte
+
+	    if(offsetx + offsety < buf.size())
+	    {
+		int line = buf[offsetx + offsety];
+    		for(u32 xx = 0; xx < size.w; ++xx)
+    		{
+        	    if(0x80 & (line << xx))
+            		res.DrawPoint(Point(posx + xx, yy), color);
+    		}
+	    }
+	}
+
+	posx += size.w;
+    }
+
+    return res;
+}

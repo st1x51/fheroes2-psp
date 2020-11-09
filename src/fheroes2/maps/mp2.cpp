@@ -22,10 +22,11 @@
 
 #include "settings.h"
 #include "direction.h"
+#include "icn.h"
 #include "mp2.h"
 
 /* return name icn object */
-ICN::icn_t MP2::GetICNObject(const u8 type)
+int MP2::GetICNObject(int type)
 {
     switch(type)
     {
@@ -355,7 +356,7 @@ ICN::icn_t MP2::GetICNObject(const u8 type)
     return ICN::UNKNOWN;
 }
 
-const char* MP2::StringObject(u8 object)
+const char* MP2::StringObject(int object)
 {
     switch(object)
     {
@@ -626,7 +627,7 @@ const char* MP2::StringObject(u8 object)
     return NULL;
 }
 
-bool MP2::isDayLife(const u8 obj)
+bool MP2::isDayLife(int obj)
 {
     // FIXME: list day object life
     switch(obj)
@@ -640,7 +641,7 @@ bool MP2::isDayLife(const u8 obj)
     return false;
 }
 
-bool MP2::isWeekLife(const u8 obj)
+bool MP2::isWeekLife(int obj)
 {
     // FIXME: list week object life
     switch(obj)
@@ -668,6 +669,11 @@ bool MP2::isWeekLife(const u8 obj)
         case OBJ_TREECITY:
         case OBJ_WAGONCAMP:
         case OBJ_DESERTTENT:
+        case OBJ_WATERALTAR:
+        case OBJ_AIRALTAR:
+        case OBJ_FIREALTAR:
+        case OBJ_EARTHALTAR:
+        case OBJ_BARROWMOUNDS:
 
         // battle and recruit army
         case OBJ_DRAGONCITY:
@@ -687,7 +693,7 @@ bool MP2::isWeekLife(const u8 obj)
     return false;
 }
 
-bool MP2::isMonthLife(const u8 obj)
+bool MP2::isMonthLife(int obj)
 {
     // FIXME: list month object life
     switch(obj)
@@ -698,7 +704,7 @@ bool MP2::isMonthLife(const u8 obj)
     return false;
 }
 
-bool MP2::isBattleLife(const u8 obj)
+bool MP2::isBattleLife(int obj)
 {
     // FIXME: list battle object life
     switch(obj)
@@ -727,14 +733,14 @@ bool MP2::isBattleLife(const u8 obj)
     return false;
 }
 
-bool MP2::isActionObject(const u8 obj, const bool water)
+bool MP2::isActionObject(int obj, bool water)
 {
     if(water) return isWaterObject(obj);
 
     return isGroundObject(obj);
 }
 
-bool MP2::isWaterObject(const u8 obj)
+bool MP2::isWaterObject(int obj)
 {
     switch(obj)
     {
@@ -771,7 +777,7 @@ bool MP2::isWaterObject(const u8 obj)
     return Settings::Get().PriceLoyaltyVersion() ? isGroundObject(obj) : false;
 }
 
-bool MP2::isGroundObject(const u8 obj)
+bool MP2::isGroundObject(int obj)
 {
     switch(obj)
     {
@@ -866,7 +872,7 @@ bool MP2::isGroundObject(const u8 obj)
     return false;
 }
 
-bool MP2::isQuantityObject(const u8 obj)
+bool MP2::isQuantityObject(int obj)
 {
     switch(obj)
     {
@@ -899,7 +905,7 @@ bool MP2::isQuantityObject(const u8 obj)
     return false;
 }
 
-bool MP2::isCaptureObject(const u8 obj)
+bool MP2::isCaptureObject(int obj)
 {
     switch(obj)
     {
@@ -913,7 +919,8 @@ bool MP2::isCaptureObject(const u8 obj)
 
         case OBJ_WATERWHEEL:
         case OBJ_WINDMILL:
-           return Settings::Get().ExtWorldWindWaterMillsCaptured();
+        case OBJ_MAGICGARDEN:
+           return Settings::Get().ExtWorldExtObjectsCaptured();
 
 	default: break;
     }
@@ -921,7 +928,7 @@ bool MP2::isCaptureObject(const u8 obj)
     return false;
 }
 
-bool MP2::isPickupObject(const u8 obj)
+bool MP2::isPickupObject(int obj)
 {
     switch(obj)
     {
@@ -942,7 +949,7 @@ bool MP2::isPickupObject(const u8 obj)
     return false;
 }
 
-bool MP2::isMoveObject(const u8 obj)
+bool MP2::isMoveObject(int obj)
 {
     switch(obj)
     {
@@ -956,7 +963,7 @@ bool MP2::isMoveObject(const u8 obj)
     return false;
 }
 
-bool MP2::isRemoveObject(const u8 obj)
+bool MP2::isRemoveObject(int obj)
 {
     switch(obj)
     {
@@ -970,7 +977,7 @@ bool MP2::isRemoveObject(const u8 obj)
     return isPickupObject(obj);
 }
 
-bool MP2::isNeedStayFront(const u8 obj)
+bool MP2::isNeedStayFront(int obj)
 {
     switch(obj)
     {
@@ -1000,7 +1007,7 @@ bool MP2::isNeedStayFront(const u8 obj)
 
 
 
-bool MP2::isClearGroundObject(const u8 obj)
+bool MP2::isClearGroundObject(int obj)
 {
     switch(obj)
     {
@@ -1014,10 +1021,11 @@ bool MP2::isClearGroundObject(const u8 obj)
     return false;
 }
 
-u16 MP2::GetObjectDirect(const u8 obj)
+int MP2::GetObjectDirect(int obj)
 {
     switch(obj)
     {
+        case OBJ_JAIL:
         case OBJ_BARRIER:
 	    return DIRECTION_ALL;
 
@@ -1025,8 +1033,6 @@ u16 MP2::GetObjectDirect(const u8 obj)
             return Direction::CENTER | Direction::LEFT | DIRECTION_BOTTOM_ROW;
 
         case OBJ_DERELICTSHIP:
-            return Direction::CENTER | Direction::LEFT | Direction::BOTTOM_LEFT | Direction::BOTTOM;
-
         case OBJ_TROLLBRIDGE:
         case OBJ_ARCHERHOUSE:
         case OBJ_DOCTORHUT:
@@ -1059,7 +1065,6 @@ u16 MP2::GetObjectDirect(const u8 obj)
         case OBJ_MAGICGARDEN:
         case OBJ_WAGON:
         case OBJ_TRAVELLERTENT:
-        case OBJ_JAIL:
         case OBJ_ALCHEMYTOWER:
         case OBJ_HUTMAGI:
         case OBJ_EYEMAGI:

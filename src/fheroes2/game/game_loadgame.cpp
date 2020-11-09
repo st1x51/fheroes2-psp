@@ -27,21 +27,22 @@
 #include "dialog.h"
 #include "settings.h"
 #include "pocketpc.h"
+#include "game_io.h"
 #include "game.h"
 
-Game::menu_t Game::LoadCampain(void)
+int Game::LoadCampain(void)
 {
     VERBOSE("Load Campain Game: under construction.");
     return Game::LOADGAME;
 }
 
-Game::menu_t Game::LoadMulti(void)
+int Game::LoadMulti(void)
 {
     VERBOSE("Load Multi Game: under construction.");
     return Game::LOADGAME;
 }
 
-Game::menu_t Game::LoadGame(void)
+int Game::LoadGame(void)
 {
     return LOADSTANDARD;
 /*
@@ -49,11 +50,6 @@ Game::menu_t Game::LoadGame(void)
     AGG::PlayMusic(MUS::MAINMENU);
 
     if(Settings::Get().QVGA()) return PocketPC::LoadGame();
-    
-    // preload
-    AGG::PreloadObject(ICN::HEROES);
-    AGG::PreloadObject(ICN::BTNNEWGM);
-    AGG::PreloadObject(ICN::REDBACK);
 
     // cursor
     Cursor & cursor = Cursor::Get();
@@ -103,17 +99,15 @@ Game::menu_t Game::LoadGame(void)
 */
 }
 
-Game::menu_t Game::LoadStandard(void)
+int Game::LoadStandard(void)
 {
-    // preload
-    AGG::PreloadObject(ICN::HEROES);
-
     // cursor
     Cursor & cursor = Cursor::Get();
     cursor.Hide();
     cursor.SetThemes(cursor.POINTER);
 
     Display & display = Display::Get();
+    display.Fill(ColorBlack);
 
     // image background
     const Sprite &back = AGG::GetICN(ICN::HEROES, 0);
@@ -123,9 +117,8 @@ Game::menu_t Game::LoadStandard(void)
     cursor.Show();
     display.Flip();
 
-    std::string file;
-
-    if(!Dialog::SelectFileLoad(file) || file.empty() || !Game::Load(file)) return MAINMENU;
+    std::string file = Dialog::SelectFileLoad();
+    if(file.empty() || !Game::Load(file)) return MAINMENU;
 
     return STARTGAME;
 }

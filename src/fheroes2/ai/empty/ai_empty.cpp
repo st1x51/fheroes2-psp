@@ -24,9 +24,14 @@
 #include "castle.h"
 #include "heroes.h"
 #include "dialog.h"
-#include "battle2.h"
+#include "battle.h"
 #include "battle_arena.h"
+#include "battle_command.h"
+#include "battle_troop.h"
 #include "ai.h"
+#include "settings.h"
+#include "agg.h"
+#include "game_interface.h"
 
 const char* AI::Type(void)
 {
@@ -36,52 +41,6 @@ const char* AI::Type(void)
 const char* AI::License(void)
 {
     return "GPL";
-}
-
-void AI::AddCastle(const Castle &)
-{
-}
-
-void AI::RemoveCastle(const Castle &)
-{
-}
-
-void AI::AddHeroes(const Heroes &)
-{
-}
-
-void AI::RemoveHeroes(const Heroes &)
-{
-}
-
-void AI::HeroesPreBattle(HeroBase &)
-{
-}
-
-void AI::HeroesAction(Heroes &, s32)
-{
-}
-
-std::string AI::HeroesString(const Heroes &)
-{
-    return "";
-}
-
-void AI::HeroesLevelUp(Heroes &)
-{
-}
-
-void AI::KingdomTurn(Kingdom &)
-{
-}
-
-void AI::BattleTurn(Battle2::Arena &, const Battle2::Stats & b, Battle2::Actions & a)
-{
-    a.AddedEndAction(b);
-}
-
-void AI::BattleMagicTurn(Battle2::Arena &, const Battle2::Stats &, Battle2::Actions &, const Battle2::Stats*)
-{
 }
 
 void AI::Init(void)
@@ -94,4 +53,158 @@ void AI::CastlePreBattle(Castle &)
 
 void AI::CastleAfterBattle(Castle &, bool attacker_wins)
 {
+}
+
+void AI::CastleTurn(Castle &)
+{
+}
+
+void AI::CastleAdd(const Castle &)
+{
+}
+
+void AI::CastleRemove(const Castle &)
+{
+}
+
+void AI::HeroesAdd(const Heroes &)
+{
+}
+
+void AI::HeroesRemove(const Heroes &)
+{
+}
+
+void AI::HeroesPreBattle(HeroBase &)
+{
+}
+
+void AI::HeroesAfterBattle(HeroBase &)
+{
+}
+
+void AI::HeroesActionNewPosition(Heroes &)
+{
+}
+
+void AI::HeroesClearTask(const Heroes &)
+{
+}
+
+std::string AI::HeroesString(const Heroes &)
+{
+    return "";
+}
+
+void AI::HeroesActionComplete(Heroes &, s32)
+{
+}
+
+void AI::HeroesLevelUp(Heroes &)
+{
+}
+
+void AI::HeroesPostLoad(Heroes &)
+{
+}
+
+bool AI::HeroesSkipFog(void)
+{
+    return false;
+}
+
+bool AI::HeroesGetTask(Heroes & hero)
+{
+    // stop hero
+    hero.GetPath().Reset();
+    return false;
+}
+
+bool AI::HeroesCanMove(const Heroes & hero)
+{
+    return hero.MayStillMove() && ! hero.Modes(HEROES_MOVED);
+}
+
+void AI::HeroesTurn(Heroes & hero)
+{
+   Interface::StatusWindow & status = Interface::Basic::Get().GetStatusWindow();
+
+    hero.ResetModes(HEROES_MOVED);
+
+    while(AI::HeroesCanMove(hero))
+    {
+	// turn indicator
+        status.RedrawTurnProgress(3);
+        status.RedrawTurnProgress(4);
+
+        // get task for heroes
+        AI::HeroesGetTask(hero);
+
+        // turn indicator
+        status.RedrawTurnProgress(5);
+        status.RedrawTurnProgress(6);
+
+        // heroes AI turn
+        AI::HeroesMove(hero);
+	hero.SetModes(HEROES_MOVED);
+
+        // turn indicator
+        status.RedrawTurnProgress(7);
+        status.RedrawTurnProgress(8);
+    }
+
+    DEBUG(DBG_AI, DBG_TRACE, hero.GetName() << ", end");
+}
+
+void AI::KingdomTurn(Kingdom & kingdom)
+{
+    KingdomHeroes & heroes = kingdom.GetHeroes();
+    KingdomCastles & castles = kingdom.GetCastles();
+
+    const int color = kingdom.GetColor();
+
+    if(kingdom.isLoss() || color == Color::NONE)
+    {
+        kingdom.LossPostActions();
+        return;
+    }
+
+    if(! Settings::Get().MusicMIDI()) AGG::PlayMusic(MUS::COMPUTER);
+
+    Interface::StatusWindow & status = Interface::Basic::Get().GetStatusWindow();
+
+    // indicator
+    status.RedrawTurnProgress(0);
+
+    status.RedrawTurnProgress(1);
+
+    // castles AI turn
+    for(KingdomCastles::iterator
+	it = castles.begin(); it != castles.end(); ++it)
+	if(*it) CastleTurn(**it);
+
+    status.RedrawTurnProgress(3);
+
+    // heroes turns
+    for(KingdomHeroes::iterator
+	it = heroes.begin(); it != heroes.end(); ++it)
+	if(*it) HeroesTurn(**it);
+
+    status.RedrawTurnProgress(6);
+    status.RedrawTurnProgress(7);
+    status.RedrawTurnProgress(8);
+    status.RedrawTurnProgress(9);
+
+    DEBUG(DBG_AI, DBG_INFO, Color::String(color) << " moved");
+}
+
+void AI::BattleTurn(Battle::Arena &, const Battle::Unit & b, Battle::Actions & a)
+{
+    // end action
+    a.push_back(Battle::Command(Battle::MSG_BATTLE_END_TURN, b.GetUID()));
+}
+
+bool AI::BattleMagicTurn(Battle::Arena &, const Battle::Unit &, Battle::Actions &, const Battle::Unit*)
+{
+    return false;
 }

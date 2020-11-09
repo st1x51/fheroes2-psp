@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (C) 201 by Andrey Afletdinov <fheroes2@gmail.com>          *
+ *   Copyright (C) 2011 by Andrey Afletdinov <fheroes2@gmail.com>          *
  *                                                                         *
  *   Part of the Free Heroes2 Engine:                                      *
  *   http://sourceforge.net/projects/fheroes2                              *
@@ -35,10 +35,7 @@ void UltimateArtifact::Set(s32 pos, const Artifact & a)
     index = pos;
     isfound = false;
 
-    if(Maps::isValidAbsIndex(index))
-	Interface::GameArea::GenerateUltimateArtifactAreaSurface(index, puzzlemap);
-    else
-	Surface::FreeSurface(puzzlemap);
+    MakeSurface();
 }
 
 const Surface & UltimateArtifact::GetPuzzleMapSurface(void) const
@@ -69,7 +66,30 @@ bool UltimateArtifact::isPosition(s32 pos) const
 void UltimateArtifact::Reset(void)
 {
     Artifact::Reset();
-    Surface::FreeSurface(puzzlemap);
+    puzzlemap.Reset();
     index = -1;
     isfound = false;
+}
+
+void UltimateArtifact::MakeSurface(void)
+{
+    if(Maps::isValidAbsIndex(index))
+	puzzlemap = Interface::GameArea::GenerateUltimateArtifactAreaSurface(index);
+    else
+	puzzlemap.Reset();
+}
+
+StreamBase & operator<< (StreamBase & msg, const UltimateArtifact & ultimate)
+{
+    return msg << static_cast<Artifact>(ultimate) << ultimate.index << ultimate.isfound;
+}
+
+StreamBase & operator>> (StreamBase & msg, UltimateArtifact & ultimate)
+{
+    Artifact & artifact = ultimate;
+    msg >> artifact >> ultimate.index >> ultimate.isfound;
+
+    ultimate.MakeSurface();
+
+    return msg;
 }

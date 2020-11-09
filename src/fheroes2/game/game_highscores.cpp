@@ -21,24 +21,26 @@
  ***************************************************************************/
 
 #include <algorithm>
-#include <fstream>
 #include <sstream>
 #include <vector>
 #include <string>
 #include <cstring>
 #include <ctime>
+
+#include "system.h"
 #include "gamedefs.h"
+#include "text.h"
 #include "agg.h"
 #include "cursor.h"
 #include "button.h"
 #include "dialog.h"
 #include "settings.h"
 #include "world.h"
-#include "sdlnet.h"
 #include "zzlib.h"
 #include "game.h"
+#include "game_over.h"
 
-#define HGS_ID	0xF1F2
+#define HGS_ID	0xF1F3
 #define HGS_MAX	10
 
 struct hgs_t
@@ -47,12 +49,22 @@ struct hgs_t
 
     bool operator== (const hgs_t &) const;
 
-    std::string player;
-    std::string land;
-    u32 localtime;
-    u16 days;
-    u16 rating;
+    std::string	player;
+    std::string	land;
+    u32		localtime;
+    u32		days;
+    u32		rating;
 };
+
+StreamBase & operator<< (StreamBase & msg, const hgs_t & hgs)
+{
+    return msg << hgs.player << hgs.land << hgs.localtime << hgs.days << hgs.rating;
+}
+
+StreamBase & operator>> (StreamBase & msg, hgs_t & hgs)
+{
+    return msg >> hgs.player >> hgs.land >> hgs.localtime >> hgs.days >> hgs.rating;
+}
 
 bool hgs_t::operator== (const hgs_t & h) const
 {
@@ -64,116 +76,49 @@ bool RatingSort(const hgs_t & h1, const hgs_t & h2)
     return h1.rating > h2.rating;
 }
 
-class HGSData : public QueueMessage
+class HGSData
 {
 public:
-    HGSData(){};
+    HGSData() {}
 
-    bool Load(const char*);
-    bool Save(const char*);
-    void ScoreRegistry(const std::string &, const std::string &, u16, u16);
-    void RedrawList(s16, s16);
+    bool Load(const std::string &);
+    bool Save(const std::string &);
+    void ScoreRegistry(const std::string &, const std::string &, u32, u32);
+    void RedrawList(s32, s32);
 private:
     std::vector<hgs_t> list;
 };
 
-bool HGSData::Load(const char* fn)
+bool HGSData::Load(const std::string & fn)
 {
-    std::ifstream fs(fn, std::ios::binary);
+    ZStreamFile hdata;
+    if(! hdata.read(fn)) return false;
 
-    if(!fs.is_open()) return false;
+    hdata.setbigendian(true);
+    u16 hgs_id = 0;
 
-    fs.seekg(0, std::ios_base::end);
-    dtsz = fs.tellg();
-    fs.seekg(0, std::ios_base::beg);
+    hdata >> hgs_id;
 
-    if(data) delete [] data;
-    data = new char [dtsz];
-    fs.read(data, dtsz);
-    fs.close();
-
-#ifdef WITH_ZLIB
-    std::vector<char> v;
-    if(ZLib::UnCompress(v, data, dtsz))
+    if(hgs_id == HGS_ID)
     {
-    	dtsz = v.size();
-    	delete [] data;
-    	data = new char [dtsz];
-    	std::memcpy(data, &v[0], dtsz);
-	v.clear();
+	hdata >> list;
+	return ! hdata.fail();
     }
-#endif
 
-    itd1 = data;
-    itd2 = data + dtsz;
+    return false;
+}
 
-    u16 byte16;
-
-    // check id
-    Pop(byte16);
-    if(byte16 != HGS_ID) return false;
-
-    // size
-    Pop(byte16);
-    list.resize(byte16);
-
-    std::vector<hgs_t>::iterator it1 = list.begin();
-    std::vector<hgs_t>::const_iterator it2 = list.end();
-
-    for(; it1 != it2; ++it1)
-    {
-	hgs_t & hgs = *it1;
-
-	Pop(hgs.player);
-	Pop(hgs.land);
-	Pop(hgs.localtime);
-	Pop(hgs.days);
-	Pop(hgs.rating);
-    }
+bool HGSData::Save(const std::string & fn)
+{
+    ZStreamFile hdata;
+    hdata.setbigendian(true);
+    hdata << static_cast<u16>(HGS_ID) << list;
+    if(hdata.fail() || ! hdata.write(fn)) return false;
 
     return true;
 }
 
-bool HGSData::Save(const char* fn)
-{
-    std::ofstream fs(fn, std::ios::binary);
-
-    if(!fs.is_open()) return false;
-
-    Reset();
-
-    // set id
-    Push(static_cast<u16>(HGS_ID));
-    // set size
-    Push(static_cast<u16>(list.size()));
-
-    std::vector<hgs_t>::const_iterator it1 = list.begin();
-    std::vector<hgs_t>::const_iterator it2 = list.end();
-
-    for(; it1 != it2; ++it1)
-    {
-	const hgs_t & hgs = *it1;
-
-	Push(hgs.player);
-	Push(hgs.land);
-	Push(hgs.localtime);
-	Push(hgs.days);
-	Push(hgs.rating);
-    }
-
-#ifdef WITH_ZLIB
-    std::vector<char> v;
-    if(!ZLib::Compress(v, data, DtSz())) return false;
-    fs.write(&v[0], v.size());
-#else
-    fs.write(data, DtSz());
-#endif
-    fs.close();
-
-    return true;
-}
-
-void HGSData::ScoreRegistry(const std::string & p, const std::string & m, u16 r, u16 s)
+void HGSData::ScoreRegistry(const std::string & p, const std::string & m, u32 r, u32 s)
 {
     hgs_t h;
 
@@ -191,7 +136,7 @@ void HGSData::ScoreRegistry(const std::string & p, const std::string & m, u16 r,
     }
 }
 
-void HGSData::RedrawList(s16 ox, s16 oy)
+void HGSData::RedrawList(s32 ox, s32 oy)
 {
     const Settings & conf = Settings::Get();
 
@@ -212,7 +157,6 @@ void HGSData::RedrawList(s16 ox, s16 oy)
 
     Text text;
     text.Set(conf.QVGA() ? Font::SMALL : Font::BIG);
-    std::string str;
 
     for(; it1 != it2 && (it1 - list.begin() < HGS_MAX); ++it1)
     {
@@ -224,34 +168,29 @@ void HGSData::RedrawList(s16 ox, s16 oy)
 	text.Set(hgs.land);
 	text.Blit(ox + (conf.QVGA() ? 170 : 260), oy + (conf.QVGA() ? 33 : 70));
 
-	str.clear();
-	String::AddInt(str, hgs.days);
-	text.Set(str);
+	text.Set(GetString(hgs.days));
 	text.Blit(ox + (conf.QVGA() ? 250 : 420), oy + (conf.QVGA() ? 33 : 70));
 
-	str.clear();
-	String::AddInt(str, hgs.rating);
-	text.Set(str);
+	text.Set(GetString(hgs.rating));
 	text.Blit(ox + (conf.QVGA() ? 270 : 480), oy + (conf.QVGA() ? 33 : 70));
 
 	oy += conf.QVGA() ? 20 : 40;
     }
 }
 
-Game::menu_t Game::HighScores(void)
+int Game::HighScores(bool fill)
 {
     Cursor & cursor = Cursor::Get();
     Display & display = Display::Get();
     const Settings & conf = Settings::Get();
 
     cursor.Hide();
-    display.Fill(0, 0, 0);
+    if(fill) display.Fill(ColorBlack);
 
 #ifdef WITH_DEBUG
     if(IS_DEVEL() && world.CountDay())
     {
-	std::string msg = "Your result: ";
-	String::AddInt(msg, GetGameOverScores());
+	std::string msg = std::string("Devepoper mode, not save! \n \n Your result: ") + GetString(GetGameOverScores());
 	Dialog::Message("High Scores", msg, Font::BIG, Dialog::OK);
 	return MAINMENU;
     }
@@ -260,7 +199,7 @@ Game::menu_t Game::HighScores(void)
     HGSData hgs;
 
     std::ostringstream stream;
-    stream << conf.LocalPrefix() << SEPARATOR << "files" << SEPARATOR << "save" << SEPARATOR << "fheroes2.hgs";
+    stream << System::ConcatePath(conf.GetSaveDir(), "fheroes2.hgs");
 
     cursor.SetThemes(cursor.POINTER);
     Mixer::Pause();
@@ -285,16 +224,16 @@ Game::menu_t Game::HighScores(void)
     cursor.Show();
     display.Flip();
 
-    const u16 rating = GetGameOverScores();
-    const u16 days = world.CountDay();
+    const u32 rating = GetGameOverScores();
+    const u32 days = world.CountDay();
     GameOver::Result & gameResult = GameOver::Result::Get();
 
     if(rating && (gameResult.GetResult() & GameOver::WINS))
     {
-	std::string player("Unknown Hero");
-	Dialog::InputString("Your Name", player);
+	std::string player(_("Unknown Hero"));
+	Dialog::InputString(_("Your Name"), player);
 	cursor.Hide();
-	if(player.empty()) player = "Unknown Hero";
+	if(player.empty()) player = _("Unknown Hero");
 	hgs.ScoreRegistry(player, Settings::Get().CurrentFileInfo().name, days, rating);
 	hgs.Save(stream.str().c_str());
 	hgs.RedrawList(top.x, top.y);
@@ -310,11 +249,7 @@ Game::menu_t Game::HighScores(void)
     {
 	// key code info
         if(Settings::Get().Debug() == 0x12 && le.KeyPress())
-        {
-            std::string str;
-            String::AddInt(str, le.KeyValue());
-            Dialog::Message("Key Press:", str, Font::SMALL, Dialog::OK);
-        }
+            Dialog::Message("Key Press:", GetString(le.KeyValue()), Font::SMALL, Dialog::OK);
 	le.MousePressLeft(buttonCampain) ? buttonCampain.PressDraw() : buttonCampain.ReleaseDraw();
 	le.MousePressLeft(buttonExit) ? buttonExit.PressDraw() : buttonExit.ReleaseDraw();
 

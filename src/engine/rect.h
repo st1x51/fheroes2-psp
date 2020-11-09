@@ -23,6 +23,8 @@
 #define H2RECT_H
 
 #include <vector>
+#include <string>
+#include <utility>
 #include <functional>
 #include "types.h"
 
@@ -30,52 +32,70 @@ struct Point
 {
     s16 x, y;
 
-    Point(s16 px = 0, s16 py = 0);
+    Point();
+    Point(s16, s16);
 
-    bool operator== (const Point & pt) const;
-    bool operator!= (const Point & pt) const;
+    bool operator== (const Point &) const;
+    bool operator!= (const Point &) const;
 
-    Point & operator+=(const Point & pt);
-    Point & operator-=(const Point & pt);
+    bool inABC(const Point &, const Point &, const Point &) const;
+
+    Point & operator+= (const Point &);
+    Point & operator-= (const Point &);
+
+    Point operator+ (const Point &) const;
+    Point operator- (const Point &) const;
 };
 
-Point operator+(const Point& pt1, const Point& pt2);
-Point operator-(const Point& pt1, const Point& pt2);
 
 struct Size
 {
     u16 w, h;
 
-    Size(u16 sw = 0, u16 sh = 0);
+    Size();
+    Size(u16, u16);
+    Size(const Point &);
 
     bool isEmpty(void) const;
 
-    bool operator== (const Size & sz) const;
-    bool operator!= (const Size & sz) const;
+    bool operator== (const Size &) const;
+    bool operator!= (const Size &) const;
+
+    Size & operator+= (const Size &);
+    Size & operator-= (const Size &);
+
+    Size operator+ (const Size &) const;
+    Size operator- (const Size &) const;
 };
 
 struct Rect : Point, Size
 {
-    Rect(s16 rx = -1, s16 ry = -1, u16 rw = 0, u16 rh = 0);
-    Rect(const SDL_Rect & rt);
-    Rect(const Point & pt, u16 rw, u16 rh);
-    Rect(const Point & pt, const Size & sz);
+    Rect();
+    Rect(s16, s16, u16, u16);
+    Rect(const Point &, u16, u16);
+    Rect(const Point &, const Size &);
+    Rect(const SDL_Rect &);
 
-    Rect & operator= (const Point & pt);
-    bool operator== (const Rect & rt) const;
-    bool operator!= (const Rect & rt) const;
+    Rect & operator= (const Point &);
+    bool operator== (const Rect &) const;
+    bool operator!= (const Rect &) const;
 
     // rect include point
-    bool operator& (const Point & pt) const;
-
+    bool operator& (const Point &) const;
     // rect intersects rect
-    bool operator& (const Rect & rt) const;
-
-    static Rect Get(const Rect & rt1, const Rect & rt2, bool intersect);
+    bool operator& (const Rect &) const;
+    //
+    static Rect Get(const Point &, const Point &);
+    static Rect Get(const Rect &, const Rect &, bool intersect);
+    static std::pair<Rect, Point> Fixed4Blit(const Rect &, const Rect &);
 };
+
+SDL_Rect SDLRect(s32, s32, u32, u32);
+SDL_Rect SDLRect(const Rect &);
 
 struct Points : std::vector<Point>
 {
+    Rect GetRect(void) const;
 };
 
 struct Rects : std::vector<Rect>

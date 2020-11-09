@@ -32,7 +32,7 @@ SpellStorage::SpellStorage()
     reserve(67);
 }
 
-u8 SpellStorage::Size(u8 lvl) const
+u32 SpellStorage::Size(int lvl) const
 {
     switch(lvl)
     {
@@ -48,7 +48,7 @@ u8 SpellStorage::Size(u8 lvl) const
     return size();
 }
 
-SpellStorage SpellStorage::GetSpells(u8 lvl) const
+SpellStorage SpellStorage::GetSpells(int lvl) const
 {
     SpellStorage result;
     result.reserve(20);
@@ -102,7 +102,7 @@ void SpellStorage::Append(const Artifact & art)
     	    break;
 
         case Artifact::CRYSTAL_BALL:
-    	    if(Settings::Get().ExtArtifactCrystalBall())
+    	    if(Settings::Get().ExtWorldArtifactCrystalBall())
             {
                 Append(Spell(Spell::IDENTIFYHERO));
                 Append(Spell(Spell::VISIONS));

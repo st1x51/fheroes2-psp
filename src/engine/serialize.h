@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (C) 2011 by Andrey Afletdinov <fheroes2@gmail.com>          *
+ *   Copyright (C) 2012 by Andrey Afletdinov <fheroes2@gmail.com>          *
  *                                                                         *
  *   Part of the Free Heroes2 Engine:                                      *
  *   http://sourceforge.net/projects/fheroes2                              *
@@ -20,235 +20,283 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
-#ifndef H2IO_H
-#define H2IO_H
+#ifndef H2SERIALIZE_H
+#define H2SERIALIZE_H
 
-#include <iostream>
-#include <streambuf>
-#include <algorithm>
-#include <functional>
-#include <iterator>
+#include <map>
 #include <list>
-#include <cstdlib>
+#include <string>
 #include <vector>
 
 #include "types.h"
-
-#define DEFAULT_PAGE_SIZE 64
 
 struct Point;
 struct Rect;
 struct Size;
 
-class PageBuffer : public std::streambuf
+class StreamBase
 {
-    private:
-	size_t pagesz;
-	std::list<char*> listbuf;
-	std::list<char*>::iterator isp, osp;
+protected:
+    size_t		flags;
 
-	std::list<char*>::iterator AddPage(void)
+    virtual int		get8(void) = 0;
+    virtual void	put8(char) = 0;
+
+    virtual size_t	sizeg(void) const = 0;
+    virtual size_t	sizep(void) const = 0;
+    virtual size_t	tellg(void) const = 0;
+    virtual size_t	tellp(void) const = 0;
+
+    void		setconstbuf(bool);
+    void		setfail(bool);
+
+public:
+    StreamBase() : flags(0) {}
+    virtual ~StreamBase() {}
+
+    void		setbigendian(bool);
+
+    bool		isconstbuf(void) const;
+    bool		fail(void) const;
+    bool		bigendian(void) const;
+
+    virtual void	skip(size_t) = 0;
+
+    virtual int		getBE16(void) = 0;
+    virtual int		getLE16(void) = 0;
+    virtual int		getBE32(void) = 0;
+    virtual int		getLE32(void) = 0;
+
+    virtual void	putBE32(u32) = 0;
+    virtual void	putLE32(u32) = 0;
+    virtual void	putBE16(u16) = 0;
+    virtual void	putLE16(u16) = 0;
+
+    virtual std::vector<u8>
+			getRaw(size_t = 0 /* all data */) = 0;
+    virtual void	putRaw(const char*, size_t) = 0;
+
+    int			get16(void);
+    int			get32(void);
+
+    void		put16(u16);
+    void		put32(u32);
+
+    int                 get(void) { return get8(); } // get char
+    void                put(int ch) { put8(ch); }
+
+    StreamBase &	operator>> (bool &);
+    StreamBase &	operator>> (char &);
+    StreamBase &	operator>> (u8 &);
+    StreamBase &	operator>> (s8 &);
+    StreamBase &	operator>> (u16 &);
+    StreamBase &	operator>> (s16 &);
+    StreamBase &	operator>> (u32 &);
+    StreamBase &	operator>> (s32 &);
+    StreamBase &	operator>> (float &);
+    StreamBase &	operator>> (std::string &);
+
+    StreamBase &	operator>> (Rect &);
+    StreamBase &	operator>> (Point &);
+    StreamBase &	operator>> (Size &);
+
+    StreamBase &	operator<< (const bool &);
+    StreamBase &	operator<< (const char &);
+    StreamBase &	operator<< (const u8 &);
+    StreamBase &	operator<< (const s8 &);
+    StreamBase &	operator<< (const u16 &);
+    StreamBase &	operator<< (const s16 &);
+    StreamBase &	operator<< (const u32 &);
+    StreamBase &	operator<< (const s32 &);
+    StreamBase &	operator<< (const float &);
+    StreamBase &	operator<< (const std::string &);
+
+    StreamBase &	operator<< (const Rect &);
+    StreamBase &	operator<< (const Point &);
+    StreamBase &	operator<< (const Size &);
+
+    template<class Type1, class Type2>
+    StreamBase & operator>> (std::pair<Type1, Type2> & p)
+    {
+	return *this >> p.first >> p.second;
+    }
+
+    template<class Type>
+    StreamBase & operator>> (std::vector<Type> & v)
+    {
+	const u32 size = get32();
+	v.resize(size);
+	for(typename std::vector<Type>::iterator
+    	    it = v.begin(); it != v.end(); ++it) *this >> *it;
+	return *this;
+    }
+
+    template<class Type>
+    StreamBase & operator>> (std::list<Type> & v)
+    {
+	const u32 size = get32();
+	v.resize(size);
+	for(typename std::list<Type>::iterator
+    	    it = v.begin(); it != v.end(); ++it) *this >> *it;
+	return *this;
+    }
+
+    template<class Type1, class Type2>
+    StreamBase & operator>> (std::map<Type1, Type2> & v)
+    {
+	const u32 size = get32();
+	v.clear();
+	for(u32 ii = 0; ii < size; ++ii)
 	{
-	    char* ptr = new char [pagesz];
-	    listbuf.push_back(ptr);
-	    return --listbuf.end();
+	    std::pair<Type1, Type2> pr;
+	    *this >> pr;
+	    v.insert(pr);
 	}
+	return *this;
+    }
 
-	static void DelPage(char* ptr)
-	{
-	    delete [] ptr;
-	}
+    template<class Type1, class Type2>
+    StreamBase & operator<< (const std::pair<Type1, Type2> & p)
+    {
+	return *this << p.first << p.second;
+    }
 
-    public:
-        PageBuffer(size_t sz) : pagesz(sz)
-	{
-	    isp = osp = AddPage();
-	    setp(*osp, *osp + pagesz);
-	    setg(*isp, *isp, *isp);
-	}
+    template<class Type>
+    StreamBase & operator<< (const std::vector<Type> & v)
+    {
+	put32(static_cast<u32>(v.size()));
+	for(typename std::vector<Type>::const_iterator
+	    it = v.begin(); it != v.end(); ++it) *this << *it;
+	return *this;
+    }
 
-	virtual ~PageBuffer()
-	{
-	    std::for_each(listbuf.begin(), listbuf.end(), DelPage);
-	}
+    template<class Type>
+    StreamBase & operator<< (const std::list<Type> & v)
+    {
+	put32(static_cast<u32>(v.size()));
+	for(typename std::list<Type>::const_iterator
+	    it = v.begin(); it != v.end(); ++it) *this << *it;
+	return *this;
+    }
 
-    private:
-	size_t psize(void)
-	{
-	    return pptr() - pbase();
-	}
-
-	size_t gsize(void)
-	{
-	    return gptr() - eback();
-	}
-
-	size_t obufpos(void)
-	{
-	    return std::distance(listbuf.begin(), osp) * pagesz + psize();
-	}
-
-	size_t ibufpos(void)
-	{
-	    return std::distance(listbuf.begin(), isp) * pagesz + gsize();
-	}
-
-    private:
-	int overflow(int c)
-        {
-	    osp = AddPage();
-	    if(*osp)
-	    {
-		setp(*osp, *osp + pagesz);
-		sputc(c);
-		return traits_type::to_int_type(*pptr());
-	    }
-	    return traits_type::eof();
-        }
-
-	int underflow(void)
-        {
-	    if(pagesz > gsize())
-	    {
-		if(eback() != pbase())
-		{
-		    setg(eback(), gptr(), eback() + pagesz);
-	    	    return traits_type::to_int_type(*gptr());
-		}
-		else
-		if(gsize() < psize())
-		{
-		    setg(eback(), gptr(), eback() + psize());
-	    	    return traits_type::to_int_type(*gptr());
-		}
-	    }
-	    else
-	    if(++isp != listbuf.end())
-	    {
-		setg(*isp, *isp, (*isp != pbase() ? *isp + pagesz : *isp + psize()));
-		return traits_type::to_int_type(*gptr());
-    	    }
-	    return traits_type::eof();
-        }
-
-	std::streamsize showmanyc(void)
-	{
-	    return obufpos() - ibufpos();
-	}
-
-	std::streampos seekpos(std::streampos sp, std::ios_base::openmode which)
-	{
-	    if((which & std::ios_base::in) &&
-		sp >= 0 &&
-		static_cast<size_t>(sp) < obufpos())
-	    {
-		isp = listbuf.begin();
-		std::advance(isp, sp / pagesz);
-		setg(*isp, *isp + (sp % pagesz), (*isp != pbase() ? *isp + pagesz : *isp + psize()));
-		return sp;
-	    }
-	    return std::streampos(-1);
-	}
-
-	std::streampos seekoff(std::streamoff off, std::ios_base::seekdir way, std::ios_base::openmode which)
-	{
-	    if(which & std::ios_base::in)
-	    {
-		switch(way)
-		{
-		    case std::ios_base::beg: return seekpos(off, which);
-		    case std::ios_base::cur: return seekpos(ibufpos() + off, which);
-		    case std::ios_base::end: return seekpos(obufpos() - std::abs(static_cast<int>(off)), which);
-		    default: break;
-		}
-	    }
-	    return std::streampos(-1);
-	}
-
-    private:
-        PageBuffer(const PageBuffer &);
-        PageBuffer& operator= (const PageBuffer &);
+    template<class Type1, class Type2>
+    StreamBase & operator<< (const std::map<Type1, Type2> & v)
+    {
+	put32(static_cast<u32>(v.size()));
+	for(typename std::map<Type1, Type2>::const_iterator
+	    it = v.begin(); it != v.end(); ++it) *this << *it;
+	return *this;
+    }
 };
 
-class Serialize : protected std::iostream
+#ifdef WITH_ZLIB
+class ZStreamBuf;
+#endif
+
+class StreamBuf : public StreamBase
 {
-    private:
-	PageBuffer buf;
+public:
+    StreamBuf(size_t = 0);
+    StreamBuf(const StreamBuf &);
+    StreamBuf(const std::vector<u8> &);
+    StreamBuf(const u8*, size_t);
 
-	Serialize & put16(const u16 &);
-	Serialize & put32(const u32 &);
+    ~StreamBuf();
 
-	Serialize & get16(u16 &);
-	Serialize & get32(u32 &);
+    StreamBuf &		operator= (const StreamBuf &);
 
-    public:
-	Serialize(size_t sizedef = DEFAULT_PAGE_SIZE) : std::iostream(&buf), buf(sizedef ? sizedef : DEFAULT_PAGE_SIZE) {}
+    const u8*		data(void) const;
+    size_t		size(void) const;
+    size_t		capacity(void) const;
 
-	Serialize & operator<< (const bool &);
-	Serialize & operator<< (const u8 &);
-	Serialize & operator<< (const s8 &);
-	Serialize & operator<< (const u16 &);
-	Serialize & operator<< (const s16 &);
-	Serialize & operator<< (const u32 &);
-	Serialize & operator<< (const s32 &);
-	Serialize & operator<< (const std::string &);
+    void		seek(size_t);
+    void		skip(size_t);
 
-	Serialize & operator<< (const Rect &);
-	Serialize & operator<< (const Point&);
-	Serialize & operator<< (const Size &);
+    int			getBE16(void);
+    int			getLE16(void);
+    int			getBE32(void);
+    int			getLE32(void);
 
-	Serialize & operator>> (bool &);
-	Serialize & operator>> (u8 &);
-	Serialize & operator>> (s8 &);
-	Serialize & operator>> (u16 &);
-	Serialize & operator>> (s16 &);
-	Serialize & operator>> (u32 &);
-	Serialize & operator>> (s32 &);
-	Serialize & operator>> (std::string &);
+    void		putBE32(u32);
+    void		putLE32(u32);
+    void		putBE16(u16);
+    void		putLE16(u16);
 
-	Serialize & operator>> (Rect &);
-	Serialize & operator>> (Point&);
-	Serialize & operator>> (Size &);
+    std::vector<u8>	getRaw(size_t = 0 /* all data */);
+    void		putRaw(const char*, size_t);
 
-	template<class Type>
-	Serialize & operator<< (const std::vector<Type> & v)
-	{
-	    put32(v.size());
-	    for(typename std::vector<Type>::const_iterator
-    		it = v.begin(); it != v.end(); ++it) *this << *it;
-	    return *this;
-	}
+    std::string		toString(size_t = 0 /* all data */);
 
-	template<class Type>
-	Serialize & operator<< (const std::list<Type> & v)
-	{
-	    put32(v.size());
-	    for(typename std::list<Type>::const_iterator
-    		it = v.begin(); it != v.end(); ++it) *this << *it;
-	    return *this;
-	}
+protected:
+    void		reset(void);
 
-	template<class Type>
-	Serialize & operator>> (std::vector<Type> & v)
-	{
-	    u32 size;
-	    get32(size);
-	    v.resize(size);
-	    for(typename std::vector<Type>::iterator
-    		it = v.begin(); it != v.end(); ++it) *this >> *it;
-	    return *this;
-	}
+    size_t		tellg(void) const;
+    size_t		tellp(void) const;
+    size_t		sizeg(void) const;
+    size_t		sizep(void) const;
 
-	template<class Type>
-	Serialize & operator>> (std::list<Type> & v)
-	{
-	    u32 size;
-	    get32(size);
-	    v.resize(size);
-	    for(typename std::list<Type>::iterator
-    		it = v.begin(); it != v.end(); ++it) *this >> *it;
-	    return *this;
-	}
+    void		copy(const StreamBuf &);
+    void		realloc(size_t);
+    void		setfail(void);
+
+    int			get8(void);
+    void		put8(char);
+
+#ifdef WITH_ZLIB
+    friend class ZStreamBuf;
+#endif
+
+    u8*			itbeg;
+    u8*			itget;
+    u8*			itput;
+    u8*			itend;
+};
+
+class StreamFile : public StreamBase
+{
+    SDL_RWops*		rw;
+
+public:
+    StreamFile() {}
+    StreamFile(const std::string &, const char* mode);
+    ~StreamFile();
+
+    size_t		size(void) const;
+    size_t		tell(void) const;
+
+    bool		open(const std::string &, const char* mode);
+    void		close(void);
+
+    StreamBuf		toStreamBuf(size_t = 0 /* all data */);
+
+    void		seek(size_t);
+    void		skip(size_t);
+
+    int			getBE16(void);
+    int			getLE16(void);
+    int			getBE32(void);
+    int			getLE32(void);
+
+    void		putBE32(u32);
+    void		putLE32(u32);
+    void		putBE16(u16);
+    void		putLE16(u16);
+
+    std::vector<u8>	getRaw(size_t = 0 /* all data */);
+    void		putRaw(const char*, size_t);
+
+    std::string		toString(size_t = 0 /* all data */);
+
+protected:
+    StreamFile &	operator= (const StreamFile &) { return *this; }
+
+    size_t		sizeg(void) const;
+    size_t		sizep(void) const;
+    size_t		tellg(void) const;
+    size_t		tellp(void) const;
+
+    int			get8(void);
+    void		put8(char);
 };
 
 #endif

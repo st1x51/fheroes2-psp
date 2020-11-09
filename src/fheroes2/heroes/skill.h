@@ -1,23 +1,23 @@
-/*************************************************************************** 
+/***************************************************************************
  *   Copyright (C) 2009 by Andrey Afletdinov <fheroes2@gmail.com>          *
  *                                                                         *
  *   Part of the Free Heroes2 Engine:                                      *
  *   http://sourceforge.net/projects/fheroes2                              *
- *                                                                         * 
- *   This program is free software; you can redistribute it and/or modify  * 
- *   it under the terms of the GNU General Public License as published by  * 
- *   the Free Software Foundation; either version 2 of the License, or     * 
- *   (at your option) any later version.                                   * 
- *                                                                         * 
- *   This program is distributed in the hope that it will be useful,       * 
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of        * 
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         * 
- *   GNU General Public License for more details.                          * 
- *                                                                         * 
- *   You should have received a copy of the GNU General Public License     * 
- *   along with this program; if not, write to the                         * 
- *   Free Software Foundation, Inc.,                                       * 
- *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             * 
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ *   This program is distributed in the hope that it will be useful,       *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+ *   GNU General Public License for more details.                          *
+ *                                                                         *
+ *   You should have received a copy of the GNU General Public License     *
+ *   along with this program; if not, write to the                         *
+ *   Free Software Foundation, Inc.,                                       *
+ *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
 #ifndef H2SKILL_H
@@ -26,31 +26,30 @@
 #include <string>
 #include <vector>
 #include <utility>
-#include "color.h"
 #include "gamedefs.h"
 
-void StringAppendModifiers(std::string &, s8);
+void StringAppendModifiers(std::string &, int);
+
 class Spell;
+class Heroes;
 
 namespace Skill
 {
-    s8 GetLeadershipModifiers(u8 level, std::string* strs);
-    s8 GetLuckModifiers(u8 level, std::string* strs);
-
-    void UpdateStats(const std::string &);
+    int		GetLeadershipModifiers(int level, std::string* strs);
+    int		GetLuckModifiers(int level, std::string* strs);
+    void	UpdateStats(const std::string &);
 
     namespace Level
     {
-	enum type_t { NONE=0, BASIC=1, ADVANCED=2, EXPERT=3 };
+	enum { NONE = 0, BASIC = 1, ADVANCED = 2, EXPERT = 3 };
 
-	const char* String(u8 level);
+	const char* String(int level);
     }
 
-    class Secondary : private std::pair<u8, u8>
+    class Secondary : public std::pair<int, int>
     {
 	public:
-
-	enum skill_t
+	enum
 	{
 	    UNKNOWN	= 0,
 	    PATHFINDING	= 1,
@@ -72,120 +71,149 @@ namespace Skill
 	};
 
 	Secondary();
-	Secondary(u8 skill, u8 level);
+	Secondary(int skill, int level);
 
 	void		Reset(void);
 	void		Set(const Secondary &);
-	void		SetSkill(u8);
-	void		SetLevel(u8);
+	void		SetSkill(int);
+	void		SetLevel(int);
 	void		NextLevel(void);
 
-	u8		Level(void) const;
-	u8		Skill(void) const;
+	int		Level(void) const;
+	int		Skill(void) const;
 
-	bool		isLevel(u8) const;
-	bool		isSkill(u8) const;
+	bool		isLevel(int) const;
+	bool		isSkill(int) const;
 	bool		isValid(void) const;
 
 	const char*	GetName(void) const;
 	std::string	GetDescription(void) const;
-	u16		GetValues(void) const;
+	u32		GetValues(void) const;
 
 	/* index sprite from SECSKILL */
-	u8		GetIndexSprite1(void) const;
+	int		GetIndexSprite1(void) const;
 	/* index sprite from MINISS */
-	u8		GetIndexSprite2(void) const;
+	int		GetIndexSprite2(void) const;
 
-	static u8	RandForWitchsHut(void);
-	static const char* String(u8);
+	static int	RandForWitchsHut(void);
+	static const char*
+			String(int);
     };
-    
-    struct SecSkills : std::vector<Secondary>
+
+    StreamBase & operator>> (StreamBase &, Secondary &);
+
+    class SecSkills : protected std::vector<Secondary>
     {
+	public:
 	SecSkills();
-	SecSkills(u8 race);
+	SecSkills(int race);
 
-	u8	GetLevel(u8 skill) const;
-	u16	GetValues(u8 skill) const;
-	void	AddSkill(const Skill::Secondary &);
-	void	FindSkillsForLevelUp(u8 race, Secondary &, Secondary &) const;
+	int		GetLevel(int skill) const;
+	u32		GetValues(int skill) const;
+	void		AddSkill(const Skill::Secondary &);
+	void		FindSkillsForLevelUp(int race, Secondary &, Secondary &) const;
+	void		FillMax(const Skill::Secondary &);
+	Secondary*	FindSkill(int);
+	std::string	String(void) const;
+	int		Count(void) const;
+	std::vector<Secondary> &
+			ToVector(void);
 
-	void	ReadFromMP2(const u8*);
-
-	std::string String(void) const;
+    protected:
+	friend StreamBase & operator<< (StreamBase &, const SecSkills &);
+	friend StreamBase & operator>> (StreamBase &, SecSkills &);
     };
+
+    StreamBase & operator<< (StreamBase &, const SecSkills &);
+    StreamBase & operator>> (StreamBase &, SecSkills &);
 
     class Primary
     {
 	public:
-
-	enum skill_t
-	{
-	    UNKNOWN	= 0,
-	    ATTACK	= 1,
-	    DEFENSE	= 2,
-	    POWER	= 3,
-	    KNOWLEDGE	= 4
-	};
-
-	enum type_t
-	{
-	    UNDEFINED,
-	    CAPTAIN,
-	    HEROES
-	};
-
 	Primary();
 	virtual ~Primary(){};
 
-    	virtual u8 GetAttack(void) const = 0;
-	virtual u8 GetDefense(void) const = 0;
-        virtual u8 GetPower(void) const = 0;
-        virtual u8 GetKnowledge(void) const = 0;
-	virtual s8 GetMorale(void) const = 0;
-	virtual s8 GetLuck(void) const = 0;
-	virtual u8 GetRace(void) const = 0;
-	virtual u8 GetType(void) const = 0;
+	enum { UNKNOWN = 0, ATTACK = 1, DEFENSE = 2, POWER = 3, KNOWLEDGE = 4 };
 
-	u8 LevelUp(u8 race, u8 level);
+    	virtual int GetAttack(void) const = 0;
+	virtual int GetDefense(void) const = 0;
+        virtual int GetPower(void) const = 0;
+        virtual int GetKnowledge(void) const = 0;
+	virtual int GetMorale(void) const = 0;
+	virtual int GetLuck(void) const = 0;
+	virtual int GetRace(void) const = 0;
 
-        static const char* String(u8);
-	static void LoadDefaults(u8 type, u8 race, Primary &);
-	static u8 GetInitialSpell(u8 race);
+	virtual bool	isCaptain(void) const;
+	virtual bool	isHeroes(void) const;
+
+	int		LevelUp(int race, int level);
+
+	std::string	StringSkills(const std::string &) const;
+
+        static const char*	String(int);
+	static std::string	StringDescription(int, const Heroes*);
+	static int		GetInitialSpell(int race);
 
 	protected:
-	u8			attack;
-	u8			defense;
-	u8			power;
-	u8			knowledge;
+	void LoadDefaults(int type, int race);
+
+	friend StreamBase & operator<< (StreamBase &, const Primary &);
+	friend StreamBase & operator>> (StreamBase &, Primary &);
+
+	int			attack;
+	int			defense;
+	int			power;
+	int			knowledge;
     };
+
+    StreamBase & operator<< (StreamBase &, const Primary &);
+    StreamBase & operator>> (StreamBase &, Primary &);
 }
 
-class SecondarySkillBar
+#include "interface_itemsbar.h"
+class PrimarySkillsBar : public Interface::ItemsBar<int>
 {
 public:
-    SecondarySkillBar();
+    PrimarySkillsBar(const Heroes*, bool mini);
 
-    const Rect & GetArea(void) const;
-    u8 GetIndexFromCoord(const Point &);
+    void	SetTextOff(s32, s32);
+    void	RedrawBackground(const Rect &, Surface &);
+    void	RedrawItem(int &, const Rect &, Surface &);
 
-    void SetSkills(Skill::SecSkills &);
-    void SetUseMiniSprite(void);
-    void SetPos(s16, s16);
-    void SetInterval(u8);
-    void SetChangeMode(void);
+    bool	ActionBarSingleClick(const Point &, int &, const Rect &);
+    bool	ActionBarPressRight(const Point &, int &, const Rect &);
+    bool        ActionBarCursor(const Point &, int &, const Rect &);
 
-    void Redraw(void);
-    bool QueueEventProcessing(void);
+    bool        QueueEventProcessing(std::string* = NULL);
 
-private:
-    void CalcSize(void);
+protected:
+    const Heroes*	hero;
+    Surface		backsf;
+    bool		use_mini_sprite;
+    std::vector<int>	content;
+    Point		toff;
+    std::string		msg;
+};
 
-    Rect pos;
-    Skill::SecSkills *skills;
-    u8 interval;
-    bool use_mini_sprite;
-    bool can_change;
+class SecondarySkillsBar : public Interface::ItemsBar<Skill::Secondary>
+{
+public:
+    SecondarySkillsBar(bool mini = true, bool change = false);
+
+    void	RedrawBackground(const Rect &, Surface &);
+    void	RedrawItem(Skill::Secondary &, const Rect &, Surface &);
+
+    bool	ActionBarSingleClick(const Point &, Skill::Secondary &, const Rect &);
+    bool	ActionBarPressRight(const Point &, Skill::Secondary &, const Rect &);
+    bool        ActionBarCursor(const Point &, Skill::Secondary &, const Rect &);
+
+    bool        QueueEventProcessing(std::string* = NULL);
+
+protected:
+    Surface	backsf;
+    bool	use_mini_sprite;
+    bool	can_change;
+    std::string	msg;
 };
 
 #endif

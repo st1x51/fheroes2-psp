@@ -26,11 +26,9 @@
 #include "race.h"
 #include "army.h"
 #include "resource.h"
+#include "game.h"
+#include "game_static.h"
 #include "spell.h"
-
-#ifdef WITH_XML
-#include "xmlccwrap.h"
-#endif
 
 enum { SP_DISABLE = 0x01 };
 
@@ -46,14 +44,6 @@ struct spellstats_t
         const char* description;
 };
 
-// game_static.cpp
-namespace GameStatic
-{
-    extern u16 spell_dd_distance;
-    extern u16 spell_dd_sp;
-    extern u16 spell_dd_hp;
-}
-
 spellstats_t spells[] = {
 	//  name                      sp   mp  spr value  bits cost     description
 	{ "Unknown",                    0, 0,  0,     0, 0, COST_NONE,  "Unknown spell." },
@@ -66,7 +56,6 @@ spellstats_t spells[] = {
 	{ _("Mass Cure"),              15, 0,  2,     5, 0, COST_NONE,  _("Removes all negative spells cast upon your forces, and restores up to %{count} HP per level of spell power, per creature.") }, 
 	{ _("Resurrect"),              12, 0, 13,    50, 0, COST_NONE,  _("Resurrects creatures from a damaged or dead unit until end of combat.") }, 
 	{ _("Resurrect True"),         15, 0, 12,    50, 0, COST_NONE,  _("Resurrects creatures from a damaged or dead unit permanently.") }, 
-	// extra: 0, because also used Speed:GetOriginal (see Battle2::Stats::GetSpeed)
 	{ _("Haste"),                   3, 0, 14,     0, 0, COST_NONE,  _("Increases the speed of any creature by %{count}.") }, 
 	{ _("Mass Haste"),             10, 0, 14,     0, 0, COST_NONE,  _("Increases the speed of all of your creatures by %{count}.") }, 
 	{ _("spell|Slow"),              3, 0,  1,     0, 0, COST_NONE,  _("Slows target to half movement rate.") }, 
@@ -124,7 +113,13 @@ spellstats_t spells[] = {
 	{ _("Set Air Guardian"),       15, 0, 53,     4, 0, COST_NONE,  _("Sets Air Elementals to guard a mine against enemy armies.") },
 	{ _("Set Fire Guardian"),      15, 0, 54,     4, 0, COST_NONE,  _("Sets Fire Elementals to guard a mine against enemy armies.") },
 	{ _("Set Water Guardian"),     15, 0, 55,     4, 0, COST_NONE,  _("Sets Water Elementals to guard a mine against enemy armies.") },
-	{ _("Stone"),  		        0, 0,  0,     0, 0, COST_NONE,  _("Stone spell from Medusa.") },
+	{ "Random",			0, 0,  0,     0, 0, COST_NONE,  "Random" },
+	{ "Random 1",			0, 0,  0,     0, 0, COST_NONE,  "Random 1" },
+	{ "Random 2",			0, 0,  0,     0, 0, COST_NONE,  "Random 2" },
+	{ "Random 3",			0, 0,  0,     0, 0, COST_NONE,  "Random 3" },
+	{ "Random 4",			0, 0,  0,     0, 0, COST_NONE,  "Random 4" },
+	{ "Random 5",			0, 0,  0,     0, 0, COST_NONE,  "Random 5" },
+	{ "Stone",  		        0, 0,  0,     0, 0, COST_NONE,  "Stone spell from Medusa." },
 };
 
 void Spell::UpdateStats(const std::string & spec)
@@ -133,11 +128,11 @@ void Spell::UpdateStats(const std::string & spec)
     // parse spells.xml
     TiXmlDocument doc;
     const TiXmlElement* xml_spells = NULL;
-    size_t index = 0;
 
     if(doc.LoadFile(spec.c_str()) &&
         NULL != (xml_spells = doc.FirstChildElement("spells")))
     {
+	size_t index = 0;
         const TiXmlElement* xml_spell = xml_spells->FirstChildElement("spell");
         for(; xml_spell && index < STONE; xml_spell = xml_spell->NextSiblingElement("spell"), ++index)
         {
@@ -161,9 +156,9 @@ void Spell::UpdateStats(const std::string & spec)
             // load dimension door params
             if(index == DIMENSIONDOOR)
             {
-		xml_spell->Attribute("conf_distance", &value); GameStatic::spell_dd_distance = value;
-		xml_spell->Attribute("conf_sp", &value); GameStatic::spell_dd_sp = value;
-		xml_spell->Attribute("conf_hp", &value); GameStatic::spell_dd_hp = value;
+		xml_spell->Attribute("conf_distance", &value); GameStatic::SetSpell_DD_Distance(value);
+		xml_spell->Attribute("conf_sp", &value); GameStatic::SetSpell_DD_SP(value);
+		xml_spell->Attribute("conf_hp", &value); GameStatic::SetSpell_DD_HP(value);
             }
 
 	    // load spell cost
@@ -176,7 +171,7 @@ void Spell::UpdateStats(const std::string & spec)
 #endif
 }
 
-Spell::Spell(u8 s) : id(s > STONE ? NONE : s)
+Spell::Spell(int s) : id(s > STONE ? NONE : s)
 {
 }
 
@@ -200,12 +195,12 @@ bool Spell::isValid(void) const
     return id != Spell::NONE;
 }
 
-u8 Spell::operator() (void) const
+int Spell::operator() (void) const
 {
     return id;
 }
 
-u8 Spell::GetID(void) const
+int Spell::GetID(void) const
 {
     return id;
 }
@@ -220,15 +215,15 @@ const char* Spell::GetDescription(void) const
     return _(spells[id].description);
 }
 
-u16 Spell::MovePoint(void) const
+u32 Spell::MovePoint(void) const
 {
     return spells[id].mp;
 }
 
-u8 Spell::SpellPoint(const HeroBase* hero) const
+u32 Spell::SpellPoint(const HeroBase* hero) const
 {
-    u8 res = spells[id].sp;
-    u8 acount = 0;
+    u32 res = spells[id].sp;
+    u32 acount = 0;
 
     if(hero)
     {
@@ -276,12 +271,12 @@ payment_t Spell::GetCost(void) const
     return payment_t(spells[id].cost);
 }
 
-bool Spell::isLevel(u8 lvl) const
+bool Spell::isLevel(int lvl) const
 {
     return Level() == lvl;
 }
 
-u8 Spell::Level(void) const
+int Spell::Level(void) const
 {
     switch(id)
     {
@@ -408,7 +403,7 @@ bool Spell::isDamage(void) const
     return Damage();
 }
 
-u8 Spell::Damage(void) const
+u32 Spell::Damage(void) const
 {
     switch(id)
     {
@@ -449,12 +444,12 @@ bool Spell::isMindInfluence(void) const
     return false;
 }
 
-u8 Spell::IndexSprite(void) const
+u32 Spell::IndexSprite(void) const
 {
     return spells[id].sprite;
 }
 
-u8 Spell::InlIndexSprite(void) const
+u32 Spell::InlIndexSprite(void) const
 {
     switch(id)
     {
@@ -484,7 +479,7 @@ u8 Spell::InlIndexSprite(void) const
     return 0;
 }
 
-u8 Spell::Restore(void) const
+u32 Spell::Restore(void) const
 {
     switch(id)
     {
@@ -498,7 +493,7 @@ u8 Spell::Restore(void) const
     return Resurrect();
 }
 
-u8 Spell::Resurrect(void) const
+u32 Spell::Resurrect(void) const
 {
     switch(id)
     {
@@ -524,17 +519,17 @@ bool Spell::isResurrect(void) const
 }
 
 
-u8 Spell::ExtraValue(void) const
+u32 Spell::ExtraValue(void) const
 {
     return spells[id].extra;
 }
 
-Spell Spell::Rand(u8 lvl, bool adv)
+Spell Spell::Rand(int lvl, bool adv)
 {
     std::vector<Spell> v;
     v.reserve(15);
 
-    for(u8 sp = NONE; sp < STONE; ++sp)
+    for(u32 sp = NONE; sp < STONE; ++sp)
     {
 	const Spell spell(sp);
 	if(((adv && !spell.isCombat()) || (!adv && spell.isCombat())) &&
@@ -544,12 +539,12 @@ Spell Spell::Rand(u8 lvl, bool adv)
     return v.size() ? *Rand::Get(v) : Spell(Spell::NONE);
 }
 
-Spell Spell::RandCombat(u8 lvl)
+Spell Spell::RandCombat(int lvl)
 {
     return Rand(lvl, false);
 }
 
-Spell Spell::RandAdventure(u8 lvl)
+Spell Spell::RandAdventure(int lvl)
 {
     Spell res = Rand(lvl, true);
     return res.isValid() ? res : RandCombat(lvl);
@@ -718,7 +713,7 @@ bool Spell::isApplyToEnemies(void) const
     return false;
 }
 
-bool Spell::isRaceCompatible(u8 race) const
+bool Spell::isRaceCompatible(int race) const
 {
     switch(id)
     {
@@ -744,13 +739,23 @@ bool Spell::isRaceCompatible(u8 race) const
     return true;
 }
 
-u8 Spell::CalculateDimensionDoorDistance(u8 current_sp, u32 total_hp)
+u32 Spell::CalculateDimensionDoorDistance(u32 current_sp, u32 total_hp)
 {
-    if(GameStatic::spell_dd_distance && GameStatic::spell_dd_hp && GameStatic::spell_dd_sp && total_hp)
+    if(GameStatic::Spell_DD_Distance() && GameStatic::Spell_DD_HP() && GameStatic::Spell_DD_SP() && total_hp)
     {
-	const u16 res = (GameStatic::spell_dd_distance * current_sp * GameStatic::spell_dd_hp) / (GameStatic::spell_dd_sp * total_hp);
+	const u32 res = (GameStatic::Spell_DD_Distance() * current_sp * GameStatic::Spell_DD_HP()) / (GameStatic::Spell_DD_SP() * total_hp);
 	return res ? (res < 255 ? res : 255) : 1;
     }
     // original h2 variant
     return 14;
+}
+
+StreamBase & operator<< (StreamBase & msg, const Spell & spell)
+{
+    return msg << spell.id;
+}
+
+StreamBase & operator>> (StreamBase & msg, Spell & spell)
+{
+    return msg >> spell.id;
 }

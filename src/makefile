@@ -26,11 +26,11 @@ PSP_EBOOT_PIC1   = PIC0.PNG
 
 PSP_FW_VERSION   = 500
 BUILD_PRX        = 1
-INCDIR           = xmlccwrap engine fheroes2\agg fheroes2\ai fheroes2\algorithm fheroes2\army fheroes2\battle2 fheroes2\castle fheroes2\dialog \
+INCDIR           = xmlccwrap engine fheroes2\agg fheroes2\ai fheroes2\algorithm fheroes2\army fheroes2\battle fheroes2\castle fheroes2\dialog \
 fheroes2\editor fheroes2\game fheroes2\gui fheroes2\heroes fheroes2\kingdom fheroes2\image fheroes2\maps fheroes2\monster fheroes2\network fheroes2\objects \
 fheroes2\pocketpc fheroes2\resource fheroes2\spell fheroes2\system fheroes2\test
 
-#PSP_LARGE_MEMORY = 1
+PSP_LARGE_MEMORY = 1
 #fheroes2\ai\simple\ai_battle.o \
 #fheroes2\ai\simple\ai_castle.o \
 #fheroes2\ai\simple\ai_heroes.o \
@@ -42,31 +42,25 @@ engine\audio.o \
 engine\audio_cdrom.o \
 engine\audio_mixer.o \
 engine\audio_music.o \
-engine\background.o \
+engine\dir.o \
 engine\display.o \
 engine\engine.o \
 engine\error.o \
 engine\font.o \
 engine\IMG_savepng.o \
 engine\localevent.o \
-engine\midi.o \
-engine\midi_chunk.o \
-engine\midi_event.o \
-engine\midi_mid.o \
-engine\midi_mthd.o \
-engine\midi_mtrk.o \
-engine\midi_xmi.o \
-engine\palette.o \
 engine\rand.o \
 engine\rect.o \
 engine\sdlnet.o \
 engine\serialize.o \
-engine\spritecursor.o \
+engine\sprites.o \
 engine\surface.o \
+engine\system.o \
 engine\thread.o \
 engine\tinyconfig.o \
 engine\tools.o \
-engine\types.o \
+engine\translations.o \
+engine\xmi2mid.o \
 engine\zzlib.o \
 fheroes2\agg\agg.o \
 fheroes2\agg\icn.o \
@@ -76,20 +70,25 @@ fheroes2\agg\sprite.o \
 fheroes2\agg\til.o \
 fheroes2\agg\xmi.o \
 fheroes2\ai\empty\ai_empty.o \
-fheroes2\algorithm\algorithm.o \
-fheroes2\algorithm\pathfind.o \
+fheroes2\ai\ai_action.o \
 fheroes2\army\army.o \
+fheroes2\army\army_bar.o \
 fheroes2\army\army_troop.o \
-fheroes2\battle2\battle_action.o \
-fheroes2\battle2\battle_arena.o \
-fheroes2\battle2\battle_bridge.o \
-fheroes2\battle2\battle_catapult.o \
-fheroes2\battle2\battle_cell.o \
-fheroes2\battle2\battle_dialogs.o \
-fheroes2\battle2\battle_interface.o \
-fheroes2\battle2\battle_main.o \
-fheroes2\battle2\battle_stats.o \
-fheroes2\battle2\battle_tower.o \
+fheroes2\battle\battle_action.o \
+fheroes2\battle\battle_arena.o \
+fheroes2\battle\battle_army.o \
+fheroes2\battle\battle_board.o \
+fheroes2\battle\battle_bridge.o \
+fheroes2\battle\battle_catapult.o \
+fheroes2\battle\battle_cell.o \
+fheroes2\battle\battle_command.o \
+fheroes2\battle\battle_dialogs.o \
+fheroes2\battle\battle_grave.o \
+fheroes2\battle\battle_interface.o \
+fheroes2\battle\battle_main.o \
+fheroes2\battle\battle_only.o \
+fheroes2\battle\battle_tower.o \
+fheroes2\battle\battle_troop.o \
 fheroes2\castle\buildinginfo.o \
 fheroes2\castle\captain.o \
 fheroes2\castle\castle.o \
@@ -119,6 +118,7 @@ fheroes2\dialog\dialog_recrut.o \
 fheroes2\dialog\dialog_resourceinfo.o \
 fheroes2\dialog\dialog_selectcount.o \
 fheroes2\dialog\dialog_selectfile.o \
+fheroes2\dialog\dialog_selectitems.o \
 fheroes2\dialog\dialog_selectscenario.o \
 fheroes2\dialog\dialog_settings.o \
 fheroes2\dialog\dialog_skillinfo.o \
@@ -126,19 +126,10 @@ fheroes2\dialog\dialog_spellinfo.o \
 fheroes2\dialog\dialog_spriteinfo.o \
 fheroes2\dialog\dialog_system.o \
 fheroes2\dialog\dialog_thievesguild.o \
-fheroes2\editor\editor_dialogs.o \
-fheroes2\editor\editor_interface.o \
-fheroes2\editor\editor_loadmaps.o \
-fheroes2\editor\editor_mainmenu.o \
-fheroes2\editor\editor_newmaps.o \
-fheroes2\editor\editor_startgame.o \
 fheroes2\game\difficulty.o \
 fheroes2\game\fheroes2.o \
 fheroes2\game\game.o \
-fheroes2\game\gameevent.o \
-fheroes2\game\game_battleonly.o \
 fheroes2\game\game_delays.o \
-fheroes2\game\game_focus.o \
 fheroes2\game\game_highscores.o \
 fheroes2\game\game_hotkeys.o \
 fheroes2\game\game_interface.o \
@@ -155,13 +146,12 @@ fheroes2\gui\cursor.o \
 fheroes2\gui\interface_border.o \
 fheroes2\gui\interface_buttons.o \
 fheroes2\gui\interface_cpanel.o \
+fheroes2\gui\interface_events.o \
+fheroes2\gui\interface_focus.o \
 fheroes2\gui\interface_gamearea.o \
 fheroes2\gui\interface_icons.o \
 fheroes2\gui\interface_radar.o \
 fheroes2\gui\interface_status.o \
-fheroes2\gui\selectarmybar.o \
-fheroes2\gui\selectartifactbar.o \
-fheroes2\gui\sizecursor.o \
 fheroes2\gui\splitter.o \
 fheroes2\gui\statusbar.o \
 fheroes2\gui\text.o \
@@ -175,11 +165,12 @@ fheroes2\heroes\heroes_meeting.o \
 fheroes2\heroes\heroes_move.o \
 fheroes2\heroes\heroes_recruits.o \
 fheroes2\heroes\heroes_spell.o \
-fheroes2\heroes\portrait.o \
 fheroes2\heroes\route.o \
+fheroes2\heroes\route_pathfind.o \
 fheroes2\heroes\skill.o \
 fheroes2\kingdom\color.o \
 fheroes2\kingdom\kingdom.o \
+fheroes2\kingdom\kingdom_overview.o \
 fheroes2\kingdom\luck.o \
 fheroes2\kingdom\morale.o \
 fheroes2\kingdom\payment.o \
@@ -189,22 +180,18 @@ fheroes2\kingdom\race.o \
 fheroes2\kingdom\speed.o \
 fheroes2\kingdom\week.o \
 fheroes2\kingdom\world.o \
+fheroes2\kingdom\world_loadmap.o \
 fheroes2\maps\ground.o \
 fheroes2\maps\maps.o \
+fheroes2\maps\maps_actions.o \
 fheroes2\maps\maps_fileinfo.o \
+fheroes2\maps\maps_objects.o \
 fheroes2\maps\maps_tiles.o \
 fheroes2\maps\maps_tiles_quantity.o \
 fheroes2\maps\mp2.o \
 fheroes2\maps\position.o \
 fheroes2\maps\visit.o \
 fheroes2\monster\monster.o \
-fheroes2\network\client.o \
-fheroes2\network\localclient.o \
-fheroes2\network\localclient_startgame.o \
-fheroes2\network\network.o \
-fheroes2\network\player.o \
-fheroes2\network\remoteclient.o \
-fheroes2\network\server.o \
 fheroes2\objects\mounts.o \
 fheroes2\objects\objcrck.o \
 fheroes2\objects\objdirt.o \
@@ -222,6 +209,7 @@ fheroes2\pocketpc\pocketpc_armyinfo.o \
 fheroes2\pocketpc\pocketpc_castle.o \
 fheroes2\pocketpc\pocketpc_dialog.o \
 fheroes2\pocketpc\pocketpc_heroes.o \
+fheroes2\pocketpc\pocketpc_kingdom.o \
 fheroes2\pocketpc\pocketpc_mainmenu.o \
 fheroes2\pocketpc\pocketpc_meeting.o \
 fheroes2\pocketpc\pocketpc_selectscenario.o \
@@ -233,7 +221,6 @@ fheroes2\resource\resource.o \
 fheroes2\spell\spell.o \
 fheroes2\spell\spell_book.o \
 fheroes2\spell\spell_storage.o \
-fheroes2\system\dir.o \
 fheroes2\system\gamedefs.o \
 fheroes2\system\players.o \
 fheroes2\system\settings.o \

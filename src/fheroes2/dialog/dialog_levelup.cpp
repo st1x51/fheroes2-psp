@@ -21,9 +21,12 @@
  ***************************************************************************/
 
 #include "agg.h"
+#include "text.h"
 #include "settings.h"
 #include "cursor.h"
 #include "button.h"
+#include "heroes.h"
+#include "game.h"
 #include "dialog.h"
 
 void DialogPrimaryOnly(const std::string & name, const std::string & primary)
@@ -31,26 +34,25 @@ void DialogPrimaryOnly(const std::string & name, const std::string & primary)
     std::string message = _("%{name} has gained a level.");
     message.append("\n \n");
     message.append(_("%{skill} Skill +1"));
-    String::Replace(message, "%{name}", name);
-    String::Replace(message, "%{skill}", primary);
+    StringReplace(message, "%{name}", name);
+    StringReplace(message, "%{skill}", primary);
     Dialog::Message("", message, Font::BIG, Dialog::OK);
 }
 
-u8 DialogOneSecondary(const std::string & name, const std::string & primary, const Skill::Secondary & sec)
+int DialogOneSecondary(const std::string & name, const std::string & primary, const Skill::Secondary & sec)
 {
     std::string message = _("%{name} has gained a level.");
     message.append("\n \n");
     message.append(_("%{skill} Skill +1"));
-    String::Replace(message, "%{name}", name);
-    String::Replace(message, "%{skill}", primary);
+    StringReplace(message, "%{name}", name);
+    StringReplace(message, "%{skill}", primary);
 
     message.append("\n \n");
     message.append(_("You have learned %{skill}."));
-    String::Replace(message, "%{skill}", sec.GetName());
+    StringReplace(message, "%{skill}", sec.GetName());
 
     const Sprite & sprite_frame = AGG::GetICN(ICN::SECSKILL, 15);
-    Surface sf(sprite_frame.w(), sprite_frame.h());
-    sprite_frame.Blit(sf);
+    Surface sf = sprite_frame.GetSurface();
 
     // sprite
     const Sprite & sprite_skill = AGG::GetICN(ICN::SECSKILL, sec.GetIndexSprite1());
@@ -66,19 +68,16 @@ u8 DialogOneSecondary(const std::string & name, const std::string & primary, con
     return sec.Skill();
 }
 
-u8 DialogSelectSecondary(const std::string & name, const std::string & primary, const Skill::Secondary & sec1, const Skill::Secondary & sec2)
+int DialogSelectSecondary(const std::string & name, const std::string & primary, const Skill::Secondary & sec1, const Skill::Secondary & sec2, Heroes & hero)
 {
     std::string header = _("%{name} has gained a level.");
     header.append("\n \n");
     header.append(_("%{skill} Skill +1"));
-    String::Replace(header, "%{name}", name);
-    String::Replace(header, "%{skill}", primary);
+    StringReplace(header, "%{name}", name);
+    StringReplace(header, "%{skill}", primary);
 
     Display & display = Display::Get();
-    const ICN::icn_t system = Settings::Get().EvilInterface() ? ICN::SYSTEME : ICN::SYSTEM;
-
-    // preload
-    AGG::PreloadObject(system);
+    const int system = Settings::Get().ExtGameEvilInterface() ? ICN::SYSTEME : ICN::SYSTEM;
 
     // cursor
     Cursor & cursor = Cursor::Get();
@@ -97,22 +96,22 @@ u8 DialogSelectSecondary(const std::string & name, const std::string & primary, 
     message.append(_("or"));
     message.append(" ");
     message.append("\n%{skill2}");
-    String::Replace(message, "%{skill1}", sec1.GetName());
-    String::Replace(message, "%{skill2}", sec2.GetName());
+    StringReplace(message, "%{skill1}", sec1.GetName());
+    StringReplace(message, "%{skill2}", sec2.GetName());
 
     TextBox box1(header, Font::BIG, BOXAREA_WIDTH);
     TextBox box2(message, Font::BIG, BOXAREA_WIDTH);
-    const u8 spacer = Settings::Get().QVGA() ? 5 : 10;
+    const int spacer = Settings::Get().QVGA() ? 5 : 10;
 
-    Dialog::Box box(box1.h() + spacer + box2.h() + 10 + sprite_frame.h(), true);
+    Dialog::FrameBox box(box1.h() + spacer + box2.h() + 10 + sprite_frame.h(), true);
 
     pt.x = box.GetArea().x + box.GetArea().w / 2 - AGG::GetICN(system, 9).w() - 20;
     pt.y = box.GetArea().y + box.GetArea().h - AGG::GetICN(system, 9).h();
-    Button button_learn1(pt, system, 9, 10);
+    Button button_learn1(pt.x, pt.y, system, 9, 10);
 
     pt.x = box.GetArea().x + box.GetArea().w / 2 + 20;
     pt.y = box.GetArea().y + box.GetArea().h - AGG::GetICN(system, 9).h();
-    Button button_learn2(pt, system, 9, 10);
+    Button button_learn2(pt.x, pt.y, system, 9, 10);
 
     Rect pos = box.GetArea();
 
@@ -148,8 +147,16 @@ u8 DialogSelectSecondary(const std::string & name, const std::string & primary, 
     Text name_level2(Skill::Level::String(sec2.Level()), Font::SMALL);
     name_level2.Blit(pos.x + (sprite_skill2.w() - name_level2.w()) / 2, pos.y + sprite_skill2.h() - 12);
 
+    // hero button
+    pt.x = box.GetArea().x + box.GetArea().w / 2 - 18;
+    pt.y = box.GetArea().y + box.GetArea().h - 36;
+    Button button_hero(pt.x, pt.y, (Settings::Get().ExtGameEvilInterface() ? ICN::ADVEBTNS : ICN::ADVBTNS), 0, 1);
+    text.Set(GetString(HEROESMAXSKILL) +"/" + GetString(hero.GetSecondarySkills().Count()), Font::BIG);
+    text.Blit(box.GetArea().x + (box.GetArea().w - text.w()) / 2, pt.y - 15);
+
     button_learn1.Draw();
     button_learn2.Draw();
+    button_hero.Draw();
 
     cursor.Show();
     display.Flip();
@@ -160,10 +167,14 @@ u8 DialogSelectSecondary(const std::string & name, const std::string & primary, 
     {
 	le.MousePressLeft(button_learn1) ? button_learn1.PressDraw() : button_learn1.ReleaseDraw();
 	le.MousePressLeft(button_learn2) ? button_learn2.PressDraw() : button_learn2.ReleaseDraw();
+	le.MousePressLeft(button_hero) ? button_hero.PressDraw() : button_hero.ReleaseDraw();
 
-        if(le.MouseClickLeft(button_learn1) || Game::HotKeyPress(Game::EVENT_DEFAULT_LEFT)) return sec1.Skill();
+        if(le.MouseClickLeft(button_learn1) || Game::HotKeyPressEvent(Game::EVENT_DEFAULT_LEFT)) return sec1.Skill();
         else
-	if(le.MouseClickLeft(button_learn2) || Game::HotKeyPress(Game::EVENT_DEFAULT_RIGHT)) return sec2.Skill();
+	if(le.MouseClickLeft(button_learn2) || Game::HotKeyPressEvent(Game::EVENT_DEFAULT_RIGHT)) return sec2.Skill();
+	else
+	if(le.MouseClickLeft(button_hero) || Game::HotKeyPressEvent(Game::EVENT_DEFAULT_READY))
+	    { hero.OpenDialog(true /* read only */, false); cursor.Show(); display.Flip(); }
 
 	if(le.MouseClickLeft(rect_image1))
 	    { cursor.Hide(); Dialog::SecondarySkillInfo(sec1); cursor.Show(); display.Flip(); }
@@ -179,13 +190,12 @@ u8 DialogSelectSecondary(const std::string & name, const std::string & primary, 
     }
 
     cursor.Hide();
-
     return Skill::Secondary::UNKNOWN;
 }
 
-u8 Dialog::LevelUpSelectSkill(const std::string & name, const std::string & primary, const Skill::Secondary & sec1, const Skill::Secondary & sec2)
+int Dialog::LevelUpSelectSkill(const std::string & name, const std::string & primary, const Skill::Secondary & sec1, const Skill::Secondary & sec2, Heroes & hero)
 {
-    u8 result = Skill::Secondary::UNKNOWN;
+    int result = Skill::Secondary::UNKNOWN;
 
     if(Skill::Secondary::UNKNOWN == sec1.Skill() && Skill::Secondary::UNKNOWN == sec2.Skill())
 	DialogPrimaryOnly(name, primary);
@@ -193,7 +203,7 @@ u8 Dialog::LevelUpSelectSkill(const std::string & name, const std::string & prim
     if(Skill::Secondary::UNKNOWN == sec1.Skill() || Skill::Secondary::UNKNOWN == sec2.Skill())
 	result = DialogOneSecondary(name, primary, (Skill::Secondary::UNKNOWN == sec2.Skill() ? sec1 : sec2));
     else
-	result = DialogSelectSecondary(name, primary, sec1, sec2);
+	result = DialogSelectSecondary(name, primary, sec1, sec2, hero);
 
     return result;
 }

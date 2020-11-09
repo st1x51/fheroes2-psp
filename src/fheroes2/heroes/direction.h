@@ -23,11 +23,15 @@
 #define H2DIRECTION_H
 
 #include <string>
+#include <vector>
+
 #include "gamedefs.h"
+
+typedef std::vector<int>	Directions;
 
 namespace Direction
 {
-    enum vector_t
+    enum
     {
 	UNKNOWN		= 0x0000,
 	TOP_LEFT	= 0x0001,
@@ -41,15 +45,13 @@ namespace Direction
 	CENTER		= 0x0100
     };
 
-    inline vector_t& operator++ (vector_t& direct){ return direct = ( CENTER == direct ? TOP_LEFT : vector_t(direct << 1)); }
-    inline vector_t& operator-- (vector_t& direct){ return direct = ( TOP_LEFT == direct ? CENTER : vector_t(direct >> 1)); }
+    std::string		String(int);
 
-    std::string String(u16);
+    int			Get(s32 from, s32 to);
+    int			Reflect(int direct);
 
-    vector_t Get(s32 from, s32 to);
-    vector_t Reflect(u16 from);
-
-    bool ShortDistanceClockWise(u16 from, u16 to);
+    bool		ShortDistanceClockWise(int direct1, int direct2);
+    Directions		All(void);
 }
 
 #define DIRECTION_TOP_ROW	(Direction::TOP_LEFT | Direction::TOP | Direction::TOP_RIGHT)
@@ -59,6 +61,7 @@ namespace Direction
 #define DIRECTION_CENTER_COL	(Direction::TOP | Direction::CENTER | Direction::BOTTOM)
 #define DIRECTION_RIGHT_COL	(Direction::TOP_RIGHT | Direction::RIGHT | Direction::BOTTOM_RIGHT)
 #define DIRECTION_ALL		(DIRECTION_TOP_ROW | DIRECTION_BOTTOM_ROW | DIRECTION_CENTER_ROW)
+#define DIRECTION_AROUND	(DIRECTION_TOP_ROW | DIRECTION_BOTTOM_ROW | Direction::LEFT | Direction::RIGHT)
 
 #define DIRECTION_TOP_RIGHT_CORNER	(Direction::TOP | Direction::TOP_RIGHT | Direction::RIGHT)
 #define DIRECTION_TOP_LEFT_CORNER	(Direction::TOP | Direction::TOP_LEFT | Direction::LEFT)

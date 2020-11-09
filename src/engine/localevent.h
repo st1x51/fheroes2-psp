@@ -27,8 +27,6 @@
 #include "thread.h"
 #include "types.h"
 
-enum KeyMod { MOD_NONE = KMOD_NONE, MOD_CTRL = KMOD_CTRL, MOD_SHIFT = KMOD_SHIFT, MOD_ALT = KMOD_ALT, MOD_CAPS = KMOD_CAPS, MOD_NUM = KMOD_NUM };
-
 enum KeySym
 {
     KEY_NONE		= -1,
@@ -84,7 +82,6 @@ enum KeySym
     KEY_F10		= SDLK_F10,
     KEY_F11		= SDLK_F11,
     KEY_F12		= SDLK_F12,
-    KEY_PRINT		= SDLK_PRINT,
     KEY_LEFT		= SDLK_LEFT,
     KEY_RIGHT		= SDLK_RIGHT,
     KEY_UP		= SDLK_UP,
@@ -126,6 +123,20 @@ enum KeySym
     KEY_y		= SDLK_y,
     KEY_z		= SDLK_z,
 
+#if SDL_VERSION_ATLEAST(2, 0, 0)
+    KEY_PRINT		= SDLK_PRINTSCREEN,
+    KEY_KP0             = SDLK_KP_0,
+    KEY_KP1             = SDLK_KP_1,
+    KEY_KP2             = SDLK_KP_2,
+    KEY_KP3             = SDLK_KP_3,
+    KEY_KP4             = SDLK_KP_4,
+    KEY_KP5             = SDLK_KP_5,
+    KEY_KP6             = SDLK_KP_6,
+    KEY_KP7             = SDLK_KP_7,
+    KEY_KP8             = SDLK_KP_8,
+    KEY_KP9             = SDLK_KP_9,
+#else
+    KEY_PRINT		= SDLK_PRINT,
     KEY_KP0		= SDLK_KP0,
     KEY_KP1		= SDLK_KP1,
     KEY_KP2		= SDLK_KP2,
@@ -136,6 +147,8 @@ enum KeySym
     KEY_KP7		= SDLK_KP7,
     KEY_KP8		= SDLK_KP8,
     KEY_KP9		= SDLK_KP9,
+#endif
+
     KEY_KP_PERIOD	= SDLK_KP_PERIOD,
     KEY_KP_DIVIDE	= SDLK_KP_DIVIDE,
     KEY_KP_MULTIPLY	= SDLK_KP_MULTIPLY,
@@ -173,8 +186,8 @@ class LocalEvent
 public:
     static LocalEvent & Get(void);
 
-    void SetGlobalFilterMouseEvents(void (*pf)(u16, u16));
-    void SetGlobalFilterKeysEvents(void (*pf)(int, u16));
+    void SetGlobalFilterMouseEvents(void (*pf)(s32, s32));
+    void SetGlobalFilterKeysEvents(void (*pf)(int, int));
     void SetGlobalFilter(bool);
     void SetTapMode(bool);
     void SetTapDelayForRightClickEmulation(u32);
@@ -183,7 +196,7 @@ public:
 
     static void SetStateDefaults(void);
     static void SetState(u32 type, bool enable);
-    static u8   GetState(u32 type);
+    static int  GetState(u32 type);
 
     bool HandleEvents(bool delay = true);
 
@@ -219,7 +232,7 @@ public:
 
     bool MousePressLeft(void) const;
     bool MousePressLeft(const Rect &rt) const;
-    bool MousePressLeft(const Point &pt, u16 w, u16 h) const;
+    bool MousePressLeft(const Point &pt, u32 w, u32 h) const;
     bool MousePressMiddle(void) const;
     bool MousePressMiddle(const Rect &rt) const;
     bool MousePressRight(void) const;
@@ -240,7 +253,7 @@ public:
     bool KeyPress(void) const;
     bool KeyPress(KeySym key) const;
     KeySym KeyValue(void) const;
-    u16	   KeyMod(void) const;
+    int	   KeyMod(void) const;
 
 #ifdef WITHOUT_MOUSE
     void ToggleEmulateMouse(void);
@@ -258,14 +271,14 @@ public:
 private:
     LocalEvent();
 
-    void HandleMouseMotionEvent(const SDL_MouseMotionEvent & motion);
-    void HandleMouseButtonEvent(const SDL_MouseButtonEvent & button);
+    void HandleMouseMotionEvent(const SDL_MouseMotionEvent &);
+    void HandleMouseButtonEvent(const SDL_MouseButtonEvent &);
     void HandleKeyboardEvent(SDL_KeyboardEvent &);
 
-#if SDL_VERSION_ATLEAST(1, 3, 0)
-    static int GlobalFilterEvents(void *userdata, SDL_Event *event);
+#if SDL_VERSION_ATLEAST(2, 0, 0)
+    static int GlobalFilterEvents(void*, SDL_Event*);
 #else
-    static int GlobalFilterEvents(const SDL_Event *event);
+    static int GlobalFilterEvents(const SDL_Event*);
 #endif
 
     enum flag_t
@@ -281,17 +294,18 @@ private:
 	MOUSE_OFFSET	= 0x0100,
 	CLOCK_ON	= 0x0200
     };
-
+	
 	void pspSetKey(int pspkey, KeySym gamekey);
     bool pspKeyPress(int pspkey);
     bool pspKeyRelease(int pspkey);
+	
     void SetModes(flag_t);
     void ResetModes(flag_t);
 
-    u16    modes;
+    int    modes;
     KeySym key_value;
-    u8     mouse_state;
-    u8     mouse_button;
+    int    mouse_state;
+    int    mouse_button;
 
     Point mouse_st;	// mouse offset for pocketpc
 
@@ -305,20 +319,20 @@ private:
 
     Point mouse_cu;	// point cursor
 
-    void (*redraw_cursor_func)(u16, u16);
-    void (*keyboard_filter_func)(int, u16);
+    void (*redraw_cursor_func)(s32, s32);
+    void (*keyboard_filter_func)(int, int);
 
     SDL::Time clock;
-    u32 clock_delay;
-    u8  loop_delay;
+    u32  clock_delay;
+    int  loop_delay;
 
 #ifdef WITHOUT_MOUSE
-    bool emulate_mouse;
+    bool   emulate_mouse;
     KeySym emulate_mouse_up;
     KeySym emulate_mouse_down;
     KeySym emulate_mouse_left;
     KeySym emulate_mouse_right;
-    u8 emulate_mouse_step;
+    int    emulate_mouse_step;
     KeySym emulate_press_left;
     KeySym emulate_press_right;
 #endif

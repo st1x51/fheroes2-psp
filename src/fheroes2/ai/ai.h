@@ -29,30 +29,51 @@ class Castle;
 class HeroBase;
 class Heroes;
 class Kingdom;
-namespace Battle2 { class Arena; class Stats; class Actions; }
+namespace Battle { class Arena; class Unit; class Actions; }
 
-struct AI
+namespace AI
 {
-    static void AddCastle(const Castle &);
-    static void RemoveCastle(const Castle &);
-    static void AddHeroes(const Heroes &);
-    static void RemoveHeroes(const Heroes &);
+    enum modes_t
+    {
+	HEROES_MOVED	= 0x08000000,
+	HEROES_SCOUTER	= 0x10000000,
+	HEROES_HUNTER	= 0x20000000,
+	HEROES_WAITING	= 0x40000000,
+	HEROES_STUPID	= 0x80000000
+    };
 
-    static void Init(void);
+    void Init(void);
 
-    static void KingdomTurn(Kingdom &);
-    static void BattleTurn(Battle2::Arena &, const Battle2::Stats &, Battle2::Actions &);
-    static void BattleMagicTurn(Battle2::Arena &, const Battle2::Stats &, Battle2::Actions &, const Battle2::Stats*);
-    static void HeroesPreBattle(HeroBase &);
-    static void HeroesAction(Heroes &, s32);
-    static void HeroesLevelUp(Heroes &);
-    static std::string HeroesString(const Heroes &);
+    void KingdomTurn(Kingdom &);
+    void BattleTurn(Battle::Arena &, const Battle::Unit &, Battle::Actions &);
+    bool BattleMagicTurn(Battle::Arena &, const Battle::Unit &, Battle::Actions &, const Battle::Unit*);
 
-    static void CastlePreBattle(Castle &);
-    static void CastleAfterBattle(Castle &, bool attacker_wins);
+    void HeroesAdd(const Heroes &);
+    void HeroesRemove(const Heroes &);
+    void HeroesTurn(Heroes &);
+    void HeroesMove(Heroes &);
+    bool HeroesGetTask(Heroes &);
+    void HeroesPreBattle(HeroBase &);
+    void HeroesAfterBattle(HeroBase &);
+    void HeroesPostLoad(Heroes &);
+    bool HeroesValidObject(const Heroes &, s32);
+    bool HeroesCanMove(const Heroes &);
+    void HeroesAction(Heroes &, s32);
+    void HeroesActionComplete(Heroes &, s32);
+    void HeroesActionNewPosition(Heroes &);
+    void HeroesLevelUp(Heroes &);
+    void HeroesClearTask(const Heroes &);
+    bool HeroesSkipFog(void);
+    std::string HeroesString(const Heroes &);
 
-    static const char* Type(void);
-    static const char* License(void);
-};
+    void CastleAdd(const Castle &);
+    void CastleRemove(const Castle &);
+    void CastleTurn(Castle &);
+    void CastlePreBattle(Castle &);
+    void CastleAfterBattle(Castle &, bool attacker_wins);
+
+    const char* Type(void);
+    const char* License(void);
+}
 
 #endif

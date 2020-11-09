@@ -23,16 +23,20 @@
 #ifndef H2PAYMENT_H
 #define H2PAYMENT_H
 
+#include <string>
 #include "resource.h"
 
 typedef Funds payment_t;
 
+enum { INCOME_CAPTURED = 0x01, INCOME_CASTLES = 0x02, INCOME_ARTIFACTS = 0x04, INCOME_HEROSKILLS = 0x08, INCOME_ALL = 0xFF };
+
 namespace PaymentConditions
 {
-    payment_t BuyBuilding(u8 race, u32 build);
+    payment_t BuyBuilding(int race, u32 build);
     payment_t BuyBoat(void);
-    payment_t BuySpellBook(u8 shrine = 0);
-    payment_t RecruitHero(u8 level);
+    payment_t BuySpellBook(int shrine = 0);
+    payment_t RecruitHero(int level);
+    payment_t ForAlchemist(int arts);
 
     void UpdateCosts(const std::string &);
 }

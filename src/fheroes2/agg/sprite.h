@@ -22,38 +22,29 @@
 #ifndef H2SPRITE_H
 #define H2SPRITE_H
 
-#include "display.h"
 #include "gamedefs.h"
 
-class Sprite : public Surface
+class Sprite : public SpritePos
 {
 public:
     Sprite();
-    Sprite(const Sprite &);
+    Sprite(const Surface &, s32, s32);
 
-    void SetOffset(s16, s16);
+    int x(void) const;
+    int y(void) const;
 
-    s16 x(void) const{ return offsetX; }
-    s16 y(void) const{ return offsetY; }
+    using Surface::Blit;
 
-    void Blit(Surface & = Display::Get()) const;
-    void Blit(s16, s16, Surface & = Display::Get()) const;
-    void Blit(const Point &, Surface & = Display::Get()) const;
-    void Blit(const Rect & srt, s16, s16, Surface & = Display::Get()) const;
-    void Blit(const Rect & srt, const Point &, Surface & = Display::Get()) const;
-    void Blit(u8 alpha, s16, s16, Surface & = Display::Get()) const;
-    void Blit(u8 alpha, const Rect & srt, const Point &, Surface & = Display::Get()) const;
+    void Blit(void) const;
+    void Blit(s32, s32) const;
+    void Blit(const Point &) const;
+    void Blit(const Rect & srt, s32, s32) const;
+    void Blit(const Rect & srt, const Point &) const;
 
-    u32 GetSize(void) const;
-    void ScaleMinifyByTwo(void);
+    void ChangeColorIndex(u32 index1, u32 index2);
 
-    static void DrawICN(u16 icn, Surface & sf, const u8* buf, const u32 size, bool reflect);
-    static void AddonExtensionModify(Sprite & sp, u16 icn, u16 index);
-
-private:
-
-    s16		offsetX;
-    s16		offsetY;
+    static Surface ScaleQVGASurface(const Surface &);
+    static Sprite ScaleQVGASprite(const Sprite &);
 };
 
 #endif

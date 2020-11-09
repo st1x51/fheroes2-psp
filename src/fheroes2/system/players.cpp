@@ -22,60 +22,102 @@
 
 #include <algorithm>
 #include "agg.h"
+#include "text.h"
 #include "game.h"
 #include "color.h"
 #include "race.h"
+#include "dialog.h"
 #include "world.h"
 #include "maps_fileinfo.h"
 #include "settings.h"
 #include "players.h"
 
-enum { PLAYER_INGAME = 0x01 };
-
 namespace
 {
     Player* _players[KINGDOMMAX + 1] = { NULL };
-    u8 human_colors = 0;
+    int human_colors = 0;
+
+    enum { ST_INGAME = 0x2000 };
 }
 
 void PlayerFocusReset(Player* player)
 {
-    if(player) player->focus.Reset();
+    if(player) player->GetFocus().Reset();
 }
 
 void PlayerFixMultiControl(Player* player)
 {
-    if(player && player->control == (CONTROL_HUMAN|CONTROL_AI)) player->control = CONTROL_AI;
+    if(player && player->GetControl() == (CONTROL_HUMAN|CONTROL_AI)) player->SetControl(CONTROL_AI);
 }
 
 void PlayerFixRandomRace(Player* player)
 {
-    if(player && player->race == Race::RAND) player->race = Race::Rand();
+    if(player && player->GetRace() == Race::RAND) player->SetRace(Race::Rand());
 }
 
-Player::Player(u8 col) : control(CONTROL_NONE), color(col), race(Race::NONE), friends(col), mode(0), id(World::GetUniq())
+bool Control::isControlAI(void) const
+{
+    return CONTROL_AI & GetControl();
+}
+
+bool Control::isControlHuman(void) const
+{
+    return CONTROL_HUMAN & GetControl();
+}
+
+bool Control::isControlLocal(void) const
+{
+    return ! isControlRemote();
+}
+
+bool Control::isControlRemote(void) const
+{
+    return CONTROL_REMOTE & GetControl();
+}
+
+Player::Player(int col) : control(CONTROL_NONE), color(col), race(Race::NONE), friends(col), id(World::GetUniq())
 {
     name  = Color::String(color);
 }
 
-bool Player::isRemote(void) const
+const std::string & Player::GetName(void) const
 {
-    return control & CONTROL_REMOTE;
+    return name;
 }
 
-bool Player::isLocal(void) const
+Focus & Player::GetFocus(void)
 {
-    return ! isRemote();
+    return focus;
 }
 
-bool Player::isHuman(void) const
+const Focus & Player::GetFocus(void) const
 {
-    return control & CONTROL_HUMAN;
+    return focus;
 }
 
-bool Player::isAI(void) const
+int Player::GetControl(void) const
 {
-    return control & CONTROL_AI;
+    return control;
+}
+
+int Player::GetColor(void) const
+{
+    return color;
+}
+
+int Player::GetRace(void) const
+{
+    return race;
+}
+
+int Player::GetFriends(void) const
+{
+    return friends;
+}
+
+int Player::GetID(void) const
+{
+    return id;
 }
 
 bool Player::isID(u32 id2) const
@@ -83,7 +125,7 @@ bool Player::isID(u32 id2) const
     return id2 == id;
 }
 
-bool Player::isColor(u8 col) const
+bool Player::isColor(int col) const
 {
     return col == color;
 }
@@ -95,17 +137,96 @@ bool Player::isName(const std::string & str) const
 
 bool Player::isPlay(void) const
 {
-    return mode & PLAYER_INGAME;
+    return Modes(ST_INGAME);
 }
 
-void Player::SetControl(u8 ctl)
+void Player::SetFriends(int f)
+{
+    friends = f;
+}
+
+void Player::SetName(const std::string & n)
+{
+    name = n;
+}
+
+void Player::SetControl(int ctl)
 {
     control = ctl;
 }
 
+void Player::SetColor(int cl)
+{
+    color = cl;
+}
+
+void Player::SetRace(int r)
+{
+    race = r;
+}
+
 void Player::SetPlay(bool f)
 {
-    if(f) mode |= PLAYER_INGAME; else mode &= ~PLAYER_INGAME;
+    if(f) SetModes(ST_INGAME); else ResetModes(ST_INGAME);
+}
+
+StreamBase & operator<< (StreamBase & msg, const Focus & focus)
+{
+    msg << focus.first;
+
+    switch(focus.first)
+    {
+	case FOCUS_HEROES: msg << reinterpret_cast<Heroes*>(focus.second)->GetIndex(); break;
+	case FOCUS_CASTLE: msg << reinterpret_cast<Castle*>(focus.second)->GetIndex(); break;
+	default: msg << static_cast<s32>(-1); break;
+    }
+
+    return msg;
+}
+
+StreamBase & operator>> (StreamBase & msg, Focus & focus)
+{
+    s32 index;
+    msg >> focus.first >> index;
+
+    switch(focus.first)
+    {
+	case FOCUS_HEROES: focus.second = world.GetHeroes(Maps::GetPoint(index)); break;
+	case FOCUS_CASTLE: focus.second = world.GetCastle(Maps::GetPoint(index)); break;
+	default: focus.second = NULL; break;
+    }
+
+    return msg;
+}
+
+StreamBase & operator<< (StreamBase & msg, const Player & player)
+{
+    const BitModes & modes = player;
+
+    return msg <<
+	modes <<
+	player.id <<
+	player.control <<
+	player.color <<
+	player.race <<
+	player.friends <<
+	player.name <<
+	player.focus;
+}
+
+StreamBase & operator>> (StreamBase & msg, Player & player)
+{
+    BitModes & modes = player;
+
+    return msg >>
+	modes >>
+	player.id >>
+	player.control >>
+	player.color >>
+	player.race >>
+	player.friends >>
+	player.name >>
+	player.focus;
 }
 
 Players::Players() : current_color(0)
@@ -125,14 +246,14 @@ void Players::clear(void)
 
     std::vector<Player*>::clear();
 
-    for(u8 ii = 0 ;ii < KINGDOMMAX + 1; ++ii)
+    for(u32 ii = 0 ;ii < KINGDOMMAX + 1; ++ii)
 	_players[ii] = NULL;
 
     current_color = 0;
     human_colors = 0;
 }
 
-void Players::Init(u8 colors)
+void Players::Init(int colors)
 {
     clear();
 
@@ -161,25 +282,18 @@ void Players::Init(const Maps::FileInfo & fi)
 	    it = vcolors.begin(); it != vcolors.end(); ++it)
 	{
 	    Player* player = new Player(*it);
-	    player->race  = fi.KingdomRace(*it);
-	    player->control = CONTROL_AI;
-	    player->friends = *it | fi.unions[Color::GetIndex(*it)];
+	    player->SetRace(fi.KingdomRace(*it));
+	    player->SetControl(CONTROL_AI);
+	    player->SetFriends(*it | fi.unions[Color::GetIndex(*it)]);
 
 	    if((*it & fi.HumanOnlyColors()) && Settings::Get().GameType(Game::TYPE_MULTI))
-		player->control = CONTROL_HUMAN;
+		player->SetControl(CONTROL_HUMAN);
 	    else
 	    if(*it & fi.AllowHumanColors())
-		player->control |= CONTROL_HUMAN;
+		player->SetControl(player->GetControl() | CONTROL_HUMAN);
 
-	    if(!first && (player->control & CONTROL_HUMAN))
+	    if(!first && (player->GetControl() & CONTROL_HUMAN))
 		first = player;
-
-//#ifdef WITH_NET
-	    // FIX ME: network control
-//	    player->control |= CONTROL_REMOTE;
-//#else
-	    //player->control |= CONTROL_LOCAL;
-//#endif
 
 	    push_back(player);
 	    _players[Color::GetIndex(*it)] = back();
@@ -196,51 +310,51 @@ void Players::Init(const Maps::FileInfo & fi)
     }
 }
 
-Player* Players::Get(u8 color)
+Player* Players::Get(int color)
 {
     return _players[Color::GetIndex(color)];
 }
 
-bool Players::isFriends(u8 player, u8 colors)
+bool Players::isFriends(int player, int colors)
 {
     const Player* ptr = Get(player);
-    return ptr ? ptr->friends & colors : false;
+    return ptr ? ptr->GetFriends() & colors : false;
 }
 
-void Players::SetPlayerRace(u8 color, u8 race)
+void Players::SetPlayerRace(int color, int race)
 {
     Player* player = Get(color);
 
     if(player)
-	player->race = race;
+	player->SetRace(race);
 }
 
-void Players::SetPlayerControl(u8 color, u8 ctrl)
+void Players::SetPlayerControl(int color, int ctrl)
 {
     Player* player = Get(color);
 
     if(player)
-	player->control = ctrl;
+	player->SetControl(ctrl);
 }
 
-u8 Players::GetColors(u8 control, bool strong) const
+int Players::GetColors(int control, bool strong) const
 {
-    u8 res = 0;
+    int res = 0;
 
     for(const_iterator it = begin(); it != end(); ++it)
 	if(control == 0xFF ||
-    	    (strong && (*it)->control == control) ||
-    	    (!strong && ((*it)->control & control))) res |= (*it)->color;
+    	    (strong && (*it)->GetControl() == control) ||
+    	    (!strong && ((*it)->GetControl() & control))) res |= (*it)->GetColor();
 
     return res;
 }
 
-u8 Players::GetActualColors(void) const
+int Players::GetActualColors(void) const
 {
-    u8 res = 0;
+    int res = 0;
 
     for(const_iterator it = begin(); it != end(); ++it)
-	if((*it)->isPlay()) res |= (*it)->color;
+	if((*it)->isPlay()) res |= (*it)->GetColor();
 
     return res;
 }
@@ -255,40 +369,34 @@ const Player* Players::GetCurrent(void) const
     return Get(current_color);
 }
 
-u8 Players::GetPlayerFriends(u8 color)
+int Players::GetPlayerFriends(int color)
 {
     const Player* player = Get(color);
-    return player ? player->friends : 0;
+    return player ? player->GetFriends() : 0;
 }
 
-u8 Players::GetPlayerControl(u8 color)
+int Players::GetPlayerControl(int color)
 {
     const Player* player = Get(color);
-    return player ? player->control : CONTROL_NONE;
+    return player ? player->GetControl() : CONTROL_NONE;
 }
 
-u8 Players::GetPlayerRace(u8 color)
+int Players::GetPlayerRace(int color)
 {
     const Player* player = Get(color);
-    return player ? player->race : Race::NONE;
+    return player ? player->GetRace() : Race::NONE;
 }
 
-bool Players::GetPlayerInGame(u8 color)
+bool Players::GetPlayerInGame(int color)
 {
     const Player* player = Get(color);
     return player && player->isPlay();
 }
 
-void Players::SetPlayerInGame(u8 color, bool f)
+void Players::SetPlayerInGame(int color, bool f)
 {
     Player* player = Get(color);
     if(player) player->SetPlay(f);
-}
-
-void Players::SetHumanColors(u8 cols) /* remove: server.cpp */
-{
-    for(iterator it = begin(); it != end(); ++it)
-	(*it)->control = (*it)->color & cols ? CONTROL_HUMAN : CONTROL_AI;
 }
 
 void Players::SetStartGame(void)
@@ -304,23 +412,23 @@ void Players::SetStartGame(void)
     DEBUG(DBG_GAME, DBG_INFO, String());
 }
 
-u8 Players::HumanColors(void)
+int Players::HumanColors(void)
 {
     if(0 == human_colors)
 	human_colors = Settings::Get().GetPlayers().GetColors(CONTROL_HUMAN, true);
     return human_colors;
 }
 
-u8 Players::FriendColors(void)
+int Players::FriendColors(void)
 {
-    u8 colors = 0;
+    int colors = 0;
     const Players & players = Settings::Get().GetPlayers();
 
     if(players.current_color & Players::HumanColors())
     {
         const Player* player = players.GetCurrent();
         if(player)
-            colors = player->friends;
+            colors = player->GetFriends();
     }
     else
         colors = Players::HumanColors();
@@ -336,9 +444,9 @@ std::string Players::String(void) const
     for(const_iterator
 	it = begin(); it != end(); ++it)
     {
-	os << Color::String((*it)->color) << "(" << Race::String((*it)->race) << ", ";
+	os << Color::String((*it)->GetColor()) << "(" << Race::String((*it)->GetRace()) << ", ";
 
-	switch((*it)->control)
+	switch((*it)->GetControl())
 	{
 	    case CONTROL_AI|CONTROL_HUMAN:
 	    os << "ai|human";
@@ -367,6 +475,37 @@ std::string Players::String(void) const
     return os.str();
 }
 
+StreamBase & operator<< (StreamBase & msg, const Players & players)
+{
+    msg << players.GetColors() << players.current_color;
+
+    for(Players::const_iterator
+	it = players.begin(); it != players.end(); ++it)
+        msg << (**it);
+
+    return msg;
+}
+
+StreamBase & operator>> (StreamBase & msg, Players & players)
+{
+    int colors, current;
+    msg >> colors >> current;
+
+    players.clear();
+    players.current_color = current;
+    const Colors vcolors(colors);
+
+    for(u32 ii = 0; ii < vcolors.size(); ++ii)
+    {
+	Player* player = new Player();
+	msg >> *player;
+	_players[Color::GetIndex(player->GetColor())] = player;
+	players.push_back(player);
+    }
+
+    return msg;
+}
+
 bool Interface::PlayerInfo::operator== (const Player* p) const
 {
     return player == p;
@@ -386,7 +525,7 @@ void Interface::PlayersInfo::UpdateInfo(Players & players, const Point & pt1, co
     for(Players::iterator
         it = players.begin(); it != players.end(); ++it)
     {
-        const u8 current = std::distance(players.begin(), it);
+        const u32 current = std::distance(players.begin(), it);
         PlayerInfo info;
 
         info.player = *it;
@@ -405,7 +544,7 @@ void Interface::PlayersInfo::UpdateInfo(Players & players, const Point & pt1, co
 	    const Rect & rect2 = (*(it + 1)).rect2;
 	    const Sprite & sprite = AGG::GetICN(ICN::ADVMCO, 8);
 
-	    (*it).rect3 = Rect(rect1.x + rect1.w + (rect2.x - (rect1.x + rect1.w)) / 2 - 5, rect1.y + rect1.h + 11, sprite.w(), sprite.h());
+	    (*it).rect3 = Rect(rect1.x + rect1.w + (rect2.x - (rect1.x + rect1.w)) / 2 - 5, rect1.y + rect1.h + 20, sprite.w(), sprite.h());
 	}
     }
 }
@@ -442,33 +581,47 @@ Player* Interface::PlayersInfo::GetFromClassClick(const Point & pt)
     return NULL;
 }
 
-void Interface::PlayersInfo::RedrawInfo(void) const
+void Interface::PlayersInfo::RedrawInfo(bool show_play_info) const /* show_play_info: show game info with color status (play/not play) */
 {
     const Settings & conf = Settings::Get();
     const Maps::FileInfo & fi = conf.CurrentFileInfo();
 
-    const u8 humans_colors = conf.GetPlayers().GetColors(CONTROL_HUMAN, true);
-    u8 index = 0;
+    const u32 humans_colors = conf.GetPlayers().GetColors(CONTROL_HUMAN, true);
+    u32 index = 0;
 
     for(const_iterator it = begin(); it != end(); ++it)
     {
 	const Player & player = *((*it).player);
-	const Rect rect1 = (*it).rect1;
-	const Rect rect2 = (*it).rect2;
-	const Rect rect3= (*it).rect3;
+	const Rect & rect1 = (*it).rect1;
+	const Rect & rect2 = (*it).rect2;
+	const Rect & rect3 = (*it).rect3;
 
 	// 1. redraw opponents
 
         // current human
-        if(humans_colors & player.color)
-            index = 9 + Color::GetIndex(player.color);
+        if(humans_colors & player.GetColor())
+            index = 9 + Color::GetIndex(player.GetColor());
         else
         // comp only
-        if(fi.ComputerOnlyColors() & player.color)
-            index = 15 + Color::GetIndex(player.color);
-        else
+        if(fi.ComputerOnlyColors() & player.GetColor())
+	{
+	    if(show_play_info)
+	    {
+		index = (player.isPlay() ? 3 : 15) + Color::GetIndex(player.GetColor());
+	    }
+            else
+        	index = 15 + Color::GetIndex(player.GetColor());
+        }
+	else
         // comp/human
-            index = 3 + Color::GetIndex(player.color);
+	{
+	    if(show_play_info)
+	    {
+		index = (player.isPlay() ? 3 : 15) + Color::GetIndex(player.GetColor());
+	    }
+            else
+		index = 3 + Color::GetIndex(player.GetColor());
+	}
 
         // wide sprite offset
         if(show_name) index += 24;
@@ -479,20 +632,26 @@ void Interface::PlayersInfo::RedrawInfo(void) const
         if(show_name)
         {
             // draw player name
-            Text name(player.name, Font::SMALL);
+            Text name(player.GetName(), Font::SMALL);
     	    name.Blit(rect1.x + (rect1.w - name.w()) / 2, rect1.y + rect1.h - (show_name ? 1 : 14));
 	}
 
 	// 2. redraw class
+	bool class_color = conf.AllowChangeRace(player.GetColor());
 
-        switch(player.race)
+	if(show_play_info)
+	{
+	    class_color = player.isPlay();
+	}
+
+        switch(player.GetRace())
         {
-            case Race::KNGT: index = conf.AllowChangeRace(player.color) ? 51 : 70; break;
-            case Race::BARB: index = conf.AllowChangeRace(player.color) ? 52 : 71; break;
-            case Race::SORC: index = conf.AllowChangeRace(player.color) ? 53 : 72; break;
-            case Race::WRLK: index = conf.AllowChangeRace(player.color) ? 54 : 73; break;
-            case Race::WZRD: index = conf.AllowChangeRace(player.color) ? 55 : 74; break;
-            case Race::NECR: index = conf.AllowChangeRace(player.color) ? 56 : 75; break;
+            case Race::KNGT: index = class_color ? 51 : 70; break;
+            case Race::BARB: index = class_color ? 52 : 71; break;
+            case Race::SORC: index = class_color ? 53 : 72; break;
+            case Race::WRLK: index = class_color ? 54 : 73; break;
+            case Race::WZRD: index = class_color ? 55 : 74; break;
+            case Race::NECR: index = class_color ? 56 : 75; break;
             case Race::MULT: index = 76; break;
             case Race::RAND: index = 58; break;
             default: continue;
@@ -503,11 +662,11 @@ void Interface::PlayersInfo::RedrawInfo(void) const
 
 	if(show_race)
         {
-            const std::string & name = (Race::NECR == player.race ? _("Necroman") : Race::String(player.race));
+            const std::string & name = (Race::NECR == player.GetRace() ? _("Necroman") : Race::String(player.GetRace()));
             Text text(name, Font::SMALL);
             text.Blit(rect2.x + (rect2.w - text.w()) / 2, rect2.y + rect2.h + 2);
         }
-	
+
 	// "swap" sprite
 
 	if(show_swap &&
@@ -544,20 +703,20 @@ bool Interface::PlayersInfo::QueueEventProcessing(void)
     	    const Maps::FileInfo & fi = conf.CurrentFileInfo();
 	    Players & players = conf.GetPlayers();
 
-    	    if((player->color & fi.AllowHumanColors()) &&
-                (! Settings::Get().GameType(Game::TYPE_MULTI) || ! (player->color & fi.HumanOnlyColors())))
+    	    if((player->GetColor() & fi.AllowHumanColors()) &&
+                (! Settings::Get().GameType(Game::TYPE_MULTI) || ! (player->GetColor() & fi.HumanOnlyColors())))
             {
-                u8 humans = players.GetColors(CONTROL_HUMAN, true);
+                u32 humans = players.GetColors(CONTROL_HUMAN, true);
 
                 if(conf.GameType(Game::TYPE_MULTI))
                 {
                     /* set color */
-                    if(!(humans & player->color))
+                    if(!(humans & player->GetColor()))
                         player->SetControl(CONTROL_HUMAN);
                     /* reset color */
                     else
                     if(1 < Color::Count(humans))
-                        players.SetPlayerControl(player->color, CONTROL_AI|CONTROL_HUMAN);
+                        players.SetPlayerControl(player->GetColor(), CONTROL_AI|CONTROL_HUMAN);
                 }
                 else
                 // single play
@@ -573,26 +732,26 @@ bool Interface::PlayersInfo::QueueEventProcessing(void)
         {
 	    std::string res;
 	    std::string str = _("%{color} player");
-	    String::Replace(str, "%{color}", Color::String(player->color));
+	    StringReplace(str, "%{color}", Color::String(player->GetColor()));
 
 	    if(Dialog::InputString(str, res) && ! res.empty())
-		player->name = res;
+		player->SetName(res);
 	}
 	else
 	// select class
 	if(NULL != (player = GetFromClassClick(le.GetMouseCursor())))
         {
-            if(conf.AllowChangeRace(player->color))
+            if(conf.AllowChangeRace(player->GetColor()))
             {
-        	switch(player->race)
+        	switch(player->GetRace())
                 {
-                    case Race::KNGT: player->race = Race::BARB; break;
-                    case Race::BARB: player->race = Race::SORC; break;
-                    case Race::SORC: player->race = Race::WRLK; break;
-                    case Race::WRLK: player->race = Race::WZRD; break;
-                    case Race::WZRD: player->race = Race::NECR; break;
-                    case Race::NECR: player->race = Race::RAND; break;
-                    case Race::RAND: player->race = Race::KNGT; break;
+                    case Race::KNGT: player->SetRace(Race::BARB); break;
+                    case Race::BARB: player->SetRace(Race::SORC); break;
+                    case Race::SORC: player->SetRace(Race::WRLK); break;
+                    case Race::WRLK: player->SetRace(Race::WZRD); break;
+                    case Race::WZRD: player->SetRace(Race::NECR); break;
+                    case Race::NECR: player->SetRace(Race::RAND); break;
+                    case Race::RAND: player->SetRace(Race::KNGT); break;
                     default: break;
                 }
 	    }

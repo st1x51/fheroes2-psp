@@ -23,28 +23,30 @@
 #include <algorithm>
 #include <functional>
 #include "agg.h"
+#include "text.h"
+#include "game.h"
 #include "cursor.h"
 #include "dialog.h"
 #include "heroes_base.h"
 #include "skill.h"
-#include "editor_dialogs.h"
+#include "dialog_selectitems.h"
 #include "settings.h"
 #include "spell_book.h"
 
 #define SPELL_PER_PAGE		6
 #define SPELL_PER_PAGE_SMALL	2
 
-struct SpellFiltered : std::binary_function<Spell, u8, bool>
+struct SpellFiltered : std::binary_function<Spell, int, bool>
 {
-    bool operator() (Spell s, u8 f) const
+    bool operator() (Spell s, int f) const
     {
 	return ((SpellBook::ADVN & f) && s.isCombat()) || ((SpellBook::CMBT & f) && !s.isCombat());
     }
 };
 
-void SpellBookRedrawLists(const SpellStorage &, Rects &, const size_t, const Point &, u16, const u8 only, const HeroBase & hero);
-void SpellBookRedrawSpells(const SpellStorage &, Rects &, const size_t, s16, s16, const HeroBase & hero);
-void SpellBookRedrawMP(const Point &, u16);
+void SpellBookRedrawLists(const SpellStorage &, Rects &, size_t, const Point &, u32, int only, const HeroBase & hero);
+void SpellBookRedrawSpells(const SpellStorage &, Rects &, size_t, s32, s32, const HeroBase & hero);
+void SpellBookRedrawMP(const Point &, u32);
 
 bool SpellBookSortingSpell(const Spell & spell1, const Spell & spell2)
 {
@@ -52,7 +54,7 @@ bool SpellBookSortingSpell(const Spell & spell1, const Spell & spell2)
 	    (std::string(spell1.GetName()) < std::string(spell2.GetName())));
 }
 
-Spell SpellBook::Open(const HeroBase & hero, const u8 filt, bool canselect) const
+Spell SpellBook::Open(const HeroBase & hero, int filt, bool canselect) const
 {
     if(!hero.HaveSpellBook())
     {
@@ -64,12 +66,12 @@ Spell SpellBook::Open(const HeroBase & hero, const u8 filt, bool canselect) cons
     Cursor & cursor = Cursor::Get();
     bool small = Settings::Get().QVGA();
 
-    const Cursor::themes_t oldcursor = cursor.Themes();
+    const int oldcursor = cursor.Themes();
 
     const Sprite & r_list = AGG::GetICN(ICN::BOOK, 0);
     const Sprite & l_list = AGG::GetICN(ICN::BOOK, 0, true);
 
-    u8 filter = filt;
+    int filter = filt;
     SpellStorage spells2 = SetFilter(filter, &hero);
 
     if(canselect && spells2.empty())
@@ -92,8 +94,7 @@ Spell SpellBook::Open(const HeroBase & hero, const u8 filt, bool canselect) cons
     const Sprite & bookmark_clos = AGG::GetICN(ICN::BOOK, 5);
 
     const Rect pos((display.w() - (r_list.w() + l_list.w())) / 2, (display.h() - r_list.h()) / 2, r_list.w() + l_list.w(), r_list.h() + 70);
-    Background back(pos);
-    back.Save();
+    SpriteBack back(pos);
 
     const Rect prev_list(pos.x + (small ? 15 : 30), pos.y + (small ? 4 : 8), (small ? 15 : 30), (small ? 12 : 25));
     const Rect next_list(pos.x + (small ? 205 : 410), pos.y + (small ? 4: 8), (small ? 15 : 30), (small ? 12 :25));
@@ -135,8 +136,7 @@ Spell SpellBook::Open(const HeroBase & hero, const u8 filt, bool canselect) cons
 	   (le.MousePressRight(info_rt)))
 	{
 	    std::string str = _("Your hero has %{point} spell points remaining");
-	    String::Replace(str, "%{point}", hero.GetSpellPoints());
-	    str += " spell points remaining";
+	    StringReplace(str, "%{point}", hero.GetSpellPoints());
 	    cursor.Hide();
 	    Dialog::Message("", str, Font::BIG, Dialog::OK);
 	    cursor.Show();
@@ -160,7 +160,7 @@ Spell SpellBook::Open(const HeroBase & hero, const u8 filt, bool canselect) cons
 	}
 	else
 	if(le.MouseClickLeft(clos_rt) ||
-		Game::HotKeyPress(Game::EVENT_DEFAULT_EXIT)) break;
+		Game::HotKeyPressEvent(Game::EVENT_DEFAULT_EXIT)) break;
 	else
 	if(le.MouseClickLeft(pos))
 	{
@@ -183,8 +183,8 @@ Spell SpellBook::Open(const HeroBase & hero, const u8 filt, bool canselect) cons
 			else
 			{
 			    cursor.Hide();
-			    String::Replace(str, "%{mana}", (*spell).SpellPoint(&hero));
-			    String::Replace(str, "%{point}", hero.GetSpellPoints());
+			    StringReplace(str, "%{mana}", (*spell).SpellPoint(&hero));
+			    StringReplace(str, "%{point}", hero.GetSpellPoints());
 			    Dialog::Message("", str, Font::BIG, Dialog::OK);
 			    cursor.Show();
 			    display.Flip();
@@ -242,7 +242,7 @@ void SpellBook::Edit(const HeroBase & hero)
     Display & display = Display::Get();
     Cursor & cursor = Cursor::Get();
 
-    const Cursor::themes_t oldcursor = cursor.Themes();
+    const int oldcursor = cursor.Themes();
 
     const Sprite & r_list = AGG::GetICN(ICN::BOOK, 0);
     const Sprite & l_list = AGG::GetICN(ICN::BOOK, 0, true);
@@ -256,8 +256,7 @@ void SpellBook::Edit(const HeroBase & hero)
     const Sprite & bookmark_clos = AGG::GetICN(ICN::BOOK, 5);
 
     const Rect pos((display.w() - (r_list.w() + l_list.w())) / 2, (display.h() - r_list.h()) / 2, r_list.w() + l_list.w(), r_list.h() + 70);
-    Background back(pos);
-    back.Save();
+    SpriteBack back(pos);
 
     const Rect prev_list(pos.x + 30, pos.y + 8, 30, 25);
     const Rect next_list(pos.x + 410, pos.y + 8, 30, 25);
@@ -290,7 +289,7 @@ void SpellBook::Edit(const HeroBase & hero)
 	}
 	else
 	if(le.MouseClickLeft(clos_rt) ||
-		Game::HotKeyPress(Game::EVENT_DEFAULT_EXIT)) break;
+		Game::HotKeyPressEvent(Game::EVENT_DEFAULT_EXIT)) break;
 	else
 	if(le.MouseClickLeft(pos))
 	{
@@ -348,7 +347,7 @@ void SpellBook::Edit(const HeroBase & hero)
     display.Flip();
 }
 
-SpellStorage SpellBook::SetFilter(u8 filter, const HeroBase* hero) const
+SpellStorage SpellBook::SetFilter(int filter, const HeroBase* hero) const
 {
     SpellStorage res(*this);
 
@@ -374,30 +373,26 @@ SpellStorage SpellBook::SetFilter(u8 filter, const HeroBase* hero) const
     return res;
 }
 
-void SpellBookRedrawMP(const Point & dst, u16 mp)
+void SpellBookRedrawMP(const Point & dst, u32 mp)
 {
     bool small = Settings::Get().QVGA();
 
     Point tp(dst.x + (small ? 5 : 11), dst.y + (small ? 1 : 9));
-    std::string mps;
     if(0 == mp)
     {
-	mps = "0";
-	Text text(mps, Font::SMALL);
+	Text text("0", Font::SMALL);
 	text.Blit(tp.x - text.w() / 2, tp.y);
     }
     else
-    for(int i = 100; i >= 1; i /= 10) if(mp >= i)
+    for(u32 i = 100; i >= 1; i /= 10) if(mp >= i)
     {
-	mps.clear();
-	String::AddInt(mps, (mp % (i * 10)) / i);
-	Text text(mps, Font::SMALL);
+	Text text(GetString((mp % (i * 10)) / i), Font::SMALL);
 	text.Blit(tp.x - text.w() / 2, tp.y);
 	tp.y += (small ? -2 : 0) + text.h();
     }
 }
 
-void SpellBookRedrawLists(const SpellStorage & spells, Rects & coords, const size_t cur, const Point & pt, u16 sp, const u8 only, const HeroBase & hero)
+void SpellBookRedrawLists(const SpellStorage & spells, Rects & coords, const size_t cur, const Point & pt, u32 sp, int only, const HeroBase & hero)
 {
     bool small = Settings::Get().QVGA();
 
@@ -429,14 +424,14 @@ void SpellBookRedrawLists(const SpellStorage & spells, Rects & coords, const siz
     SpellBookRedrawSpells(spells, coords, cur + (small ? SPELL_PER_PAGE_SMALL : SPELL_PER_PAGE), pt.x + (small ? 110 : 220), pt.y, hero);
 }
 
-void SpellBookRedrawSpells(const SpellStorage & spells, Rects & coords, const size_t cur, s16 px, s16 py, const HeroBase & hero)
+void SpellBookRedrawSpells(const SpellStorage & spells, Rects & coords, const size_t cur, s32 px, s32 py, const HeroBase & hero)
 {
     bool small = Settings::Get().QVGA();
 
-    u16 ox = 0;
-    u16 oy = 0;
+    s32 ox = 0;
+    s32 oy = 0;
 
-    for(u8 ii = 0; ii < (small ? SPELL_PER_PAGE_SMALL : SPELL_PER_PAGE); ++ii) if(spells.size() > cur + ii)
+    for(u32 ii = 0; ii < (small ? SPELL_PER_PAGE_SMALL : SPELL_PER_PAGE); ++ii) if(spells.size() > cur + ii)
     {
 	if(small)
 	{
@@ -479,12 +474,7 @@ void SpellBookRedrawSpells(const SpellStorage & spells, Rects & coords, const si
 	    default: break;
 	}
 
-    	std::string str(spell.GetName());
-    	str.append(" [");
-	String::AddInt(str, spell.SpellPoint(&hero));
-	str.append("]");
-	    
-	TextBox box(str, Font::SMALL, (small ? 94 : 80));
+	TextBox box(std::string(spell.GetName()) + " [" + GetString(spell.SpellPoint(&hero)) + "]", Font::SMALL, (small ? 94 : 80));
 	box.Blit(px + ox - (small ? 47 : 40), py + oy + (small ? 22 : 25));
 
     	oy += small ? 65 : 80;

@@ -23,15 +23,15 @@
 #include "gamedefs.h"
 #include "agg.h"
 #include "dialog.h"
+#include "text.h"
 #include "cursor.h"
 #include "settings.h"
 #include "button.h"
-#include "network.h"
 #include "pocketpc.h"
 #include "world.h"
 #include "game.h"
 
-Game::menu_t Game::NewStandard(void)
+int Game::NewStandard(void)
 {
     Settings & conf = Settings::Get();
     conf.SetGameType(Game::TYPE_STANDARD);
@@ -39,7 +39,7 @@ Game::menu_t Game::NewStandard(void)
     return Game::SELECTSCENARIO;
 }
 
-Game::menu_t Game::NewBattleOnly(void)
+int Game::NewBattleOnly(void)
 {
     Settings & conf = Settings::Get();
     conf.SetGameType(Game::TYPE_BATTLEONLY);
@@ -47,7 +47,7 @@ Game::menu_t Game::NewBattleOnly(void)
     return Game::NEWMULTI;
 }
 
-Game::menu_t Game::NewHotSeat(void)
+int Game::NewHotSeat(void)
 {
     Settings & conf = Settings::Get();
     conf.SetGameType(conf.GameType() | Game::TYPE_HOTSEAT);
@@ -60,7 +60,7 @@ Game::menu_t Game::NewHotSeat(void)
     }
     else
     {
-	const u8 select = conf.QVGA() ? 2 : SelectCountPlayers();
+	const u32 select = conf.QVGA() ? 2 : SelectCountPlayers();
 	if(select)
 	{
 	    conf.SetPreferablyCountPlayers(select);
@@ -70,14 +70,15 @@ Game::menu_t Game::NewHotSeat(void)
     return Game::MAINMENU;
 }
 
-Game::menu_t Game::NewCampain(void)
+int Game::NewCampain(void)
 {
     Settings::Get().SetGameType(Game::TYPE_CAMPAIGN);
     VERBOSE("New Campain Game: under construction.");
     return Game::NEWGAME;
 }
 
-Game::menu_t Game::NewNetwork(void)
+#ifdef NETWORK_ENABLE
+int Game::NewNetwork(void)
 {
     Settings & conf = Settings::Get();
     conf.SetGameType(conf.GameType() | Game::TYPE_NETWORK);
@@ -118,9 +119,9 @@ Game::menu_t Game::NewNetwork(void)
 	le.MousePressLeft(buttonGuest) ? buttonGuest.PressDraw() : buttonGuest.ReleaseDraw();
 	le.MousePressLeft(buttonCancelGame) ? buttonCancelGame.PressDraw() : buttonCancelGame.ReleaseDraw();
 
-	if(le.MouseClickLeft(buttonHost) || HotKeyPress(EVENT_BUTTON_HOST)) return NetworkHost();
-	if(le.MouseClickLeft(buttonGuest) || HotKeyPress(EVENT_BUTTON_GUEST)) return NetworkGuest();
-	if(HotKeyPress(EVENT_DEFAULT_EXIT) || le.MouseClickLeft(buttonCancelGame)) return MAINMENU;
+	//if(le.MouseClickLeft(buttonHost) || HotKeyPressEvent(EVENT_BUTTON_HOST)) return NetworkHost();
+	//if(le.MouseClickLeft(buttonGuest) || HotKeyPressEvent(EVENT_BUTTON_GUEST)) return NetworkGuest();
+	if(HotKeyPressEvent(EVENT_DEFAULT_EXIT) || le.MouseClickLeft(buttonCancelGame)) return MAINMENU;
 
         // right info
 	if(le.MousePressRight(buttonHost)) Dialog::Message(_("Host"), _("The host sets up the game options. There can only be one host per network game."), Font::BIG);
@@ -130,21 +131,18 @@ Game::menu_t Game::NewNetwork(void)
 
     return Game::MAINMENU;
 }
+#endif
 
-Game::menu_t Game::NewGame(void)
+int Game::NewGame(void)
 {
     Mixer::Pause();
     AGG::PlayMusic(MUS::MAINMENU);
     Settings & conf = Settings::Get();
 
-    Game::IO::last_name.clear();
+    // reset last save name
+    Game::SetLastSavename("");
 
-    if(Settings::Get().QVGA()) return PocketPC::NewGame();
-  
-    // preload
-    AGG::PreloadObject(ICN::HEROES);
-    AGG::PreloadObject(ICN::BTNNEWGM);
-    AGG::PreloadObject(ICN::REDBACK);
+    if(conf.QVGA()) return PocketPC::NewGame();
 
     // cursor
     Cursor & cursor = Cursor::Get();
@@ -152,6 +150,7 @@ Game::menu_t Game::NewGame(void)
     cursor.SetThemes(cursor.POINTER);
 
     Display & display = Display::Get();
+    display.Fill(ColorBlack);
 
     // load game settings
     conf.BinaryLoad();
@@ -184,11 +183,10 @@ Game::menu_t Game::NewGame(void)
     buttonCancelGame.Draw();
     buttonSettings.Draw();
 
-#ifdef BUILD_BATTLEONLY
-    buttonBattleGame.Draw();
-#else
-    buttonBattleGame.SetDisable(true);
-#endif
+    if(conf.QVGA())
+	buttonBattleGame.SetDisable(true);
+    else
+	buttonBattleGame.Draw();
 
     cursor.Show();
     display.Flip();
@@ -203,14 +201,14 @@ Game::menu_t Game::NewGame(void)
 	le.MousePressLeft(buttonSettings) ? buttonSettings.PressDraw() : buttonSettings.ReleaseDraw();
 	buttonBattleGame.isEnable() && le.MousePressLeft(buttonBattleGame) ? buttonBattleGame.PressDraw() : buttonBattleGame.ReleaseDraw();
 
-	if(HotKeyPress(EVENT_BUTTON_STANDARD) || le.MouseClickLeft(buttonStandartGame)) return NEWSTANDARD;
-	//if(HotKeyPress(EVENT_BUTTON_CAMPAIN) || le.MouseClickLeft(buttonCampainGame)) return NEWCAMPAIN;
-	if(HotKeyPress(EVENT_BUTTON_MULTI) || le.MouseClickLeft(buttonMultiGame)) return NEWMULTI;
-	if(HotKeyPress(EVENT_BUTTON_SETTINGS) || le.MouseClickLeft(buttonSettings)){ Dialog::ExtSettings(false); cursor.Show(); display.Flip(); }
-	if(HotKeyPress(EVENT_DEFAULT_EXIT) || le.MouseClickLeft(buttonCancelGame)) return MAINMENU;
+	if(HotKeyPressEvent(EVENT_BUTTON_STANDARD) || le.MouseClickLeft(buttonStandartGame)) return NEWSTANDARD;
+	//if(HotKeyPressEvent(EVENT_BUTTON_CAMPAIN) || le.MouseClickLeft(buttonCampainGame)) return NEWCAMPAIN;
+	if(HotKeyPressEvent(EVENT_BUTTON_MULTI) || le.MouseClickLeft(buttonMultiGame)) return NEWMULTI;
+	if(HotKeyPressEvent(EVENT_BUTTON_SETTINGS) || le.MouseClickLeft(buttonSettings)){ Dialog::ExtSettings(false); cursor.Show(); display.Flip(); }
+	if(HotKeyPressEvent(EVENT_DEFAULT_EXIT) || le.MouseClickLeft(buttonCancelGame)) return MAINMENU;
 
 	if(buttonBattleGame.isEnable())
-	if(HotKeyPress(EVENT_BUTTON_BATTLEONLY) || le.MouseClickLeft(buttonBattleGame)) return NEWBATTLEONLY;
+	if(HotKeyPressEvent(EVENT_BUTTON_BATTLEONLY) || le.MouseClickLeft(buttonBattleGame)) return NEWBATTLEONLY;
 
         // right info
 	if(le.MousePressRight(buttonStandartGame)) Dialog::Message(_("Standard Game"), _("A single player game playing out a single map."), Font::BIG);
@@ -223,7 +221,7 @@ Game::menu_t Game::NewGame(void)
     return QUITGAME;
 }
 
-Game::menu_t Game::NewMulti(void)
+int Game::NewMulti(void)
 {
     Settings & conf = Settings::Get();
 
@@ -231,11 +229,6 @@ Game::menu_t Game::NewMulti(void)
 	conf.SetGameType(Game::TYPE_STANDARD);
 
     if(conf.QVGA()) return PocketPC::NewMulti();
-
-    // preload
-    AGG::PreloadObject(ICN::HEROES);
-    AGG::PreloadObject(ICN::BTNHOTST);
-    AGG::PreloadObject(ICN::REDBACK);
 
     // cursor
     Cursor & cursor = Cursor::Get();
@@ -260,11 +253,7 @@ Game::menu_t Game::NewMulti(void)
 
     buttonHotSeat.Draw();
     buttonCancelGame.Draw();
-#ifdef WITH_NET
-    buttonNetwork.Draw();
-#else
     buttonNetwork.SetDisable(true);
-#endif
 
     cursor.Show();
     display.Flip();
@@ -275,25 +264,27 @@ Game::menu_t Game::NewMulti(void)
 	le.MousePressLeft(buttonHotSeat) ? buttonHotSeat.PressDraw() : buttonHotSeat.ReleaseDraw();
 	le.MousePressLeft(buttonCancelGame) ? buttonCancelGame.PressDraw() : buttonCancelGame.ReleaseDraw();
 
-	if(le.MouseClickLeft(buttonHotSeat) || HotKeyPress(EVENT_BUTTON_HOTSEAT)) return NEWHOTSEAT;
-	if(HotKeyPress(EVENT_DEFAULT_EXIT) || le.MouseClickLeft(buttonCancelGame)) return MAINMENU;
+	if(le.MouseClickLeft(buttonHotSeat) || HotKeyPressEvent(EVENT_BUTTON_HOTSEAT)) return NEWHOTSEAT;
+	if(HotKeyPressEvent(EVENT_DEFAULT_EXIT) || le.MouseClickLeft(buttonCancelGame)) return MAINMENU;
 
         // right info
 	if(le.MousePressRight(buttonHotSeat)) Dialog::Message(_("Hot Seat"), _("Play a Hot Seat game, where 2 to 4 players play around the same computer, switching into the 'Hot Seat' when it is their turn."), Font::BIG);
 	if(le.MousePressRight(buttonCancelGame)) Dialog::Message(_("Cancel"), _("Cancel back to the main menu."), Font::BIG);
-	
+
+#ifdef NETWORK_ENABLE
 	if(buttonNetwork.isEnable())
 	{
 	    le.MousePressLeft(buttonNetwork) ? buttonNetwork.PressDraw() : buttonNetwork.ReleaseDraw();
-	    if(le.MouseClickLeft(buttonNetwork) || HotKeyPress(EVENT_BUTTON_NETWORK)) return NEWNETWORK;
+	    if(le.MouseClickLeft(buttonNetwork) || HotKeyPressEvent(EVENT_BUTTON_NETWORK)) return NEWNETWORK;
 	    if(le.MousePressRight(buttonNetwork)) Dialog::Message(_("Network"), _("Play a network game, where 2 players use their own computers connected through a LAN (Local Area Network)."), Font::BIG);
 	}
+#endif
     }
 
     return QUITGAME;
 }
 
-u8 Game::SelectCountPlayers(void)
+u32 Game::SelectCountPlayers(void)
 {
     // cursor
     Cursor & cursor = Cursor::Get();
@@ -346,7 +337,7 @@ u8 Game::SelectCountPlayers(void)
 	if(le.MouseClickLeft(button5Players) || le.KeyPress(KEY_5)) return 5;
 	if(le.MouseClickLeft(button6Players) || le.KeyPress(KEY_6)) return 6;
 
-	if(Game::HotKeyPress(Game::EVENT_DEFAULT_EXIT) || le.MouseClickLeft(buttonCancel)) return 0;
+	if(HotKeyPressEvent(Game::EVENT_DEFAULT_EXIT) || le.MouseClickLeft(buttonCancel)) return 0;
 
         // right info
 	if(le.MousePressRight(button2Players)) Dialog::Message(_("2 Players"), _("Play with 2 human players, and optionally, up, to 4 additional computer players."), Font::BIG);

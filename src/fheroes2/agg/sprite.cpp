@@ -21,12 +21,13 @@
  ***************************************************************************/
 
 #include "settings.h"
+#include "agg.h"
 #include "icn.h"
 #include "cursor.h"
 #include "display.h"
 #include "sprite.h"
 
-bool SkipLocalAlpha(u16 icn)
+bool SkipLocalAlpha(int icn)
 {
     switch(icn)
     {
@@ -47,144 +48,40 @@ bool SkipLocalAlpha(u16 icn)
     return false;
 }
 
-Sprite::Sprite() : offsetX(0), offsetY(0)
+Sprite::Sprite()
 {
 }
 
-Sprite::Sprite(const Sprite & sp) : Surface(sp), offsetX(sp.offsetX), offsetY(sp.offsetY)
+Sprite::Sprite(const Surface & sf, s32 ox, s32 oy) : SpritePos(sf, Point(ox, oy))
 {
 }
 
-void Sprite::SetOffset(s16 ox, s16 oy)
+int Sprite::x(void) const
 {
-    offsetX = ox;
-    offsetY = oy;
+    return pos.x;
 }
 
-void Sprite::DrawICN(u16 icn, Surface & sf, const u8* cur, const u32 size, bool reflect)
+int Sprite::y(void) const
 {
-    if(NULL == cur || 0 == size) return;
-
-    const u8 *max = cur + size;
-
-    u8  c = 0;
-    u16 x = reflect ? sf.w() - 1 : 0;
-    u16 y = 0;
-
-    Surface sf_tmp;
-    Surface* sf_cur = sf.amask() ? &sf : &sf_tmp;
-    u32 shadow = sf_cur->isValid() ? sf_cur->MapRGB(0, 0, 0, 0x40) : 0;
-
-    // lock surface
-    sf.Lock();
-
-    while(1)
-    {
-	// 0x00 - end line
-	if(0 == *cur)
-	{
-	    ++y;
-	    x = reflect ? sf.w() - 1 : 0;
-	    ++cur;
-	}
-	else
-	// 0x7F - count data
-	if(0x80 > *cur)
-	{
-	    c = *cur;
-	    ++cur;
-	    while(c-- && cur < max)
-	    {
-		sf.SetPixel(x, y, sf.GetColorIndex(*cur));
-		reflect ? x-- : x++;
-		++cur;
-	    }
-	}
-	else
-	// 0x80 - end data
-	if(0x80 == *cur)
-	{
-	    break;
-	}
-	else
-	// 0xBF - skip data
-	if(0xC0 > *cur)
-	{
-	    reflect ? x -= *cur - 0x80 : x += *cur - 0x80;
-	    ++cur;
-	}
-	else
-	// 0xC0 - shadow
-	if(0xC0 == *cur)
-	{
-	    ++cur;
-	    c = *cur % 4 ? *cur % 4 : *(++cur);
-
-	    if(SkipLocalAlpha(icn) || 8 == sf.depth())
-	    {
-		while(c--){ reflect ? x-- : x++; }
-	    }
-	    else
-	    {
-		if(! sf_cur->isValid())
-		{
-		    sf_cur->Set(sf.w(), sf.h(), true);
-		    shadow = sf_cur->MapRGB(0, 0, 0, 0x40);
-		}
-
-		while(c--){ sf_cur->SetPixel(x, y, shadow); reflect ? x-- : x++; }
-	    }
-
-	    ++cur;
-	}
-	else
-	// 0xC1
-	if(0xC1 == *cur)
-	{
-	    ++cur;
-	    c = *cur;
-	    ++cur;
-	    while(c--){ sf.SetPixel(x, y, sf.GetColorIndex(*cur)); reflect ? x-- : x++; }
-	    ++cur;
-	}
-	else
-	{
-	    c = *cur - 0xC0;
-	    ++cur;
-	    while(c--){ sf.SetPixel(x, y, sf.GetColorIndex(*cur)); reflect ? x-- : x++; }
-	    ++cur;
-	}
-
-	if(cur >= max)
-	{
-	    DEBUG(DBG_ENGINE, DBG_WARN, "out of range: " << cur - max);
-	    break;
-	}
-    }
-
-    // unlock surface
-    sf.Unlock();
-
-    if(sf_tmp.isValid())
-    {
-	sf.Blit(sf_tmp);
-	Surface::Swap(sf_tmp, sf);
-    }
+    return pos.y;
 }
 
-u32 Sprite::GetSize(void) const
+Surface Sprite::ScaleQVGASurface(const Surface & src)
 {
-    return Surface::GetSize() + sizeof(offsetX) + sizeof(offsetY);
+    s32 w = src.w() / 2;
+    s32 h = src.h() / 2;
+    return src.RenderScale(Size((w ? w : 1), (h ? h : 1)));
 }
 
-void Sprite::ScaleMinifyByTwo(void)
+Sprite Sprite::ScaleQVGASprite(const Sprite & sp)
 {
     Cursor & cursor = Cursor::Get();
     Display & display = Display::Get();
+    Sprite res;
 
-    if(w() > 3 && h() > 3)
+    if(sp.w() > 3 && sp.h() > 3)
     {
-	u16 theme = 0;
+	int theme = 0;
 	if(cursor.isVisible() && Cursor::WAIT != cursor.Themes())
 	{
 	    theme = cursor.Themes();
@@ -193,9 +90,7 @@ void Sprite::ScaleMinifyByTwo(void)
 	    display.Flip();
 	}
 
-	Surface sf;
-	Surface::ScaleMinifyByTwo(sf, *this, cursor.isVisible());
-	Surface::Swap(sf, *this);
+	res.SetSurface(ScaleQVGASurface(sp));
 
 	if(theme)
 	{
@@ -205,58 +100,38 @@ void Sprite::ScaleMinifyByTwo(void)
 	}
     }
 
-    offsetX /= 2;
-    offsetY /= 2;
+    const Point pt = sp.GetPos();
+    res.SetPos(Point(pt.x / 2, pt.y / 2));
+
+    return res;
 }
 
-void Sprite::AddonExtensionModify(Sprite & sp, u16 icn, u16 index)
+void Sprite::ChangeColorIndex(u32 fc, u32 tc)
 {
-    switch(icn)
-    {
-	case ICN::AELEM:
-	    if(sp.w() > 3 && sp.h() > 3)
-	    {
-		Surface sf;
-		Surface::MakeContour(sf, sp, sp.GetColorIndex(0xEF));
-		sf.Blit(-1, -1, sp);
-	    }
-	    break;
-
-	default: break;
-    }
+    SetSurface(RenderChangeColor(AGG::GetPaletteColor(fc), AGG::GetPaletteColor(tc)));
 }
 
-void Sprite::Blit(Surface & dst) const
+void Sprite::Blit(void) const
 {
-    Surface::Blit(dst);
+    Blit(Display::Get());
 }
 
-void Sprite::Blit(s16 dstx, s16 dsty, Surface & dst) const
+void Sprite::Blit(s32 dx, s32 dy) const
 {
-    Surface::Blit(dstx, dsty, dst);
+    Blit(Point(dx, dy), Display::Get());
 }
 
-void Sprite::Blit(const Point & dpt, Surface & dst) const
+void Sprite::Blit(const Point & dpt) const
 {
-    Surface::Blit(dpt, dst);
+    Blit(Rect(Point(0, 0), GetSize()), dpt, Display::Get());
 }
 
-void Sprite::Blit(const Rect & srt, s16 dstx, s16 dsty, Surface & dst) const
+void Sprite::Blit(const Rect & srt, s32 dx, s32 dy) const
 {
-    Surface::Blit(srt, dstx, dsty, dst);
+    Blit(srt, Point(dx, dy), Display::Get());
 }
 
-void Sprite::Blit(const Rect & srt, const Point & dpt, Surface & dst) const
+void Sprite::Blit(const Rect & srt, const Point & dpt) const
 {
-    Surface::Blit(srt, dpt, dst);
-}
-
-void Sprite::Blit(u8 alpha, s16 dstx, s16 dsty, Surface & dst) const
-{
-    Surface::Blit(alpha, dstx, dsty, dst);
-}
-
-void Sprite::Blit(u8 alpha, const Rect & srt, const Point & dpt, Surface & dst) const
-{
-    Surface::Blit(alpha, srt, dpt, dst);
+    Blit(srt, dpt, Display::Get());
 }

@@ -120,7 +120,11 @@ void LocalEvent::SetGlobalFilter(bool f)
 
 const char* KeySymGetName(KeySym sym)
 {
+#if SDL_VERSION_ATLEAST(2, 0, 0)
+    return SDL_GetKeyName(static_cast<SDL_Keycode>(sym));
+#else
     return SDL_GetKeyName(static_cast<SDLKey>(sym));
+#endif
 }
 
 KeySym GetKeySym(int key)
@@ -186,7 +190,6 @@ KeySym GetKeySym(int key)
 	case SDLK_F10:		return KEY_F10;
 	case SDLK_F11:		return KEY_F11;
 	case SDLK_F12:		return KEY_F12;
-	case SDLK_PRINT:	return KEY_PRINT;
 	case SDLK_0:		return KEY_0;
 	case SDLK_1:		return KEY_1;
 	case SDLK_2:		return KEY_2;
@@ -224,6 +227,20 @@ KeySym GetKeySym(int key)
 	case SDLK_y:		return KEY_y;
 	case SDLK_z:		return KEY_z;
 
+#if SDL_VERSION_ATLEAST(2, 0, 0)
+	case SDLK_PRINTSCREEN:	return KEY_PRINT;
+	case SDLK_KP_0:		return KEY_KP0;
+	case SDLK_KP_1:		return KEY_KP1;
+	case SDLK_KP_2:		return KEY_KP2;
+	case SDLK_KP_3:		return KEY_KP3;
+	case SDLK_KP_4:		return KEY_KP4;
+	case SDLK_KP_5:		return KEY_KP5;
+	case SDLK_KP_6:		return KEY_KP6;
+	case SDLK_KP_7:		return KEY_KP7;
+	case SDLK_KP_8:		return KEY_KP8;
+	case SDLK_KP_9:		return KEY_KP9;
+#else
+	case SDLK_PRINT:	return KEY_PRINT;
 	case SDLK_KP0:		return KEY_KP0;
 	case SDLK_KP1:		return KEY_KP1;
 	case SDLK_KP2:		return KEY_KP2;
@@ -234,6 +251,8 @@ KeySym GetKeySym(int key)
 	case SDLK_KP7:		return KEY_KP7;
 	case SDLK_KP8:		return KEY_KP8;
 	case SDLK_KP9:		return KEY_KP9;
+#endif
+
 	case SDLK_KP_PERIOD:	return KEY_KP_PERIOD;
 	case SDLK_KP_DIVIDE:	return KEY_KP_DIVIDE;
 	case SDLK_KP_MULTIPLY:	return KEY_KP_MULTIPLY;
@@ -315,12 +334,11 @@ void LocalEvent::pspSetKey(int pspkey, KeySym gamekey)
 
 bool LocalEvent::HandleEvents(bool delay)
 {
-    //SDL_Event event;
+   // SDL_Event event;
 
     ResetModes(MOUSE_MOTION);
     ResetModes(KEY_PRESSED);
-    
-    oldpad = pad;
+	oldpad = pad;
 
     sceCtrlReadBufferPositive(&pad, 1);
 
@@ -464,13 +482,31 @@ bool LocalEvent::HandleEvents(bool delay)
     {
        (*(redraw_cursor_func))(mouse_cu.x, mouse_cu.y);
 	}
-
-
 /*
     while(SDL_PollEvent(&event))
     {
 	switch(event.type)
 	{
+#if SDL_VERSION_ATLEAST(2, 0, 0)
+            case SDL_WINDOWEVENT:
+                if(Mixer::isValid())
+                {
+                    if(event.window.event == SDL_WINDOWEVENT_HIDDEN)
+                    {
+                        Mixer::Pause();
+                        Music::Pause();
+                        loop_delay = 100;
+                    }
+                    else
+                    if(event.window.event == SDL_WINDOWEVENT_SHOWN)
+                    {
+                        Mixer::Resume();
+                        Music::Resume();
+                        loop_delay = 1;
+                    }
+                }
+                break;
+#else
 	    case SDL_ACTIVEEVENT:
 		if(event.active.state & SDL_APPACTIVE)
 		{
@@ -479,16 +515,20 @@ bool LocalEvent::HandleEvents(bool delay)
 			//iconify
 			if(0 == event.active.gain)
 			{
-			    Mixer::Reset();
+			    Mixer::Pause();
 			    Music::Pause();
 			    loop_delay = 100;
 			}
 			else
+			{
+			    Mixer::Resume();
+			    Music::Resume();
 			    loop_delay = 1;
+			}
 		    }
 		}
 		break;
-
+#endif
 	    // keyboard
 	    case SDL_KEYDOWN:
 	    case SDL_KEYUP:
@@ -516,7 +556,11 @@ bool LocalEvent::HandleEvents(bool delay)
 	}
 
         // need for wheel up/down delay
+#if SDL_VERSION_ATLEAST(2, 0, 0)
+        if(SDL_MOUSEWHEEL == event.type) break;
+#else
         if(SDL_BUTTON_WHEELDOWN == event.button.button || SDL_BUTTON_WHEELUP == event.button.button) break;
+#endif
     }
 
     // emulate press right
@@ -550,11 +594,13 @@ bool LocalEvent::MouseMotion(const Rect &rt) const
 
 bool LocalEvent::MousePressLeft(void) const
 {
-    return (modes & MOUSE_PRESSED) && mouse_key_mod == MOUSE_BUTTON_LEFT/*SDL_BUTTON_LEFT == mouse_button*/;
+   // return (modes & MOUSE_PRESSED) && SDL_BUTTON_LEFT == mouse_button;
+   return (modes & MOUSE_PRESSED) && mouse_key_mod == MOUSE_BUTTON_LEFT/*SDL_BUTTON_LEFT == mouse_button*/;
 }
 
 bool LocalEvent::MouseReleaseLeft(void) const
 {
+   // return !(modes & MOUSE_PRESSED) && SDL_BUTTON_LEFT == mouse_button;
     return !(modes & MOUSE_PRESSED) && mouse_key_mod == MOUSE_BUTTON_LEFT/*SDL_BUTTON_LEFT == mouse_button*/;
 }
 
@@ -570,17 +616,19 @@ bool LocalEvent::MouseReleaseMiddle(void) const
 
 bool LocalEvent::MousePressRight(void) const
 {
+   // return (modes & MOUSE_PRESSED) && SDL_BUTTON_RIGHT == mouse_button;
     return (modes & MOUSE_PRESSED) && mouse_key_mod == MOUSE_BUTTON_RIGHT/*SDL_BUTTON_RIGHT == mouse_button*/;
 }
 
 bool LocalEvent::MouseReleaseRight(void) const
 {
+   // return !(modes & MOUSE_PRESSED) && SDL_BUTTON_RIGHT == mouse_button;
     return !(modes & MOUSE_PRESSED) && mouse_key_mod == MOUSE_BUTTON_RIGHT/*SDL_BUTTON_RIGHT == mouse_button*/;
 }
 
 void LocalEvent::HandleKeyboardEvent(SDL_KeyboardEvent & event)
 {
-/*
+	/*
     if(KEY_NONE != GetKeySym(event.keysym.sym))
     {
 	(event.type == SDL_KEYDOWN) ? SetModes(KEY_PRESSED) : ResetModes(KEY_PRESSED);
@@ -591,7 +639,7 @@ void LocalEvent::HandleKeyboardEvent(SDL_KeyboardEvent & event)
 
 	key_value = GetKeySym(event.keysym.sym);
     }
-*/
+	*/
 }
 
 void LocalEvent::HandleMouseMotionEvent(const SDL_MouseMotionEvent & motion)
@@ -605,7 +653,7 @@ void LocalEvent::HandleMouseMotionEvent(const SDL_MouseMotionEvent & motion)
 
 void LocalEvent::HandleMouseButtonEvent(const SDL_MouseButtonEvent & button)
 {
-/*
+	/*
     button.state == SDL_PRESSED ? SetModes(MOUSE_PRESSED) : ResetModes(MOUSE_PRESSED);
     mouse_button = button.button;
 
@@ -616,8 +664,13 @@ void LocalEvent::HandleMouseButtonEvent(const SDL_MouseButtonEvent & button)
     if(modes & MOUSE_PRESSED)
 	switch(button.button)
 	{
+#if SDL_VERSION_ATLEAST(2, 0, 0)
+            case SDL_BUTTON_X1:
+            case SDL_BUTTON_X2:
+#else
 	    case SDL_BUTTON_WHEELDOWN:
 	    case SDL_BUTTON_WHEELUP:
+#endif
 		mouse_pm = mouse_cu;
 		break;
 
@@ -646,8 +699,13 @@ void LocalEvent::HandleMouseButtonEvent(const SDL_MouseButtonEvent & button)
     else
 	switch(button.button)
 	{
+#if SDL_VERSION_ATLEAST(2, 0, 0)
+            case SDL_BUTTON_X1:
+            case SDL_BUTTON_X2:
+#else
 	    case SDL_BUTTON_WHEELDOWN:
 	    case SDL_BUTTON_WHEELUP:
+#endif
 		mouse_rm = mouse_cu;
 		break;
 
@@ -670,7 +728,7 @@ void LocalEvent::HandleMouseButtonEvent(const SDL_MouseButtonEvent & button)
 	    default:
 		break;
 	}
-*/
+	*/
 }
 
 bool LocalEvent::MouseClickLeft(void)
@@ -742,12 +800,26 @@ bool LocalEvent::MouseClickRight(const Rect &rt)
 
 bool LocalEvent::MouseWheelUp(void) const
 {
-    return (modes & MOUSE_PRESSED) && mouse_key_mod == MOUSE_WHEEL_UP /*SDL_BUTTON_WHEELUP == mouse_button*/;
+	/*
+#if SDL_VERSION_ATLEAST(2, 0, 0)
+    return (modes & MOUSE_PRESSED) && SDL_BUTTON_X1 == mouse_button;
+#else
+    return (modes & MOUSE_PRESSED) && SDL_BUTTON_WHEELUP == mouse_button;
+#endif
+	*/
+	return (modes & MOUSE_PRESSED) && mouse_key_mod == MOUSE_WHEEL_UP /*SDL_BUTTON_WHEELUP == mouse_button*/;
 }
 
 bool LocalEvent::MouseWheelDn(void) const
 {
-    return (modes & MOUSE_PRESSED) && mouse_key_mod == MOUSE_WHEEL_DOWN /*SDL_BUTTON_WHEELDOWN == mouse_button*/;
+	/*
+#if SDL_VERSION_ATLEAST(2, 0, 0)
+    return (modes & MOUSE_PRESSED) && SDL_BUTTON_X2 == mouse_button;
+#else
+    return (modes & MOUSE_PRESSED) && SDL_BUTTON_WHEELDOWN == mouse_button;
+#endif
+	*/
+	return (modes & MOUSE_PRESSED) && mouse_key_mod == MOUSE_WHEEL_DOWN /*SDL_BUTTON_WHEELDOWN == mouse_button*/;
 }
 
 bool LocalEvent::MousePressLeft(const Rect &rt) const
@@ -755,7 +827,7 @@ bool LocalEvent::MousePressLeft(const Rect &rt) const
     return MousePressLeft() && (rt & mouse_pl);
 }
 
-bool LocalEvent::MousePressLeft(const Point &pt, u16 w, u16 h) const
+bool LocalEvent::MousePressLeft(const Point &pt, u32 w, u32 h) const
 {
     return MousePressLeft() && (Rect(pt.x, pt.y, w, h) & mouse_pl);
 }
@@ -857,9 +929,10 @@ const Point & LocalEvent::GetMouseCursor(void)
     return mouse_cu;
 }
 
-u16 LocalEvent::KeyMod(void) const
+int LocalEvent::KeyMod(void) const
 {
-    return 0;//SDL_GetModState();
+   // return SDL_GetModState();
+	return 0;
 }
 
 KeySym LocalEvent::KeyValue(void) const
@@ -877,18 +950,18 @@ bool LocalEvent::KeyPress(KeySym key) const
     return key == key_value && (modes & KEY_PRESSED);
 }
 
-void LocalEvent::SetGlobalFilterMouseEvents(void (*pf)(u16, u16))
+void LocalEvent::SetGlobalFilterMouseEvents(void (*pf)(s32, s32))
 {
     redraw_cursor_func = pf;
 }
 
-void LocalEvent::SetGlobalFilterKeysEvents(void (*pf)(int, u16))
+void LocalEvent::SetGlobalFilterKeysEvents(void (*pf)(int, int))
 {
     keyboard_filter_func = pf;
 }
 
-#if SDL_VERSION_ATLEAST(1, 3, 0)
-int LocalEvent::GlobalFilterEvents(void *userdata, SDL_Event *event)
+#if SDL_VERSION_ATLEAST(2, 0, 0)
+int LocalEvent::GlobalFilterEvents(void* userdata, SDL_Event* event)
 #else
 int LocalEvent::GlobalFilterEvents(const SDL_Event *event)
 #endif
@@ -903,21 +976,20 @@ int LocalEvent::GlobalFilterEvents(const SDL_Event *event)
     	    else
 		(*(le.redraw_cursor_func))(mx, my);
 	}
-
 /*
     // motion
     if((le.modes & GLOBAL_FILTER) && SDL_MOUSEMOTION == event->type)
     {
-
         // redraw cursor
         if(le.redraw_cursor_func)
-		{
-		    if(le.modes & MOUSE_OFFSET)
-	    		(*(le.redraw_cursor_func))(event->motion.x + le.mouse_st.x, event->motion.y + le.mouse_st.y);
-	    	    else
-			(*(le.redraw_cursor_func))(event->motion.x, event->motion.y);
-		}
+	{
+	    if(le.modes & MOUSE_OFFSET)
+    		(*(le.redraw_cursor_func))(event->motion.x + le.mouse_st.x, event->motion.y + le.mouse_st.y);
+    	    else
+		(*(le.redraw_cursor_func))(event->motion.x, event->motion.y);
+	}
     }
+
     // key
     if((le.modes & GLOBAL_FILTER) && SDL_KEYDOWN == event->type)
 
@@ -935,16 +1007,15 @@ void LocalEvent::SetState(u32 type, bool enable)
     //SDL_EventState(type, enable ? SDL_ENABLE : SDL_IGNORE);
 }
 
-u8 LocalEvent::GetState(u32 type)
+int LocalEvent::GetState(u32 type)
 {
-    return SDL_ENABLE; // SDL_EventState(type, SDL_QUERY);
+  //  return SDL_EventState(type, SDL_QUERY);
+   return SDL_ENABLE;
 }
          
 void LocalEvent::SetStateDefaults(void)
 {
-/*
-    // enable events
-    SetState(SDL_ACTIVEEVENT, true);
+	/*
     SetState(SDL_USEREVENT, true);
     SetState(SDL_KEYDOWN, true);
     SetState(SDL_KEYUP, true);
@@ -953,19 +1024,24 @@ void LocalEvent::SetStateDefaults(void)
     SetState(SDL_MOUSEBUTTONUP, true);
     SetState(SDL_QUIT, true);
 
-    // ignore events
     SetState(SDL_JOYAXISMOTION, false);
     SetState(SDL_JOYBALLMOTION, false);
     SetState(SDL_JOYHATMOTION, false);
     SetState(SDL_JOYBUTTONUP, false);
     SetState(SDL_JOYBUTTONDOWN, false);
     SetState(SDL_SYSWMEVENT, false);
-    SetState(SDL_VIDEORESIZE, false);
-    SetState(SDL_VIDEOEXPOSE, false);
-*/
-#if SDL_VERSION_ATLEAST(1, 3, 0)
+	*/
+#if SDL_VERSION_ATLEAST(2, 0, 0)
+    //SetState(SDL_WINDOWEVENT, true);
+
     SDL_SetEventFilter(GlobalFilterEvents, NULL);
 #else
+   // SetState(SDL_ACTIVEEVENT, true);
+
+   // SetState(SDL_SYSWMEVENT, false);
+   // SetState(SDL_VIDEORESIZE, false);
+   // SetState(SDL_VIDEOEXPOSE, false);
+
     SDL_SetEventFilter(GlobalFilterEvents);
 #endif
 }

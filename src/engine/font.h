@@ -23,44 +23,61 @@
 #ifndef H2FONT_H
 #define H2FONT_H
 
-#ifdef WITH_TTF
 #include <string>
+#include <vector>
+
+#include "surface.h"
 #include "types.h"
+
+class RGBA;
+
+#ifdef WITH_TTF
 #include "SDL_ttf.h"
 
-class Surface;
-
-namespace SDL
+class FontTTF
 {
-    class Font
-    {
-    public:
-	enum render_t { SOLID, BLENDED };
+public:
+    FontTTF();
+    ~FontTTF();
 
-	Font();
-	~Font();
+    TTF_Font* operator() (void) const { return ptr; }
 
-	static void Init(void);
-	static void Quit(void);
+    static void Init(void);
+    static void Quit(void);
 
-	bool Open(const std::string &, u8);
-	bool isValid(void) const;
-	void SetStyle(u8);
+    bool Open(const std::string &, int size);
+    bool isValid(void) const;
+    void SetStyle(int);
 
-	int Height(void) const;
-	int Ascent(void) const;
-	int Descent(void) const;
-	int LineSkip(void) const;
+    int Height(void) const;
+    int Ascent(void) const;
+    int Descent(void) const;
+    int LineSkip(void) const;
 
-	void RenderText(Surface &, const std::string &, const RGBColor &, render_t = SOLID);
-	void RenderChar(Surface &, char, const RGBColor &, render_t = SOLID);
-	void RenderUnicodeText(Surface &, const u16 *, const RGBColor &, render_t = SOLID);
-	void RenderUnicodeChar(Surface &, u16, const RGBColor &, render_t = SOLID);
+    Surface RenderText(const std::string &, const RGBA &, bool solid /* or blended */);
+    Surface RenderChar(char, const RGBA &, bool solid /* or blended */);
+    Surface RenderUnicodeText(const std::vector<u16> &, const RGBA &, bool solid /* or blended */);
+    Surface RenderUnicodeChar(u16, const RGBA &, bool solid /* or blended */);
 
-    private:
-	TTF_Font *fnt;
-    };
-}
+protected:
+    TTF_Font *ptr;
+
+private:
+    FontTTF(const FontTTF &) {}
+    FontTTF & operator= (const FontTTF &) { return *this; }
+};
+
 #endif
 
+class FontPSF
+{
+public:
+    FontPSF(const std::string &, const Size &);
+
+    Surface RenderText(const std::string &, const RGBA &) const;
+
+private:
+    std::vector<u8> buf;
+    Size size;
+};
 #endif

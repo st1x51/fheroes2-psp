@@ -23,125 +23,162 @@
 #ifndef H2ARMY_H
 #define H2ARMY_H
 
+#include <utility>
 #include <string>
 #include <vector>
 #include "bitmodes.h"
-#include "heroes_base.h"
+#include "players.h"
 #include "army_troop.h"
 
 class Castle;
+class HeroBase;
 class Heroes;
+
 namespace Maps { class Tiles; }
-namespace Battle2 { class Armies; }
 
-namespace Army
+class Troops : protected std::vector<Troop*>
 {
-    enum format_t
-    {
-	FORMAT_GROUPED = 0,
-	FORMAT_SPREAD  = 1
-    };
+public:
+    Troops();
+    virtual ~Troops();
 
-    std::string SizeString(u32);
-    std::string TroopSizeString(const Troop &);
+    void		Assign(const Troop*, const Troop*);
+    void		Assign(const Troops &);
+    void		Insert(const Troops &);
+    void		PushBack(const Monster &, u32);
+    void		PopBack(void);
+
+    size_t		Size(void) const;
+
+    Troop*		GetTroop(size_t);
+    const Troop*	GetTroop(size_t) const;
+
+    void		UpgradeMonsters(const Monster &);
+    u32			GetCountMonsters(const Monster &) const;
+
+    u32			GetCount(void) const;
+    bool		isValid(void) const;
+    bool		HasMonster(const Monster &) const;
+
+    bool		AllTroopsIsRace(int) const;
+    u32			GetUniqueCount(void) const;
+
+    bool		JoinTroop(const Troop &);
+    bool		JoinTroop(const Monster &, u32);
+    bool		CanJoinTroop(const Monster &) const;
+
+    void 		JoinTroops(Troops &);
+    bool 		CanJoinTroops(const Troops &) const;
+
+    Troops		GetOptimized(void) const;
+
+    virtual u32		GetAttack(void) const;
+    virtual u32		GetDefense(void) const;
+
+    u32			GetHitPoints(void) const;
+    u32			GetDamageMin(void) const;
+    u32			GetDamageMax(void) const;
+    u32			GetStrength(void) const;
+
+    void		Clean(void);
+    void		UpgradeTroops(const Castle &);
+
+    Troop*		GetFirstValid(void);
+    Troop*		GetWeakestTroop(void);
+    Troop*		GetSlowestTroop(void);
+
+    void		ArrangeForBattle(bool = false);
+
+    void		JoinStrongest(Troops &, bool);
+    void		KeepOnlyWeakest(Troops &, bool);
+
+    void		DrawMons32LineWithScoute(s32, s32, u32, u32, u32, u32, bool) const;
+    void		SplitTroopIntoFreeSlots(const Troop &, u32 slots);
+};
+
+enum { JOIN_NONE, JOIN_FREE, JOIN_COST, JOIN_FLEE };
+
+struct JoinCount : std::pair<int, u32>
+{
+    JoinCount() : std::pair<int, u32>(JOIN_NONE, 0) {}
+    JoinCount(int reason, u32 count) : std::pair<int, u32>(reason, count) {}
+};
+
+class Army : public Troops, public Control
+{
+public:
+    static std::string	SizeString(u32);
+    static std::string	TroopSizeString(const Troop &);
+
+    // compare
+    static bool		WeakestTroop(const Troop*, const Troop*);
+    static bool		StrongestTroop(const Troop*, const Troop*);
+    static bool		SlowestTroop(const Troop*, const Troop*);
+    static bool		FastestTroop(const Troop*, const Troop*);
+    static void		SwapTroops(Troop &, Troop &);
+    static u32		UniqueCount(const Army &);
 
     // 0: fight, 1: free join, 2: join with gold, 3: flee
-    u8 GetJoinSolution(const Heroes &, const Maps::Tiles &, u32 &, s32 &);
+    static JoinCount	GetJoinSolution(const Heroes &, const Maps::Tiles &, const Troop &);
+    static bool		TroopsStrongerEnemyTroops(const Troops &, const Troops &);
 
-    typedef std::vector<Troop> Troops;
+    static void		DrawMons32Line(const Troops &, s32, s32, u32, u32 = 0, u32 = 0);
+    static void		DrawMons32LineWithScoute(const Troops &, s32, s32, u32, u32, u32, u32);
+    static void		DrawMons32LineShort(const Troops &, s32, s32, u32, u32, u32);
 
-    class army_t
-    {
-	public:
-	    army_t(HeroBase* s = NULL);
-	    army_t(const Maps::Tiles &);
+    Army(HeroBase* s = NULL);
+    Army(const Maps::Tiles &);
+    ~Army();
 
-	    void	UpgradeMonsters(const Monster &);
-	    void	Clear(void);
-	    void	Reset(bool = false);	// reset: soft or hard
+    void		Reset(bool = false);	// reset: soft or hard
 
-	    void	BattleExportKilled(army_t &) const;
-	    void	BattleInit(void);
-	    void	BattleQuit(void);
-	    u32		BattleKilled(void) const;
+    int			GetRace(void) const;
+    int			GetColor(void) const;
+    int			GetControl(void) const;
+    u32			GetAttack(void) const;
+    u32			GetDefense(void) const;
 
-	    Troop &	FirstValid(void);
-	    Troop &	At(u8);
-	    Troop &	GetWeakestTroop(void);
+    void        	SetColor(int);
 
-	    const Troop &	At(u8) const;
-	    const Troop &	GetSlowestTroop(void) const;
+    int			GetMorale(void) const;
+    int			GetLuck(void) const;
+    int			GetMoraleModificator(std::string*) const;
+    int			GetLuckModificator(std::string*) const;
+    u32			ActionToSirens(void);
 
-	    u8		GetRace(void) const;
-	    u8		GetColor(void) const;
-	    u8          GetControl(void) const;
+    const HeroBase*	GetCommander(void) const;
+    HeroBase*		GetCommander(void);
+    void		SetCommander(HeroBase*);
 
-	    void        SetColor(u8);
+    const Castle*	inCastle(void) const;
 
-	    u8		Size(void) const;
-	    u8		GetCount(void) const;
-	    u8		GetUniqCount(void) const;
-	    u32		MonsterCounts(const Monster &) const;
-	    s8		GetMorale(void) const;
-	    s8		GetLuck(void) const;
-	    s8		GetMoraleModificator(std::string *strs) const;
-	    s8		GetLuckModificator(std::string *strs) const;
-	    u32		CalculateExperience(void) const;
-	    u32		ActionToSirens(void);
-	    u32		GetSurrenderCost(void) const;
+    std::string		String(void) const;
 
-	    u16		GetAttack(bool = true) const;
-	    u16		GetDefense(bool = true) const;
-	    u32		GetHitPoints(void) const;
-	    u32		GetDamageMin(void) const;
-	    u32		GetDamageMax(void) const;
-	    u32		GetStrength(void) const;
+    void		JoinStrongestFromArmy(Army &);
+    void		KeepOnlyWeakestTroops(Army &);
 
-	    bool	isValid(void) const;
-	    bool	HasMonster(const Monster &) const;
-	    bool	JoinTroop(const Troop & troop);
-	    bool	JoinTroop(const Monster & mon, const u32 count);
-	    bool 	JoinArmy(Army::army_t &);
-	    bool	CanJoinTroop(const Monster & mon) const;
-	    bool	CanJoinArmy(const Army::army_t &) const;
-	    bool	StrongerEnemyArmy(const army_t &) const;
-	    bool	AllTroopsIsRace(u8) const;
+    void		SetSpreadFormat(bool);
+    bool		isSpreadFormat(void) const;
 
-	    void	JoinStrongestFromArmy(army_t &);
-            void	KeepOnlyWeakestTroops(army_t &);
-	    void	UpgradeTroops(const Castle &);
-	    void	ArrangeForBattle(void);
+    bool		isFullHouse(void) const;
+    bool		SaveLastTroop(void) const;
 
-	    std::string String(void) const;
+protected:
+    friend StreamBase & operator<< (StreamBase &, const Army &);
+    friend StreamBase & operator>> (StreamBase &, Army &);
+#ifdef WITH_XML
+    friend TiXmlElement & operator>> (TiXmlElement &, Army &);
+#endif
 
-	    const HeroBase* GetCommander(void) const;
-	    HeroBase*       GetCommander(void);
-	    void            SetCommander(HeroBase*);
+    HeroBase*		commander;
+    bool		combat_format;
+    int			color;
 
-	    void        SetCombatFormat(format_t);
-	    u8          GetCombatFormat(void) const;
+private:
+    Army &		operator= (const Army &) { return *this; }
+};
 
-	    Troops	Optimize(void) const;
-
-	    s8		GetTroopIndex(const Troop &) const;
-
-	protected:
-	    friend class Battle2::Armies;
-
-	    army_t(const army_t &);
-	    army_t & operator= (const army_t &);
-
-	    void	Import(army_t &);
-	    void	Import(const Troops &);
-
-	    Troops		troops;
-	    HeroBase*		commander;
-	    u8			combat_format;
-	    u8			color;
-    };
-
-    void DrawMons32Line(const army_t &, s16, s16, u16, u8 = 0, u8 = 0);
-    void DrawMons32LineWithScoute(const army_t &, s16, s16, u16, u8, u8, u8);
-}
+StreamBase & operator<< (StreamBase &, const Army &);
+StreamBase & operator>> (StreamBase &, Army &);
 
 #endif

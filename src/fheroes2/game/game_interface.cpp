@@ -23,33 +23,74 @@
 #include <ctime>
 #include <sstream>
 #include "agg.h"
+#include "direction.h"
 #include "settings.h"
 #include "maps.h"
 #include "mp2.h"
 #include "world.h"
+#include "game.h"
 #include "dialog.h"
-#include "game_focus.h"
+#include "players.h"
 #include "game_interface.h"
 
-bool Interface::NoGUI(void)
-{
-    const Settings & conf = Settings::Get();
-    return conf.NetworkDedicatedServer();
-}
-
-Interface::Basic::Basic() : gameArea(GameArea::Get()), radar(Radar::Get()),
-    iconsPanel(IconsPanel::Get()), buttonsArea(ButtonsArea::Get()),
-    statusWindow(StatusWindow::Get()), borderWindow(BorderWindow::Get()),
-    controlPanel(ControlPanel::Get()), redraw(0)
+Interface::Basic::Basic() : gameArea(*this), radar(*this),
+	iconsPanel(*this), buttonsArea(*this), statusWindow(*this), controlPanel(*this), redraw(0)
 {
     Settings & conf = Settings::Get().Get();
     const Display & display = Display::Get();
-    const u16 & px = display.w() - BORDERWIDTH - RADARWIDTH;
-    const u8 scroll_width = conf.QVGA() ? 12 : BORDERWIDTH;
+    const int scroll_width = conf.QVGA() ? 12 : BORDERWIDTH;
 
-    if(conf.HideInterface())
+    SetHideInterface(conf.ExtGameHideInterface());
+
+    scrollLeft = Rect(0, 0, scroll_width, display.h());
+    scrollRight = Rect(display.w() - scroll_width, 0, scroll_width, display.h());
+    scrollTop = conf.QVGA() ? Rect(0, 0, controlPanel.GetArea().x, scroll_width) : Rect(0, 0, display.w() - radar.GetArea().w, scroll_width);
+    scrollBottom = Rect(0, display.h() - scroll_width, display.w(), scroll_width);
+
+    system_info.Set(Font::YELLOW_SMALL);
+}
+
+Interface::GameArea & Interface::Basic::GetGameArea(void)
+{
+    return gameArea;
+}
+
+Interface::Radar & Interface::Basic::GetRadar(void)
+{
+    return radar;
+}
+
+Interface::IconsPanel & Interface::Basic::GetIconsPanel(void)
+{
+    return iconsPanel;
+}
+
+Interface::ButtonsArea & Interface::Basic::GetButtonsArea(void)
+{
+    return buttonsArea;
+}
+
+Interface::StatusWindow & Interface::Basic::GetStatusWindow(void)
+{
+    return statusWindow;
+}
+
+Interface::ControlPanel & Interface::Basic::GetControlPanel(void)
+{
+    return controlPanel;
+}
+
+void Interface::Basic::SetHideInterface(bool f)
+{
+    Settings & conf = Settings::Get().Get();
+    const Display & display = Display::Get();
+    const u32 px = display.w() - BORDERWIDTH - RADARWIDTH;
+    const u32 scroll_width = conf.QVGA() ? 12 : BORDERWIDTH;
+
+    conf.SetHideInterface(f);
+
+    if(f)
     {
-        iconsPanel.SetCount(2);
 	conf.SetShowPanel(true);
 
 	Point pos_radr = conf.PosRadar();
@@ -77,19 +118,11 @@ Interface::Basic::Basic() : gameArea(GameArea::Get()), radar(Radar::Get()),
 	radar.SetPos(px, BORDERWIDTH);
 	iconsPanel.SetPos(px, radar.GetArea().y + radar.GetArea().h + BORDERWIDTH);
 
-        const u8 count_h = (display.h() - 480) / TILEWIDTH;
-        iconsPanel.SetCount(count_h > 3 ? 8 : ( count_h < 3 ? 4 : 7));
-
 	buttonsArea.SetPos(px, iconsPanel.GetArea().y + iconsPanel.GetArea().h + BORDERWIDTH);
 	statusWindow.SetPos(px, buttonsArea.GetArea().y + buttonsArea.GetArea().h);
     }
-
-    scrollLeft = Rect(0, 0, scroll_width, display.h());
-    scrollRight = Rect(display.w() - scroll_width, 0, scroll_width, display.h());
-    scrollTop = conf.QVGA() ? Rect(0, 0, controlPanel.GetArea().x, scroll_width) : Rect(0, 0, display.w() - radar.GetArea().w, scroll_width);
-    scrollBottom = Rect(0, display.h() - scroll_width, display.w(), scroll_width);
     
-    system_info.Set(Font::YELLOW_SMALL);
+    gameArea.Build();
 }
 
 Interface::Basic & Interface::Basic::Get(void)
@@ -98,22 +131,22 @@ Interface::Basic & Interface::Basic::Get(void)
     return basic;
 }
 
-const Rect & Interface::Basic::GetAreaScrollLeft(void) const
+const Rect & Interface::Basic::GetScrollLeft(void) const
 {
     return scrollLeft;
 }
 
-const Rect & Interface::Basic::GetAreaScrollRight(void) const
+const Rect & Interface::Basic::GetScrollRight(void) const
 {
     return scrollRight;
 }
 
-const Rect & Interface::Basic::GetAreaScrollTop(void) const
+const Rect & Interface::Basic::GetScrollTop(void) const
 {
     return scrollTop;
 }
 
-const Rect & Interface::Basic::GetAreaScrollBottom(void) const
+const Rect & Interface::Basic::GetScrollBottom(void) const
 {
     return scrollBottom;
 }
@@ -124,96 +157,42 @@ bool Interface::Basic::NeedRedraw(void) const
     return redraw;
 }
 
-void Interface::Basic::SetRedraw(u8 f)
+void Interface::Basic::SetRedraw(int f)
 {
     redraw |= f;
 }
 
-void Interface::Basic::Redraw(u8 force)
+void Interface::Basic::Redraw(int force)
 {
     Settings & conf = Settings::Get();
 
     if((redraw | force) & REDRAW_GAMEAREA) gameArea.Redraw(Display::Get(), LEVEL_ALL);
 
-    if((conf.HideInterface() && conf.ShowRadar()) || ((redraw | force) & REDRAW_RADAR)) radar.Redraw();
+    if((conf.ExtGameHideInterface() && conf.ShowRadar()) || ((redraw | force) & REDRAW_RADAR)) radar.Redraw();
 
-    if((conf.HideInterface() && conf.ShowIcons()) || ((redraw | force) & REDRAW_ICONS)) iconsPanel.Redraw();
+    if((conf.ExtGameHideInterface() && conf.ShowIcons()) || ((redraw | force) & REDRAW_ICONS)) iconsPanel.Redraw();
     else
     if((redraw | force) & REDRAW_HEROES) iconsPanel.RedrawIcons(ICON_HEROES);
     else
     if((redraw | force) & REDRAW_CASTLES) iconsPanel.RedrawIcons(ICON_CASTLES);
 
-    if((conf.HideInterface() && conf.ShowButtons()) || ((redraw | force) & REDRAW_BUTTONS)) buttonsArea.Redraw();
+    if((conf.ExtGameHideInterface() && conf.ShowButtons()) || ((redraw | force) & REDRAW_BUTTONS)) buttonsArea.Redraw();
 
-    if((conf.HideInterface() && conf.ShowStatus()) || ((redraw | force) & REDRAW_STATUS)) statusWindow.Redraw();
+    if((conf.ExtGameHideInterface() && conf.ShowStatus()) || ((redraw | force) & REDRAW_STATUS)) statusWindow.Redraw();
 
-    if(conf.HideInterface() && conf.ShowControlPanel() && (redraw & REDRAW_GAMEAREA)) controlPanel.Redraw();
-
-    u32 usage = GetMemoryUsage();
+    if(conf.ExtGameHideInterface() && conf.ShowControlPanel() && (redraw & REDRAW_GAMEAREA)) controlPanel.Redraw();
 
     // show system info
-    if(conf.ExtShowSystemInfo() && usage)
-	RedrawSystemInfo((conf.HideInterface() ? 10 : 26), Display::Get().h() - (conf.HideInterface() ? 14 : 30), usage);
+    if(conf.ExtGameShowSystemInfo())
+	RedrawSystemInfo((conf.ExtGameHideInterface() ? 10 : 26), Display::Get().h() - (conf.ExtGameHideInterface() ? 14 : 30), System::GetMemoryUsage());
 
-    // memory limit trigger
-    if(conf.ExtLowMemory() && conf.MemoryLimit() && usage)
-    {
-	if(conf.MemoryLimit() < usage)
-	{
-	    Display & display = Display::Get();
-	    Cursor & cursor = Cursor::Get();
-
-	    cursor.Hide();
-	    AGG::ResetMixer();
-
-	    Rect rect((display.w() - 90) / 2, (display.h() - 30) / 2, 90, 45);
-	    TextBox text("memory limit\nclear cache\nwaiting...", Font::SMALL, rect.w);
-
-	    display.FillRect(0, 0, 0, rect);
-	    text.Blit(rect.x, rect.y);
-	    
-	    display.Flip();
-
-	    AGG::Cache & cache = AGG::Cache::Get();
-
-	    VERBOSE("MemoryLimit: " << "settings: " << conf.MemoryLimit() << ", game usage: " << usage);
-	    cache.ClearAllICN();
-	    VERBOSE("MemoryLimit: " << "free all " << "ICN" << ", game usage: " << GetMemoryUsage());
-	    cache.ClearAllWAV();
-	    VERBOSE("MemoryLimit: " << "free all " << "WAV" << ", game usage: " << GetMemoryUsage());
-	    cache.ClearAllMID();
-	    VERBOSE("MemoryLimit: " << "free all " << "MID" << ", game usage: " << GetMemoryUsage());
-
-	    redraw = 0xFF;
-	    if(conf.HideInterface()) redraw &= ~REDRAW_BORDER;
-
-	    cursor.SetThemes(cursor.Themes(), true);
-	    cursor.Show();
-
-	    if(GameFocus::Type() != GameFocus::UNSEL)
-		AGG::PlayMusic(MUS::FromGround(world.GetTiles(GameFocus::GetCenter()).GetGround()));
-	    Game::EnvironmentSoundMixer();
-	}
-
-	usage = GetMemoryUsage();
-
-	if(conf.MemoryLimit() < usage + (300 * 1024))
-	{
-	    VERBOSE("MemoryLimit: " << "settings: " << conf.MemoryLimit() << ", too small");
-
-	    // increase + 300Kb
-	    conf.SetMemoryLimit(usage + (300 * 1024));
-
-	    VERBOSE("MemoryLimit: " << "settings: " << "increase limit on 300kb, current value: " << conf.MemoryLimit());
-	}
-    }
-
-    if((redraw | force) & REDRAW_BORDER) borderWindow.Redraw();
+    if((redraw | force) & REDRAW_BORDER)
+	    GameBorderRedraw();
 
     redraw = 0;
 }
 
-void Interface::Basic::RedrawSystemInfo(s16 cx, s16 cy, u32 usage)
+void Interface::Basic::RedrawSystemInfo(s32 cx, s32 cy, u32 usage)
 {
     std::ostringstream os;
 
@@ -231,7 +210,7 @@ void Interface::Basic::RedrawSystemInfo(s16 cx, s16 cy, u32 usage)
     system_info.Blit(cx, cy);
 }
 
-s32 Interface::Basic::GetDimensionDoorDestination(const s32 from, const u8 distance, bool water) const
+s32 Interface::Basic::GetDimensionDoorDestination(s32 from, u32 distance, bool water) const
 {
     Cursor & cursor = Cursor::Get();
     Display & display = Display::Get();
@@ -270,17 +249,4 @@ s32 Interface::Basic::GetDimensionDoorDestination(const s32 from, const u8 dista
     }
 
     return -1;
-}
-
-void Interface::FixOutOfDisplay(const Rect & rt, s16 & ox, s16 & oy)
-{
-    Display & display = Display::Get();
-
-    if(ox + rt.w < 0) ox = 0;
-    else
-    if(ox > display.w() - rt.w + BORDERWIDTH) ox = display.w() - rt.w;
-
-    if(oy + rt.h < 0) oy = 0;
-    else
-    if(oy > display.h() - rt.h + BORDERWIDTH) oy = display.h() - rt.h;
 }

@@ -24,8 +24,6 @@
 
 #include <string>
 #include "gamedefs.h"
-#include "direction.h"
-#include "skill.h"
 
 namespace Maps
 {
@@ -33,7 +31,7 @@ namespace Maps
 
     namespace Ground
     {
-        enum ground_t
+        enum
         {
             UNKNOWN	= 0x0000,
     	    DESERT	= 0x0001,
@@ -44,12 +42,12 @@ namespace Maps
     	    LAVA	= 0x0020,
     	    DIRT	= 0x0040,
     	    GRASS	= 0x0080,
-    	    WATER	= 0x0100
+    	    WATER	= 0x0100,
+	    ALL		= DESERT | SNOW | SWAMP | WASTELAND | BEACH | LAVA | DIRT | GRASS
         };
 
-        const char* String(u16);
-        u16 GetBasePenalty(const s32 index, const u8 pathfinding);
-        u16 GetPenalty(const s32 index, const Direction::vector_t direct, const u8 pathfinding);
+        const char*	String(int);
+        u32		GetPenalty(s32, int direction, u32 pathfinding);
     }
 }
 

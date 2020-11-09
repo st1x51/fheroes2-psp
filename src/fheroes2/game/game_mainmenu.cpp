@@ -22,6 +22,7 @@
 
 #include "gamedefs.h"
 #include "agg.h"
+#include "text.h"
 #include "cursor.h"
 #include "dialog.h"
 #include "button.h"
@@ -35,7 +36,7 @@
 #define CREDITS_DEFAULT 13
 #define QUIT_DEFAULT 17
 
-Game::menu_t Game::MainMenu(void)
+int Game::MainMenu(void)
 {
     Mixer::Pause();
     AGG::PlayMusic(MUS::MAINMENU);
@@ -45,17 +46,13 @@ Game::menu_t Game::MainMenu(void)
     conf.SetGameType(TYPE_MENU);
     if(conf.QVGA()) return PocketPC::MainMenu();
 
-    // preload
-    AGG::PreloadObject(ICN::HEROES);
-    AGG::PreloadObject(ICN::BTNSHNGL);
-    AGG::PreloadObject(ICN::SHNGANIM);
-
     // cursor
     Cursor & cursor = Cursor::Get();
     cursor.Hide();
     cursor.SetThemes(cursor.POINTER);
 
     Display & display = Display::Get();
+    display.Fill(ColorBlack);
 
     // image background
     const Sprite &sprite = AGG::GetICN(ICN::HEROES, 0);
@@ -97,7 +94,7 @@ Game::menu_t Game::MainMenu(void)
 
     struct ButtonInfo
     {
-        u8 frame;
+        u32 frame;
         Button &button;
         bool isOver;
         bool wasOver;
@@ -109,21 +106,21 @@ Game::menu_t Game::MainMenu(void)
         { QUIT_DEFAULT, buttonQuit, false, false }
     };
 
-    for(u16 i = 0; le.MouseMotion() && i < ARRAY_COUNT(buttons); i++)
+    for(u32 i = 0; le.MouseMotion() && i < ARRAY_COUNT(buttons); i++)
     {
         cursor.Hide();
         const Sprite & sprite = AGG::GetICN(ICN::BTNSHNGL, buttons[i].frame);
         sprite.Blit(top.x + sprite.x(), top.y + sprite.y());
         cursor.Show();
     }
-    
+
     // mainmenu loop
     while(le.HandleEvents())
     {
-        for(u16 i = 0; i < ARRAY_COUNT(buttons); i++)
+        for(u32 i = 0; i < ARRAY_COUNT(buttons); i++)
         {
             buttons[i].wasOver = buttons[i].isOver;
-            
+
             if(le.MousePressLeft(buttons[i].button))
                 buttons[i].button.PressDraw();
             else buttons[i].button.ReleaseDraw();
@@ -133,11 +130,11 @@ Game::menu_t Game::MainMenu(void)
             if((!buttons[i].isOver && buttons[i].wasOver) ||
                (buttons[i].isOver && !buttons[i].wasOver))
             {
-                u16 frame = buttons[i].frame;
-                
+                u32 frame = buttons[i].frame;
+
                 if(buttons[i].isOver && !buttons[i].wasOver)
                     frame++;
-                
+
                 cursor.Hide();
                 const Sprite & sprite = AGG::GetICN(ICN::BTNSHNGL, frame);
                 sprite.Blit(top.x + sprite.x(), top.y + sprite.y());
@@ -145,15 +142,16 @@ Game::menu_t Game::MainMenu(void)
             }
         }
 
-	if(HotKeyPress(EVENT_BUTTON_NEWGAME) || le.MouseClickLeft(buttonNewGame)) return NEWGAME;
+	if(HotKeyPressEvent(EVENT_BUTTON_NEWGAME) || le.MouseClickLeft(buttonNewGame)) return NEWGAME;
 	else
-	if(HotKeyPress(EVENT_BUTTON_LOADGAME) || le.MouseClickLeft(buttonLoadGame)) return LOADGAME;
+	if(HotKeyPressEvent(EVENT_BUTTON_LOADGAME) || le.MouseClickLeft(buttonLoadGame)) return LOADGAME;
 	else
-	if(HotKeyPress(EVENT_BUTTON_HIGHSCORES) || le.MouseClickLeft(buttonHighScores)) return HIGHSCORES;
+	if(HotKeyPressEvent(EVENT_BUTTON_HIGHSCORES) || le.MouseClickLeft(buttonHighScores)) return HIGHSCORES;
 	else
-	if(HotKeyPress(EVENT_BUTTON_CREDITS) || le.MouseClickLeft(buttonCredits)) return CREDITS;
+	if(HotKeyPressEvent(EVENT_BUTTON_CREDITS) || le.MouseClickLeft(buttonCredits)) return CREDITS;
 	else
-	if(HotKeyPress(EVENT_DEFAULT_EXIT) || le.MouseClickLeft(buttonQuit)){ display.Fade(); return QUITGAME; }
+	if(HotKeyPressEvent(EVENT_DEFAULT_EXIT) || le.MouseClickLeft(buttonQuit))
+	{ if(conf.ExtGameUseFade()) display.Fade(); return QUITGAME; }
 
 	// right info
 	if(le.MousePressRight(buttonQuit)) Dialog::Message(_("Quit"), _("Quit Heroes of Might and Magic and return to the operating system."), Font::BIG);
@@ -166,7 +164,7 @@ Game::menu_t Game::MainMenu(void)
 	else
 	if(le.MousePressRight(buttonNewGame)) Dialog::Message(_("New Game"), _("Start a single or multi-player game."), Font::BIG);
 
-	if(AnimateInfrequent(MAIN_MENU_DELAY))
+	if(AnimateInfrequentDelay(MAIN_MENU_DELAY))
 	{
 	    cursor.Hide();
 	    const Sprite & lantern12 = AGG::GetICN(ICN::SHNGANIM, ICN::AnimationFrame(ICN::SHNGANIM, 0, lantern_frame++));

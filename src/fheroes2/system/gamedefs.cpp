@@ -21,12 +21,16 @@
  ***************************************************************************/
 
 #include "gamedefs.h"
+#include "bitmodes.h"
+#include "players.h"
+#include "serialize.h"
 
-const char* strip_context(const char* c)
+StreamBase & operator<< (StreamBase & msg, const BitModes & b)
 {
-    const char* p = c;
+    return msg << b.modes;
+}
 
-    while(p && *p && *p++ != '|');
-
-    return p && *p ? p : c;
+StreamBase & operator>> (StreamBase & msg, BitModes & b)
+{
+    return msg >> b.modes;
 }

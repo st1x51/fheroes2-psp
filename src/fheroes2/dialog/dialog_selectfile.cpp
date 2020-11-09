@@ -21,32 +21,35 @@
  ***************************************************************************/
 
 #include <algorithm>
+#include <iterator>
 #include <ctime>
+#include <cctype>
 #include <sstream>
 #include <string>
+
+#include "system.h"
 #include "dir.h"
 #include "agg.h"
+#include "text.h"
 #include "button.h"
 #include "cursor.h"
 #include "settings.h"
 #include "maps_fileinfo.h"
 #include "interface_list.h"
 #include "pocketpc.h"
+#include "world.h"
+#include "game.h"
 #include "dialog.h"
 
-#if defined __SYMBIAN32__ || defined(ANDROID) || defined(PSP)
-#include <unistd.h>
-#endif
-
-bool SelectFileListSimple(const std::string &, MapsFileInfoList &, std::string &, bool);
-void RedrawExtraInfo(const Point &, const std::string &, const std::string &);
+std::string SelectFileListSimple(const std::string &, const std::string &, bool);
+bool RedrawExtraInfo(const Point &, const std::string &, const std::string &, const Rect &);
 
 class FileInfoListBox : public Interface::ListBox<Maps::FileInfo>
 {
 public:
-    FileInfoListBox(const Point & pt, std::string & res, bool & edit) : Interface::ListBox<Maps::FileInfo>(pt), result(res), edit_mode(edit) {};
+    FileInfoListBox(const Point & pt, bool & edit) : Interface::ListBox<Maps::FileInfo>(pt), edit_mode(edit) {};
 
-    void RedrawItem(const Maps::FileInfo &, s16, s16, bool);
+    void RedrawItem(const Maps::FileInfo &, s32, s32, bool);
     void RedrawBackground(const Point &);
 
     void ActionCurrentUp(void);
@@ -55,23 +58,23 @@ public:
     void ActionListSingleClick(Maps::FileInfo &);
     void ActionListPressRight(Maps::FileInfo &){};
 
-    std::string & result;
     bool & edit_mode;
 };
 
-void FileInfoListBox::RedrawItem(const Maps::FileInfo & info, s16 dstx, s16 dsty, bool current)
+void FileInfoListBox::RedrawItem(const Maps::FileInfo & info, s32 dstx, s32 dsty, bool current)
 {
     char short_date[20];
+    time_t timeval = info.localtime;
 
     std::fill(short_date, ARRAY_COUNT_END(short_date), 0);
-    std::strftime(short_date, ARRAY_COUNT(short_date) - 1, "%b %d, %H:%M", std::localtime(&info.localtime));
-    std::string savname(GetBasename(info.file));
-    
+    std::strftime(short_date, ARRAY_COUNT(short_date) - 1, "%b %d, %H:%M", std::localtime(&timeval));
+    std::string savname(System::GetBasename(info.file));
+
     if(savname.size())
     {
 	Text text;
 	const size_t dotpos = savname.size() - 4;
-    	if(String::Lower(savname.substr(dotpos)) == ".sav") savname.erase(dotpos);
+    	if(StringLower(savname.substr(dotpos)) == ".sav") savname.erase(dotpos);
 
 	text.Set(savname, (current ? Font::YELLOW_BIG : Font::BIG));
 	text.Blit(dstx + 5, dsty, (Settings::Get().QVGA() ? 190 : 155));
@@ -106,7 +109,6 @@ void FileInfoListBox::ActionCurrentDn(void)
 
 void FileInfoListBox::ActionListDoubleClick(Maps::FileInfo &)
 {
-    result = (*cur).file;
     edit_mode = false;
 }
 
@@ -115,68 +117,76 @@ void FileInfoListBox::ActionListSingleClick(Maps::FileInfo &)
     edit_mode = false;
 }
 
-void ResizeToShortName(const std::string & str, std::string & res)
+std::string ResizeToShortName(const std::string & str)
 {
-    res.assign(GetBasename(str));
+    std::string res = System::GetBasename(str);
     size_t it = res.find('.');
     if(std::string::npos != it) res.resize(it);
+    return res;
 }
 
-bool Dialog::SelectFileSave(std::string & file)
+size_t GetInsertPosition(const std::string & name, s32 cx, s32 posx)
 {
-    Dir dir;
-    const std::string store_dir(Settings::Get().LocalPrefix() + SEPARATOR + "files" + SEPARATOR + "save");
-    dir.Read(store_dir, ".sav", false);
-
-    MapsFileInfoList lists(dir.size());
-    MapsFileInfoList::const_iterator res;
-    int ii = 0;
-    for(Dir::const_iterator itd = dir.begin(); itd != dir.end(); ++itd, ++ii) if(!lists[ii].ReadSAV(*itd)) --ii;
-    if(static_cast<size_t>(ii) != lists.size()) lists.resize(ii);
-    std::sort(lists.begin(), lists.end(), Maps::FileInfo::FileSorting);
-
-    // set default
-    if(file.empty())
+    if(name.size())
     {
-	const Settings & conf = Settings::Get();
-	file = conf.LocalPrefix() + SEPARATOR + "files" + SEPARATOR + "save" + SEPARATOR;
-
-	if(conf.ExtRememberLastFilename() && Game::IO::last_name.size())
-	    file = Game::IO::last_name;
+	s32 tw = Text::width(name, Font::SMALL);
+	if(cx <= posx)
+	    return 0;
 	else
-	if(conf.PocketPC())
+	if(cx >= posx + tw)
+	    return name.size();
+	else
 	{
-    	    std::ostringstream ss;
-	    ss << std::time(0);
-	    file += ss.str() + ".sav";
+	    float cw = tw / name.size();
+	    return static_cast<size_t>((cx - posx) / cw);
 	}
-	else
-	    file += "newgame.sav";
     }
-
-    return SelectFileListSimple(_("File to Save:"), lists, file, true);
+    return 0;
 }
 
-bool Dialog::SelectFileLoad(std::string & file)
+MapsFileInfoList GetSortedMapsFileInfoList(void)
 {
-    Dir dir;
-    const std::string store_dir(Settings::Get().LocalPrefix() + SEPARATOR + "files" + SEPARATOR + "save");
-    dir.Read(store_dir, ".sav", false);
+    ListFiles list1;
+    list1.ReadDir(Settings::GetSaveDir(), ".sav", false);
 
-    MapsFileInfoList lists(dir.size());
-    MapsFileInfoList::const_iterator res;
+    MapsFileInfoList list2(list1.size());
     int ii = 0;
-    for(Dir::const_iterator itd = dir.begin(); itd != dir.end(); ++itd, ++ii) if(!lists[ii].ReadSAV(*itd)) --ii;
-    if(static_cast<size_t>(ii) != lists.size()) lists.resize(ii);
-    std::sort(lists.begin(), lists.end(), Maps::FileInfo::FileSorting);
+    for(ListFiles::const_iterator itd = list1.begin(); itd != list1.end(); ++itd, ++ii) if(!list2[ii].ReadSAV(*itd)) --ii;
+    if(static_cast<size_t>(ii) != list2.size()) list2.resize(ii);
+    std::sort(list2.begin(), list2.end(), Maps::FileInfo::FileSorting);
 
-    // set default
-    if(file.empty() && Settings::Get().ExtRememberLastFilename() && Game::IO::last_name.size()) file = Game::IO::last_name;
-
-    return SelectFileListSimple(_("File to Load:"), lists, file, false);
+    return list2;
 }
 
-bool SelectFileListSimple(const std::string & header, MapsFileInfoList & lists, std::string & result, bool editor)
+bool IsPunct(char c)
+{
+    return true;
+}
+
+std::string Dialog::SelectFileSave(void)
+{
+    const Settings & conf = Settings::Get();
+    const std::string & name = conf.CurrentFileInfo().name;
+
+    std::string base = name.size() ? name : "newgame";
+    base.resize(std::distance(base.begin(), std::find_if(base.begin(), base.end(), ::ispunct)));
+    std::replace_if(base.begin(), base.end(), ::isspace, '_');
+    std::ostringstream os;
+
+    os << System::ConcatePath(Settings::GetSaveDir(), base) <<
+	    // add postfix:
+	    '_' << std::setw(4) << std::setfill('0') << world.CountDay() << ".sav";
+    std::string lastfile = os.str();
+    return SelectFileListSimple(_("File to Save:"), lastfile, true);
+}
+
+std::string Dialog::SelectFileLoad(void)
+{
+    const std::string & lastfile = Game::GetLastSavename();
+    return SelectFileListSimple(_("File to Load:"), (lastfile.size() ? lastfile : ""), false);
+}
+
+std::string SelectFileListSimple(const std::string & header, const std::string & lastfile, bool editor)
 {
     Display & display = Display::Get();
     Cursor & cursor = Cursor::Get();
@@ -190,58 +200,64 @@ bool SelectFileListSimple(const std::string & header, MapsFileInfoList & lists, 
     bool pocket = Settings::Get().QVGA();
     if(pocket) panel = Size(sprite.w(), 224);
 
-    Background back((display.w() - panel.w) / 2, (display.h() - panel.h) / 2, panel.w, panel.h);
-    back.Save();
+    SpriteBack back(Rect((display.w() - panel.w) / 2, (display.h() - panel.h) / 2, panel.w, panel.h));
 
-    const Rect & rt = back.GetRect();
-    const Rect enter_field(rt.x + 45, rt.y + (pocket ? 148 : 286), 260, 16);
+    const Rect & rt = back.GetArea();
+    const Rect enter_field(rt.x + 42, rt.y + (pocket ? 148 : 286), 260, 16);
 
     Button buttonOk(rt.x + 34, rt.y + (pocket ? 176 : 315), ICN::REQUEST, 1, 2);
     Button buttonCancel(rt.x + 244, rt.y + (pocket ? 176 : 315), ICN::REQUEST, 3, 4);
 
     bool edit_mode = false;
 
-    FileInfoListBox listbox(rt, result, edit_mode);
+    MapsFileInfoList lists = GetSortedMapsFileInfoList();
+    FileInfoListBox listbox(rt, edit_mode);
 
     listbox.RedrawBackground(rt);
     listbox.SetScrollButtonUp(ICN::REQUESTS, 5, 6, Point(rt.x + 327, rt.y + 55));
     listbox.SetScrollButtonDn(ICN::REQUESTS, 7, 8, Point(rt.x + 327, rt.y + (pocket ? 117 : 257)));
-    listbox.SetScrollSplitter(AGG::GetICN(ICN::ESCROLL, 3), Rect(rt.x + 330, rt.y + 73, 12, (pocket ? 40 : 180)));
+    listbox.SetScrollSplitter(AGG::GetICN(ICN::ESCROLL, 3), Rect(rt.x + 328, rt.y + 73, 12, (pocket ? 40 : 180)));
     listbox.SetAreaMaxItems(pocket ? 5 : 11);
     listbox.SetAreaItems(Rect(rt.x + 40, rt.y + 55, 265, (pocket ? 78 : 215)));
     listbox.SetListContent(lists);
 
     std::string filename;
+    size_t charInsertPos = 0;
 
-    if(result.size())
+    if(lastfile.size())
     {
-	ResizeToShortName(result, filename);
+	filename = ResizeToShortName(lastfile);
+	charInsertPos = filename.size();
 
 	MapsFileInfoList::iterator it = lists.begin();
-	for(; it != lists.end(); ++it) if((*it).file == result) break;
+	for(; it != lists.end(); ++it) if((*it).file == lastfile) break;
 
 	if(it != lists.end())
 	    listbox.SetCurrent(std::distance(lists.begin(), it));
 	else
     	    listbox.Unselect();
-
-	result.clear();
     }
 
     if(!editor && lists.empty())
     	buttonOk.SetDisable(true);
 
     if(filename.empty() && listbox.isSelected())
-        ResizeToShortName(listbox.GetCurrent().file, filename);
+    {
+        filename = ResizeToShortName(listbox.GetCurrent().file);
+	charInsertPos = filename.size();
+    }
 
     listbox.Redraw();
-    RedrawExtraInfo(rt, header, filename);
+    RedrawExtraInfo(rt, header, filename, enter_field);
 
     buttonOk.Draw();
     buttonCancel.Draw();
 
     cursor.Show();
     display.Flip();
+
+    std::string result;
+    bool is_limit = false;
 
     while(le.HandleEvents() && result.empty())
     {
@@ -250,16 +266,16 @@ bool SelectFileListSimple(const std::string & header, MapsFileInfoList & lists, 
 
 	listbox.QueueEventProcessing();
 
-        if((buttonOk.isEnable() && le.MouseClickLeft(buttonOk)) || Game::HotKeyPress(Game::EVENT_DEFAULT_READY))
+        if((buttonOk.isEnable() && le.MouseClickLeft(buttonOk)) || Game::HotKeyPressEvent(Game::EVENT_DEFAULT_READY))
         {
     	    if(filename.size())
-		result = Settings::Get().LocalPrefix() + SEPARATOR + "files" + SEPARATOR + "save" + SEPARATOR + filename + ".sav";
+		result = System::ConcatePath(Settings::GetSaveDir(), filename + ".sav");
     	    else
     	    if(listbox.isSelected())
     		result = listbox.GetCurrent().file;
     	}
     	else
-        if(le.MouseClickLeft(buttonCancel) || Game::HotKeyPress(Game::EVENT_DEFAULT_EXIT))
+        if(le.MouseClickLeft(buttonCancel) || Game::HotKeyPressEvent(Game::EVENT_DEFAULT_EXIT))
         {
     	    break;
 	}
@@ -267,15 +283,17 @@ bool SelectFileListSimple(const std::string & header, MapsFileInfoList & lists, 
         if(le.MouseClickLeft(enter_field) && editor)
 	{
 	    edit_mode = true;
+	    charInsertPos = GetInsertPosition(filename, le.GetMouseCursor().x, enter_field.x);
 	    if(Settings::Get().PocketPC())
 		PocketPC::KeyboardDialog(filename);
     	    buttonOk.SetDisable(filename.empty());
 	    cursor.Hide();
 	}
 	else
-	if(edit_mode && le.KeyPress())
+	if(edit_mode && le.KeyPress() &&
+	    (!is_limit || KEY_BACKSPACE == le.KeyValue()))
 	{
-	    String::AppendKey(filename, le.KeyValue(), le.KeyMod());
+	    charInsertPos = InsertKeySym(filename, charInsertPos, le.KeyValue(), le.KeyMod());
 	    buttonOk.SetDisable(filename.empty());
 	    cursor.Hide();
 	}
@@ -283,10 +301,10 @@ bool SelectFileListSimple(const std::string & header, MapsFileInfoList & lists, 
 	{
 	    std::string msg(_("Are you sure you want to delete file:"));
 	    msg.append("\n \n");
-	    msg.append(GetBasename(listbox.GetCurrent().file));
+	    msg.append(System::GetBasename(listbox.GetCurrent().file));
 	    if(Dialog::YES == Dialog::Message(_("Warning!"), msg, Font::BIG, Dialog::YES | Dialog::NO))
 	    {
-		unlink(listbox.GetCurrent().file.c_str());
+		System::Unlink(listbox.GetCurrent().file);
 		listbox.RemoveSelected();
 		if(lists.empty() || filename.empty()) buttonOk.SetDisable(true);
 		listbox.SetListContent(lists);
@@ -299,15 +317,16 @@ bool SelectFileListSimple(const std::string & header, MapsFileInfoList & lists, 
 	    listbox.Redraw();
 
 	    if(edit_mode && editor)
-		RedrawExtraInfo(rt, header, filename + "_");
+		is_limit = RedrawExtraInfo(rt, header, InsertString(filename, charInsertPos, "_"), enter_field);
 	    else
 	    if(listbox.isSelected())
 	    {
-	    	ResizeToShortName(listbox.GetCurrent().file, filename);
-		RedrawExtraInfo(rt, header, filename);
+		filename = ResizeToShortName(listbox.GetCurrent().file);
+		charInsertPos = filename.size();
+		is_limit = RedrawExtraInfo(rt, header, filename, enter_field);
 	    }
 	    else
-		RedrawExtraInfo(rt, header, filename);
+		is_limit = RedrawExtraInfo(rt, header, filename, enter_field);
 
 	    buttonOk.Draw();
 	    buttonCancel.Draw();
@@ -319,17 +338,19 @@ bool SelectFileListSimple(const std::string & header, MapsFileInfoList & lists, 
     cursor.Hide();
     back.Restore();
 
-    return result.size();
+    return result;
 }
 
-void RedrawExtraInfo(const Point & dst, const std::string & header, const std::string & filename)
+bool RedrawExtraInfo(const Point & dst, const std::string & header, const std::string & filename, const Rect & field)
 {
     Text text(header, Font::BIG);
     text.Blit(dst.x + 175 - text.w() / 2, dst.y + 30);
-    
+
     if(filename.size())
     {
 	text.Set(filename, Font::BIG);
-	text.Blit(dst.x + 175 - text.w() / 2, Settings::Get().QVGA() ? dst.y + 148 : dst.y + 289);
+	text.Blit(field.x, field.y + 1, field.w);
     }
+
+    return text.w() + 10 > field.w;
 }

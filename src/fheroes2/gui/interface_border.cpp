@@ -23,29 +23,20 @@
 #include "agg.h"
 #include "maps.h"
 #include "settings.h"
+#include "game_interface.h"
 #include "interface_border.h"
 
-Interface::BorderWindow::BorderWindow()
-{
-}
-
-Interface::BorderWindow & Interface::BorderWindow::Get(void)
-{
-    static BorderWindow borderWindow;
-    return borderWindow;
-}
-
-void Interface::BorderWindow::Redraw(void)
+void Interface::GameBorderRedraw(void)
 {
     const Settings & conf = Settings::Get();
-    if(conf.HideInterface()) return;
+    if(conf.ExtGameHideInterface()) return;
 
     Display & display = Display::Get();
 
-    const bool evil = Settings::Get().EvilInterface();
-    u8 count_w = (display.w() - 640) / TILEWIDTH;
-    u8 count_h = (display.h() - 480) / TILEWIDTH;
-    const u8 count_icons = count_h > 3 ? 8 : ( count_h < 3 ? 4 : 7);
+    const bool evil = Settings::Get().ExtGameEvilInterface();
+    u32 count_w = (display.w() - 640) / TILEWIDTH;
+    u32 count_h = (display.h() - 480) / TILEWIDTH;
+    const u32 count_icons = count_h > 3 ? 8 : ( count_h < 3 ? 4 : 7);
 
     if(display.w() % TILEWIDTH) ++count_w;
     if(display.h() % TILEWIDTH) ++count_h;
@@ -66,7 +57,7 @@ void Interface::BorderWindow::Redraw(void)
     srcrt.w = TILEWIDTH;
     dstpt.x = srcrt.x;
     dstpt.y = 0;
-    for(u8 ii = 0; ii < count_w + 1; ++ii)
+    for(u32 ii = 0; ii < count_w + 1; ++ii)
     {
         icnadv.Blit(srcrt, dstpt);
 	dstpt.x += TILEWIDTH;
@@ -88,7 +79,7 @@ void Interface::BorderWindow::Redraw(void)
     srcrt.h = TILEWIDTH;
     dstpt.x = srcrt.x;
     dstpt.y = srcrt.y;
-    for(u8 ii = 0; ii < count_h + 1; ++ii)
+    for(u32 ii = 0; ii < count_h + 1; ++ii)
     {
         icnadv.Blit(srcrt, dstpt);
 	dstpt.y += TILEWIDTH;
@@ -109,7 +100,7 @@ void Interface::BorderWindow::Redraw(void)
     srcrt.h = TILEWIDTH;
     dstpt.x = display.w() - RADARWIDTH - 2 * BORDERWIDTH;
     dstpt.y = srcrt.y;
-    for(u8 ii = 0; ii < count_h + 1; ++ii)
+    for(u32 ii = 0; ii < count_h + 1; ++ii)
     {
         icnadv.Blit(srcrt, dstpt);
         dstpt.y += TILEWIDTH;
@@ -130,7 +121,7 @@ void Interface::BorderWindow::Redraw(void)
     srcrt.h = TILEWIDTH;
     dstpt.x = display.w() - BORDERWIDTH;
     dstpt.y = srcrt.y;
-    for(u8 ii = 0; ii < count_h + 1; ++ii)
+    for(u32 ii = 0; ii < count_h + 1; ++ii)
     {
         icnadv.Blit(srcrt, dstpt);
         dstpt.y += TILEWIDTH;
@@ -151,7 +142,7 @@ void Interface::BorderWindow::Redraw(void)
     srcrt.w = TILEWIDTH;
     dstpt.x = srcrt.x;
     dstpt.y = display.h() - BORDERWIDTH;
-    for(u8 ii = 0; ii < count_w + 1; ++ii)
+    for(u32 ii = 0; ii < count_w + 1; ++ii)
     {
         icnadv.Blit(srcrt, dstpt);
 	dstpt.x += TILEWIDTH;
@@ -171,4 +162,114 @@ void Interface::BorderWindow::Redraw(void)
     dstpt.y = srcrt.y + BORDERWIDTH + count_icons * 32;
     srcrt.y = srcrt.y + BORDERWIDTH + 4 * 32;
     icnadv.Blit(srcrt, dstpt);
+}
+
+Interface::BorderWindow::BorderWindow(const Rect & rt) : area(rt)
+{
+    if(Settings::Get().QVGA())
+        border.SetBorder(6);
+}
+
+const Rect & Interface::BorderWindow::GetRect(void) const
+{
+    return Settings::Get().ExtGameHideInterface() && border.isValid() ?
+	border.GetRect() : GetArea();
+}
+
+const Rect & Interface::BorderWindow::GetArea(void) const
+{
+    return area;
+}
+
+void Interface::BorderWindow::Redraw(void)
+{
+    if(Settings::Get().QVGA())
+    {
+	const Surface & sf = AGG::GetICN(ICN::RESOURCE, 7);
+	Dialog::FrameBorder::RenderOther(sf, border.GetRect());
+    }
+    else
+	Dialog::FrameBorder::RenderRegular(border.GetRect());
+}
+
+void Interface::BorderWindow::SetPosition(s32 px, s32 py, u32 pw, u32 ph)
+{
+    area.w = pw;
+    area.h = ph;
+
+    SetPosition(px, py);
+}
+
+void Interface::BorderWindow::SetPosition(s32 px, s32 py)
+{
+    if(Settings::Get().ExtGameHideInterface())
+    {
+	Display & display = Display::Get();
+
+	if(px + area.w < 0) px = 0;
+	else
+	if(px > display.w() - area.w + border.BorderWidth()) px = display.w() - area.w;
+
+	if(py + area.h < 0) py = 0;
+	else
+	if(py > display.h() - area.h + border.BorderHeight()) py = display.h() - area.h;
+
+        area.x = px + border.BorderWidth();
+        area.y = py + border.BorderHeight();
+
+        border.SetPosition(px, py, area.w, area.h);
+	SavePosition();
+    }
+    else
+    {
+        area.x = px;
+        area.y = py;
+    }
+}
+
+bool Interface::BorderWindow::QueueEventProcessing(void)
+{
+    Settings & conf = Settings::Get();
+    LocalEvent & le = LocalEvent::Get();
+
+    if(conf.ExtGameHideInterface() &&
+	le.MousePressLeft(border.GetTop()))
+    {
+	Display & display = Display::Get();
+	Cursor & cursor = Cursor::Get();
+
+        const Point & mp = le.GetMouseCursor();
+	const Rect & pos = GetRect();
+
+        SpriteMove moveIndicator(Surface(pos, false));
+        moveIndicator.DrawBorder(RGBA(0xD0, 0xC0, 0x48), false);
+
+        const s32 ox = mp.x - pos.x;
+        const s32 oy = mp.y - pos.y;
+
+        cursor.Hide();
+	moveIndicator.Move(pos.x, pos.y);
+	moveIndicator.Redraw();
+        cursor.Show();
+        display.Flip();
+
+        while(le.HandleEvents() && le.MousePressLeft())
+	{
+    	    if(le.MouseMotion())
+    	    {
+        	    cursor.Hide();
+		    moveIndicator.Move(mp.x - ox, mp.y - oy);
+        	    cursor.Show();
+        	    display.Flip();
+    	    }
+        }
+
+        cursor.Hide();
+        SetPos(mp.x - ox, mp.y - oy);
+        Interface::Basic::Get().SetRedraw(REDRAW_GAMEAREA);
+
+	return true;
+    }
+
+    return false;
 }

@@ -27,42 +27,25 @@
 #include "game_interface.h"
 #include "interface_buttons.h"
 
-Interface::ButtonsArea::ButtonsArea() : Rect(0, 0, 144, 72)
+Interface::ButtonsArea::ButtonsArea(Basic & basic) : BorderWindow(Rect(0, 0, 144, 72)), interface(basic)
 {
 }
 
-Interface::ButtonsArea & Interface::ButtonsArea::Get(void)
+void Interface::ButtonsArea::SavePosition(void)
 {
-    static ButtonsArea buttonsArea;
-
-    return buttonsArea;
+    Settings::Get().SetPosButtons(GetRect());
 }
 
-const Rect & Interface::ButtonsArea::GetArea(void)
+void Interface::ButtonsArea::SetRedraw(void) const
 {
-    return Settings::Get().HideInterface() && border.isValid() ? border.GetRect() : *this;
+    interface.SetRedraw(REDRAW_BUTTONS);
 }
 
-void Interface::ButtonsArea::SetPos(s16 ox, s16 oy)
+void Interface::ButtonsArea::SetPos(s32 ox, s32 oy)
 {
-    if(Settings::Get().HideInterface())
-    {
-	FixOutOfDisplay(*this, ox, oy);
+    BorderWindow::SetPosition(ox, oy);
 
-	Rect::x = ox + BORDERWIDTH;
-        Rect::y = oy + BORDERWIDTH;
-
-        border.SetPosition(ox, oy, Rect::w, Rect::h);
-
-	Settings::Get().SetPosButtons(Point(ox, oy));
-    }
-    else
-    {
-	Rect::x = ox;
-	Rect::y = oy;
-    }
-
-    const ICN::icn_t icnbtn = Settings::Get().EvilInterface() ? ICN::ADVEBTNS : ICN::ADVBTNS;
+    const int icnbtn = Settings::Get().ExtGameEvilInterface() ? ICN::ADVEBTNS : ICN::ADVBTNS;
 
     buttonNextHero.SetSprite(icnbtn, 0, 1);
     buttonMovement.SetSprite(icnbtn, 2, 3);
@@ -73,8 +56,8 @@ void Interface::ButtonsArea::SetPos(s16 ox, s16 oy)
     buttonFile.SetSprite(icnbtn, 12, 13);
     buttonSystem.SetSprite(icnbtn, 14, 15);
 
-    ox = Rect::x;
-    oy = Rect::y;
+    ox = GetArea().x;
+    oy = GetArea().y;
 
     buttonNextHero.SetPos(ox, oy);
     buttonMovement.SetPos(buttonNextHero.x + buttonNextHero.w, oy);
@@ -92,38 +75,39 @@ void Interface::ButtonsArea::SetPos(s16 ox, s16 oy)
 void Interface::ButtonsArea::Redraw(void)
 {
     const Settings & conf = Settings::Get();
-    if(conf.HideInterface() && !conf.ShowButtons()) return;
 
-    const ICN::icn_t icnbtn = Settings::Get().EvilInterface() ? ICN::ADVEBTNS : ICN::ADVBTNS;
+    if(!conf.ExtGameHideInterface() || conf.ShowButtons())
+    {
+	const int icnbtn = Settings::Get().ExtGameEvilInterface() ? ICN::ADVEBTNS : ICN::ADVBTNS;
 
-    buttonNextHero.SetSprite(icnbtn, 0, 1);
-    buttonMovement.SetSprite(icnbtn, 2, 3);
-    buttonKingdom.SetSprite(icnbtn, 4, 5);
-    buttonSpell.SetSprite(icnbtn, 6, 7);
-    buttonEndTur.SetSprite(icnbtn, 8, 9);
-    buttonAdventure.SetSprite(icnbtn, 10, 11);
-    buttonFile.SetSprite(icnbtn, 12, 13);
-    buttonSystem.SetSprite(icnbtn, 14, 15);
+	if(conf.ExtGameHideInterface())
+	    BorderWindow::Redraw();
 
-    buttonNextHero.Draw();
-    buttonMovement.Draw();
-    buttonKingdom.Draw();
-    buttonSpell.Draw();
-    buttonEndTur.Draw();
-    buttonAdventure.Draw();
-    buttonFile.Draw();
-    buttonSystem.Draw();
+	buttonNextHero.SetSprite(icnbtn, 0, 1);
+	buttonMovement.SetSprite(icnbtn, 2, 3);
+	buttonKingdom.SetSprite(icnbtn, 4, 5);
+	buttonSpell.SetSprite(icnbtn, 6, 7);
+	buttonEndTur.SetSprite(icnbtn, 8, 9);
+	buttonAdventure.SetSprite(icnbtn, 10, 11);
+	buttonFile.SetSprite(icnbtn, 12, 13);
+	buttonSystem.SetSprite(icnbtn, 14, 15);
 
-    // redraw border
-    if(conf.HideInterface()) border.Redraw();
+	buttonNextHero.Draw();
+	buttonMovement.Draw();
+	buttonKingdom.Draw();
+	buttonSpell.Draw();
+	buttonEndTur.Draw();
+	buttonAdventure.Draw();
+	buttonFile.Draw();
+	buttonSystem.Draw();
+    }
 }
 
-void Interface::ButtonsArea::QueueEventProcessing(Game::menu_t & ret)
+int Interface::ButtonsArea::QueueEventProcessing(void)
 {
-    Display & display = Display::Get();
-    Cursor & cursor = Cursor::Get();
     Settings & conf = Settings::Get();
     LocalEvent & le = LocalEvent::Get();
+    int res = Game::CANCEL;
 
     le.MousePressLeft(buttonNextHero) ? buttonNextHero.PressDraw() : buttonNextHero.ReleaseDraw();
     le.MousePressLeft(buttonMovement) ? buttonMovement.PressDraw() : buttonMovement.ReleaseDraw();
@@ -134,87 +118,66 @@ void Interface::ButtonsArea::QueueEventProcessing(Game::menu_t & ret)
     le.MousePressLeft(buttonFile) ? buttonFile.PressDraw() : buttonFile.ReleaseDraw();
     le.MousePressLeft(buttonSystem) ? buttonSystem.PressDraw() : buttonSystem.ReleaseDraw();
 
-    if(conf.HideInterface() && conf.ShowButtons() && le.MousePressLeft(border.GetTop()))
+    if(conf.ShowButtons() &&
+	// move border window
+	BorderWindow::QueueEventProcessing())
     {
-	Surface sf(border.GetRect().w, border.GetRect().h);
-        Cursor::DrawCursor(sf, 0x70);
-        const Point & mp = le.GetMouseCursor();
-        const s16 ox = mp.x - border.GetRect().x;
-        const s16 oy = mp.y - border.GetRect().y;
-        SpriteCursor sp(sf, border.GetRect().x, border.GetRect().y);
-        cursor.Hide();
-        sp.Redraw();
-        cursor.Show();
-        display.Flip();
-        while(le.HandleEvents() && le.MousePressLeft())
-        {
-    	    if(le.MouseMotion())
-            {
-                cursor.Hide();
-                sp.Move(mp.x - ox, mp.y - oy);
-                cursor.Show();
-                display.Flip();
-            }
-        }
-        cursor.Hide();
-        SetPos(mp.x - ox, mp.y - oy);
-        Interface::Basic::Get().SetRedraw(REDRAW_GAMEAREA);
     }
     else
     if(le.MouseClickLeft(buttonNextHero))
     {
         // for QVGA: auto hide buttons after click
         if(conf.QVGA()) conf.SetShowButtons(false);
-	Game::EventNextHero();
+	interface.EventNextHero();
     }
     else
     if(le.MouseClickLeft(buttonMovement))
     {
         // for QVGA: auto hide buttons after click
         if(conf.QVGA()) conf.SetShowButtons(false);
-	Game::EventContinueMovement();
+	interface.EventContinueMovement();
     }
     else
     if(le.MouseClickLeft(buttonKingdom))
     {
         // for QVGA: auto hide buttons after click
         if(conf.QVGA()) conf.SetShowButtons(false);
-	Game::EventKingdomInfo();
+	interface.EventKingdomInfo();
     }
     else
     if(le.MouseClickLeft(buttonSpell))
     {
         // for QVGA: auto hide buttons after click
         if(conf.QVGA()) conf.SetShowButtons(false);
-	Game::EventCastSpell();
+	interface.EventCastSpell();
     }
     else
     if(le.MouseClickLeft(buttonEndTur))
     {
         // for QVGA: auto hide buttons after click
         if(conf.QVGA()) conf.SetShowButtons(false);
-	Game::EventEndTurn(ret);
+	res = interface.EventEndTurn();
     }
     else
     if(le.MouseClickLeft(buttonAdventure))
     {
         // for QVGA: auto hide buttons after click
         if(conf.QVGA()) conf.SetShowButtons(false);
-	Game::EventAdventureDialog(ret);
+	res = interface.EventAdventureDialog();
     }
     else
     if(le.MouseClickLeft(buttonFile))
     {
         // for QVGA: auto hide buttons after click
         if(conf.QVGA()) conf.SetShowButtons(false);
-	Game::EventFileDialog(ret);
+	res = interface.EventFileDialog();
     }
     else
     if(le.MouseClickLeft(buttonSystem))
     {
         // for QVGA: auto hide buttons after click
         if(conf.QVGA()) conf.SetShowButtons(false);
-	Game::EventSystemDialog();
+	interface.EventSystemDialog();
     }
 
     if(le.MousePressRight(buttonNextHero)) Dialog::Message(_("Next Hero"), _("Select the next Hero."), Font::BIG);
@@ -232,4 +195,6 @@ void Interface::ButtonsArea::QueueEventProcessing(Game::menu_t & ret)
     if(le.MousePressRight(buttonFile)) Dialog::Message(_("File Options"), _("Bring up the file options menu, alloving you to load menu, save etc."), Font::BIG);
     else
     if(le.MousePressRight(buttonSystem)) Dialog::Message(_("System Options"), _("Bring up the system options menu, alloving you to customize your game."), Font::BIG);
+
+    return res;
 }

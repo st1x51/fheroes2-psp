@@ -21,29 +21,34 @@
  ***************************************************************************/
 
 #include "agg.h"
+#include "text.h"
 #include "settings.h"
 #include "cursor.h"
 #include "button.h"
 #include "artifact.h"
+#include "game.h"
 #include "dialog.h"
 
-u16 Dialog::ArtifactInfo(const std::string & hdr, const std::string & msg, const Artifact & art, const u16 buttons)
+int Dialog::ArtifactInfo(const std::string & hdr, const std::string & msg, const Artifact & art, int buttons)
 {
     const Sprite & border = AGG::GetICN(ICN::RESOURCE, 7);
     const Sprite & artifact = AGG::GetICN(ICN::ARTIFACT, art.IndexSprite64());
-    Surface image(border.w(), border.h());
+    Surface image = border.GetSurface();
     border.Blit(image);
     artifact.Blit(5, 5, image);
-    return Dialog::SpriteInfo(hdr, msg, image, buttons);
+
+    std::string ext = msg;
+    ext.append("\n");
+    ext.append(" ");
+    ext.append("\n");
+    ext.append(art.GetDescription());
+
+    return Dialog::SpriteInfo(hdr, ext, image, buttons);
 }
 
-u16 Dialog::SpriteInfo(const std::string &header, const std::string &message, const Surface & sprite, u16 buttons)
+int Dialog::SpriteInfo(const std::string & header, const std::string & message, const Surface & sprite, int buttons)
 {
     Display & display = Display::Get();
-    const ICN::icn_t system = Settings::Get().EvilInterface() ? ICN::SYSTEME : ICN::SYSTEM;
-
-    // preload
-    AGG::PreloadObject(system);
 
     // cursor
     Cursor & cursor = Cursor::Get();
@@ -53,9 +58,9 @@ u16 Dialog::SpriteInfo(const std::string &header, const std::string &message, co
 
     TextBox box1(header, Font::YELLOW_BIG, BOXAREA_WIDTH);
     TextBox box2(message, Font::BIG, BOXAREA_WIDTH);
-    const u8 spacer = Settings::Get().QVGA() ? 5 : 10;
+    const int spacer = Settings::Get().QVGA() ? 5 : 10;
 
-    Box box(box1.h() + spacer + box2.h() + spacer + sprite.h(), buttons);
+    FrameBox box(box1.h() + spacer + box2.h() + spacer + sprite.h(), buttons);
     Rect pos = box.GetArea();
 
     if(header.size()) box1.Blit(pos);
@@ -77,16 +82,14 @@ u16 Dialog::SpriteInfo(const std::string &header, const std::string &message, co
     display.Flip();
 
     // message loop
-    u16 result = Dialog::ZERO;
+    int result = Dialog::ZERO;
 
     while(result == Dialog::ZERO && le.HandleEvents())
     {
         if(!buttons && !le.MousePressRight()) break;
-
         result = btnGroups.QueueEventProcessing();
     }
 
     cursor.Hide();
-
     return result;
 }

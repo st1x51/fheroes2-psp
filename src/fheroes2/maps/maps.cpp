@@ -20,12 +20,12 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
-#include <cstdlib>
 #include <algorithm>
 #include "world.h"
 #include "settings.h"
 #include "maps.h"
 #include "race.h"
+#include "game.h"
 #include "kingdom.h"
 #include "difficulty.h"
 #include "maps_tiles.h"
@@ -44,14 +44,39 @@ struct ComparsionDistance
     s32 center;
 };
 
-bool TileIsObject(s32 index, u8 obj)
+Maps::IndexesDistance::IndexesDistance(s32 from, s32 center, u32 dist, int sort)
+{
+    Assign(from, GetAroundIndexes(center, dist, sort), sort);
+}
+
+Maps::IndexesDistance::IndexesDistance(s32 from, const Indexes & indexes, int sort)
+{
+    Assign(from, indexes, sort);
+}
+
+void Maps::IndexesDistance::Assign(s32 from, const Indexes & indexes, int sort)
+{
+    reserve(indexes.size());
+
+    for(Indexes::const_iterator
+        it = indexes.begin(); it != indexes.end(); ++it)
+        push_back(IndexDistance(*it, Maps::GetApproximateDistance(from, *it)));
+
+    if(1 == sort)
+        std::sort(begin(), end(), IndexDistance::Shortest);
+    else
+    if(2 == sort)
+        std::sort(begin(), end(), IndexDistance::Longest);
+}
+
+bool TileIsObject(s32 index, int obj)
 {
     return obj == world.GetTiles(index).GetObject();
 }
 
 bool TileIsObjects(s32 index, const u8* objs)
 {
-    while(*objs)
+    while(objs && *objs)
     {
 	if(*objs == world.GetTiles(index).GetObject()) return true;
 	++objs;
@@ -59,23 +84,24 @@ bool TileIsObjects(s32 index, const u8* objs)
     return false;
 }
 
-MapsIndexes & MapsIndexesFilteredObjects(MapsIndexes & indexes, const u8* objs)
+Maps::Indexes & MapsIndexesFilteredObjects(Maps::Indexes & indexes, const u8* objs)
 {
     indexes.resize(std::distance(indexes.begin(),
 	    std::remove_if(indexes.begin(), indexes.end(), std::not1(std::bind2nd(std::ptr_fun(&TileIsObjects), objs)))));
+
     return indexes;
 }
 
-MapsIndexes & MapsIndexesFilteredObject(MapsIndexes & indexes, u8 obj)
+Maps::Indexes & MapsIndexesFilteredObject(Maps::Indexes & indexes, int obj)
 {
     indexes.resize(std::distance(indexes.begin(),
 	    std::remove_if(indexes.begin(), indexes.end(), std::not1(std::bind2nd(std::ptr_fun(&TileIsObject), obj)))));
     return indexes;
 }
 
-const char* Maps::SizeString(u16 s)
+const char* Maps::SizeString(int s)
 {
-    const char* mapsize[] = { "Unknown", _("maps|Small"), _("maps|Medium"), _("maps|Large"), _("maps|Extra Large"), "size256", "size320" };
+    const char* mapsize[] = { "Unknown", _("maps|Small"), _("maps|Medium"), _("maps|Large"), _("maps|Extra Large"), _("maps|Custom Size") };
 
     switch(s)
     {
@@ -83,15 +109,13 @@ const char* Maps::SizeString(u16 s)
 	case MEDIUM:	return mapsize[2];
 	case LARGE:	return mapsize[3];
 	case XLARGE:	return mapsize[4];
-	case XLARGE2:	return mapsize[5];
-	case XLARGE3:	return mapsize[6];
         default: break;
     }
 
-    return mapsize[0];
+    return mapsize[5];
 }
 
-const char* Maps::GetMinesName(u8 type)
+const char* Maps::GetMinesName(int type)
 {
     switch(type)
     {
@@ -106,7 +130,7 @@ const char* Maps::GetMinesName(u8 type)
     return _("Mine");
 }
 
-s32 Maps::GetDirectionIndex(const s32 & from, u16 vector)
+s32 Maps::GetDirectionIndex(s32 from, int vector)
 {
     switch(vector)
     {
@@ -125,7 +149,7 @@ s32 Maps::GetDirectionIndex(const s32 & from, u16 vector)
 }
 
 // check bound
-bool Maps::isValidDirection(const s32 & from, u16 vector)
+bool Maps::isValidDirection(s32 from, int vector)
 {
     switch(vector)
     {
@@ -152,17 +176,22 @@ bool Maps::isValidDirection(const s32 & from, u16 vector)
     return false;
 }
 
+Point Maps::GetPoint(s32 index)
+{
+    return Point(index % world.w(), index / world.w());
+}
+
 bool Maps::isValidAbsPoint(const Point & pt)
 {
     return isValidAbsPoint(pt.x, pt.y);
 }
 
-bool Maps::isValidAbsIndex(const s32 & ii)
+bool Maps::isValidAbsIndex(s32 ii)
 {
     return 0 <= ii && ii < world.w() * world.h();
 }
 
-bool Maps::isValidAbsPoint(s16 x, s16 y)
+bool Maps::isValidAbsPoint(s32 x, s32 y)
 {
     return 0 <= x && world.w() > x && 0 <= y && world.h() > y;
 }
@@ -173,7 +202,7 @@ s32 Maps::GetIndexFromAbsPoint(const Point & mp)
     return GetIndexFromAbsPoint(mp.x, mp.y);
 }
 
-s32 Maps::GetIndexFromAbsPoint(s16 px, s16 py)
+s32 Maps::GetIndexFromAbsPoint(s32 px, s32 py)
 {
     s32 res = py * world.w() + px;
 
@@ -186,33 +215,46 @@ s32 Maps::GetIndexFromAbsPoint(s16 px, s16 py)
     return res;
 }
 
-MapsIndexes Maps::GetAroundIndexes(const s32 & center, u16 filter)
+Maps::Indexes Maps::GetAllIndexes(void)
 {
-    MapsIndexes result;
+    Indexes result;
+    result.assign(world.w() * world.h(), 0);
+
+    for(Indexes::iterator
+	it = result.begin(); it != result.end(); ++it)
+	*it = std::distance(result.begin(), it);
+    return result;
+}
+
+Maps::Indexes Maps::GetAroundIndexes(s32 center)
+{
+    Indexes result;
     result.reserve(8);
 
     if(isValidAbsIndex(center))
-	for(Direction::vector_t direct = Direction::TOP_LEFT; direct != Direction::CENTER; ++direct)
-	    if((filter & direct) && 
-	    isValidDirection(center, direct))
-		result.push_back(GetDirectionIndex(center, direct));
+    {
+	const Directions directions = Direction::All();
+
+        for(Directions::const_iterator
+            it = directions.begin(); it != directions.end(); ++it)
+	    if(isValidDirection(center, *it))
+		result.push_back(GetDirectionIndex(center, *it));
+    }
 
     return result;
 }
 
-MapsIndexes Maps::GetDistanceIndexes(const s32 & center, u16 dist, bool sort)
+Maps::Indexes Maps::GetAroundIndexes(s32 center, int dist, bool sort)
 {
-    MapsIndexes results;
+    Indexes results;
     results.reserve(dist * 12);
 
-    const s16 cx = center % world.w();
-    const s16 cy = center / world.w();
+    const Point cp = GetPoint(center);
 
-    for(s16 xx = cx - dist; xx <= cx + dist; ++xx)
-	for(s16 yy = cy - dist; yy <= cy + dist; ++yy)
+    for(s32 xx = cp.x - dist; xx <= cp.x + dist; ++xx)
+	for(s32 yy = cp.y - dist; yy <= cp.y + dist; ++yy)
     {
-	if(xx != cx && yy != cy &&
-	    isValidAbsPoint(xx, yy))
+	if(isValidAbsPoint(xx, yy) && (xx != cp.x || yy != cp.y))
 	    results.push_back(GetIndexFromAbsPoint(xx, yy));
     }
 
@@ -222,15 +264,41 @@ MapsIndexes Maps::GetDistanceIndexes(const s32 & center, u16 dist, bool sort)
     return results;
 }
 
-void Maps::ClearFog(const s32 & index, u8 scoute, u8 color)
+Maps::Indexes Maps::GetDistanceIndexes(s32 center, int dist)
+{
+    Indexes results;
+    results.reserve(dist * 6);
+
+    const Point cp = GetPoint(center);
+
+    for(s32 xx = cp.x - dist; xx <= cp.x + dist; ++xx)
+    {
+       if(isValidAbsPoint(xx, cp.y - dist))
+           results.push_back(GetIndexFromAbsPoint(xx, cp.y - dist));
+       if(isValidAbsPoint(xx, cp.y + dist))
+           results.push_back(GetIndexFromAbsPoint(xx, cp.y + dist));
+    }
+
+    for(s32 yy = cp.y - dist + 1; yy < cp.y + dist; ++yy)
+    {
+       if(isValidAbsPoint(cp.x - dist, yy))
+           results.push_back(GetIndexFromAbsPoint(cp.x - dist, yy));
+       if(isValidAbsPoint(cp.x + dist, yy))
+           results.push_back(GetIndexFromAbsPoint(cp.x + dist, yy));
+    }
+
+    return results;
+}
+
+void Maps::ClearFog(s32 index, int scoute, int color)
 {
     if(0 != scoute && isValidAbsIndex(index))
     {
-	const Point center(index % world.w(), index / world.w());
+	const Point center = GetPoint(index);
 	const Settings & conf = Settings::Get();
 
 	// AI advantage
-	if(CONTROL_AI & world.GetKingdom(color).GetControl())
+	if(world.GetKingdom(color).isControlAI())
 	{
 	    switch(conf.GameDifficulty())
 	    {
@@ -242,41 +310,74 @@ void Maps::ClearFog(const s32 & index, u8 scoute, u8 color)
 	    }
 	}
 
-	u8 colors = conf.ExtUnionsAllowViewMaps() ? Players::GetPlayerFriends(color) : color;
+	int colors = conf.ExtUnionsAllowViewMaps() ? Players::GetPlayerFriends(color) : color;
 
-	for(s16 y = center.y - scoute; y <= center.y + scoute; ++y)
-    	    for(s16 x = center.x - scoute; x <= center.x + scoute; ++x)
+	for(s32 y = center.y - scoute; y <= center.y + scoute; ++y)
+    	    for(s32 x = center.x - scoute; x <= center.x + scoute; ++x)
         	if(isValidAbsPoint(x, y) &&
 		    (scoute + scoute / 2) >= std::abs(x - center.x) + std::abs(y - center.y))
             	    world.GetTiles(GetIndexFromAbsPoint(x, y)).ClearFog(colors);
     }
 }
 
-MapsIndexes Maps::ScanAroundObjectsV(const s32 & center, const u8* objs)
+Maps::Indexes Maps::ScanAroundObjects(s32 center, const u8* objs)
 {
-    MapsIndexes results = Maps::GetAroundIndexes(center);
+    Indexes results = Maps::GetAroundIndexes(center);
     return MapsIndexesFilteredObjects(results, objs);
 }
 
-MapsIndexes Maps::ScanAroundObjectV(const s32 & center, u8 obj)
+Maps::Indexes Maps::ScanAroundObject(s32 center, int obj)
 {
-    MapsIndexes results = Maps::GetAroundIndexes(center);
+    Maps::Indexes results = Maps::GetAroundIndexes(center);
     return MapsIndexesFilteredObject(results, obj);
 }
 
-MapsIndexes Maps::ScanDistanceObject(const s32 & center, u8 obj, u16 dist)
+Maps::Indexes Maps::ScanAroundObject(s32 center, u32 dist, int obj)
 {
-    MapsIndexes results = Maps::GetDistanceIndexes(center, dist, true);
+    Indexes results = Maps::GetAroundIndexes(center, dist, true);
     return MapsIndexesFilteredObject(results, obj);
 }
 
-MapsIndexes Maps::ScanDistanceObjects(const s32 & center, const u8* objs, u16 dist)
+Maps::Indexes Maps::ScanAroundObjects(s32 center, u32 dist, const u8* objs)
 {
-    MapsIndexes results = Maps::GetDistanceIndexes(center, dist, true);
+    Indexes results = Maps::GetAroundIndexes(center, dist, true);
     return MapsIndexesFilteredObjects(results, objs);
 }
 
-bool MapsTileIsUnderProtection(const s32 from, const s32 index) /* from: center, index: monster */
+Maps::Indexes Maps::GetObjectPositions(int obj, bool check_hero)
+{
+    Maps::Indexes results = GetAllIndexes();
+    MapsIndexesFilteredObject(results, obj);
+
+    if(check_hero && obj != MP2::OBJ_HEROES)
+    {
+	const Indexes & v = GetObjectPositions(MP2::OBJ_HEROES, false);
+	for(Indexes::const_iterator
+	    it = v.begin(); it != v.end(); ++it)
+	{
+	    const Heroes* hero = world.GetHeroes(GetPoint(*it));
+	    if(hero && obj == hero->GetMapsObject())
+		results.push_back(*it);
+	}
+    }
+
+    return results;
+}
+
+Maps::Indexes Maps::GetObjectPositions(s32 center, int obj, bool check_hero)
+{
+    Indexes results = Maps::GetObjectPositions(obj, check_hero);
+    std::sort(results.begin(), results.end(), ComparsionDistance(center));
+    return results;
+}
+
+Maps::Indexes Maps::GetObjectsPositions(const u8* objs)
+{
+    Indexes results = GetAllIndexes();
+    return MapsIndexesFilteredObjects(results, objs);
+}
+
+bool MapsTileIsUnderProtection(s32 from, s32 index) /* from: center, index: monster */
 {
     bool result = false;
     const Maps::Tiles & tile1 = world.GetTiles(from);
@@ -305,15 +406,20 @@ bool MapsTileIsUnderProtection(const s32 from, const s32 index) /* from: center,
     return result;
 }
 
-bool Maps::TileIsUnderProtection(const s32 & center)
+bool Maps::IsNearTiles(s32 index1, s32 index2)
+{
+    return DIRECTION_ALL & Direction::Get(index1, index2);
+}
+
+bool Maps::TileIsUnderProtection(s32 center)
 {
     return MP2::OBJ_MONSTER == world.GetTiles(center).GetObject() ? true :
 	    GetTilesUnderProtection(center).size();
 }
 
-MapsIndexes Maps::GetTilesUnderProtection(const s32 & center)
+Maps::Indexes Maps::GetTilesUnderProtection(s32 center)
 {
-    MapsIndexes indexes = Maps::ScanAroundObjectV(center, MP2::OBJ_MONSTER);
+    Indexes indexes = Maps::ScanAroundObject(center, MP2::OBJ_MONSTER);
 
     indexes.resize(std::distance(indexes.begin(),
 	    std::remove_if(indexes.begin(), indexes.end(),
@@ -325,20 +431,19 @@ MapsIndexes Maps::GetTilesUnderProtection(const s32 & center)
     return indexes;
 }
 
-u16 Maps::GetApproximateDistance(const s32 & index1, const s32 & index2)
+u32 Maps::GetApproximateDistance(s32 index1, s32 index2)
 {
-    return std::max(std::abs((index1 % world.w()) - (index2 % world.w())), 
-	            std::abs((index1 / world.w()) - (index2 / world.w())));
+    const Size sz(GetPoint(index1) - GetPoint(index2));
+    return std::max(sz.w, sz.h);
 }
-
 
 void Maps::MinimizeAreaForCastle(const Point & center)
 {
     // reset castle ID
-    for(s8 yy = -3; yy < 2; ++yy)
-        for(s8 xx = -2; xx < 3; ++xx)
+    for(s32 yy = -3; yy < 2; ++yy)
+        for(s32 xx = -2; xx < 3; ++xx)
     {
-        Maps::Tiles & tile = world.GetTiles((center.y + yy) * world.h() + center.x + xx);
+        Maps::Tiles & tile = world.GetTiles(center.x + xx, center.y + yy);
 
         if(MP2::OBJN_RNDCASTLE == tile.GetObject() ||
              MP2::OBJN_RNDTOWN == tile.GetObject() ||
@@ -346,10 +451,10 @@ void Maps::MinimizeAreaForCastle(const Point & center)
     }
 
     // set minimum area castle ID
-    for(s8 yy = -1; yy < 1; ++yy)
-        for(s8 xx = -2; xx < 3; ++xx)
+    for(s32 yy = -1; yy < 1; ++yy)
+        for(s32 xx = -2; xx < 3; ++xx)
     {
-        Maps::Tiles & tile = world.GetTiles((center.y + yy) * world.h() + center.x + xx);
+        Maps::Tiles & tile = world.GetTiles(center.x + xx, center.y + yy);
 
 	// skip angle
 	if(yy == -1 && (xx == -2 || xx == 2)) continue;
@@ -358,11 +463,11 @@ void Maps::MinimizeAreaForCastle(const Point & center)
     }
 
     // restore center ID
-    world.GetTiles(center).SetObject(MP2::OBJ_CASTLE);
+    world.GetTiles(center.x, center.y).SetObject(MP2::OBJ_CASTLE);
 }
 
 /* correct sprites for RND castles */
-void Maps::UpdateRNDSpriteForCastle(const Point & center, u8 race, bool castle)
+void Maps::UpdateRNDSpriteForCastle(const Point & center, int race, bool castle)
 {
 /* 
 castle size: T and B - sprite, S - shadow, XX - center
@@ -373,7 +478,7 @@ castle size: T and B - sprite, S - shadow, XX - center
       S3S3B1B1XXB1B1
         S4B2B2  B2B2
 */
-    MapsIndexes coords;
+    Indexes coords;
     coords.reserve(21);
 
     // T0
@@ -403,7 +508,7 @@ castle size: T and B - sprite, S - shadow, XX - center
     coords.push_back(GetIndexFromAbsPoint(center.x + 1, center.y + 1));
     coords.push_back(GetIndexFromAbsPoint(center.x + 2, center.y + 1));
 
-    Maps::Tiles & tile_center = world.GetTiles(center);
+    Maps::Tiles & tile_center = world.GetTiles(center.x, center.y);
 
     // correct only RND town and castle
     switch(tile_center.GetObject())
@@ -418,7 +523,7 @@ castle size: T and B - sprite, S - shadow, XX - center
     }
 
     // modify all rnd sprites
-    for(MapsIndexes::const_iterator
+    for(Indexes::const_iterator
 	it = coords.begin(); it != coords.end(); ++it)
     if(isValidAbsIndex(*it))
     {
@@ -444,7 +549,7 @@ castle size: T and B - sprite, S - shadow, XX - center
 void Maps::UpdateSpritesFromTownToCastle(const Point & center)
 {
     // correct area maps sprites
-    MapsIndexes coords;
+    Indexes coords;
     coords.reserve(15);
 
     // T1
@@ -467,7 +572,7 @@ void Maps::UpdateSpritesFromTownToCastle(const Point & center)
     coords.push_back(GetIndexFromAbsPoint(center.x + 2, center.y));
 
     // modify all town sprites
-    for(MapsIndexes::const_iterator
+    for(Indexes::const_iterator
 	it = coords.begin(); it != coords.end(); ++it)
     if(isValidAbsIndex(*it))
     {
@@ -484,12 +589,35 @@ void Maps::UpdateSpritesFromTownToCastle(const Point & center)
     }
 }
 
-u16  Maps::TileIsCoast(const s32 & index, u16 direct)
+int Maps::TileIsCoast(s32 center, int filter)
 {
-    u16 result = 0;
-    const MapsIndexes & v = GetAroundIndexes(index, direct);
-    for(MapsIndexes::const_iterator
-        it = v.begin(); it != v.end(); ++it)
-        if(world.GetTiles(*it).isWater()) result |= Direction::Get(index, *it);
+    int result = 0;
+    const Directions directions = Direction::All();
+
+    for(Directions::const_iterator
+	it = directions.begin(); it != directions.end(); ++it)
+	if((*it & filter) && isValidDirection(center, *it) &&
+        world.GetTiles(GetDirectionIndex(center, *it)).isWater()) result |= *it;
+
     return result;
+}
+
+StreamBase & operator>> (StreamBase & sb, IndexObject & st)
+{
+    return sb >> st.first >> st.second;
+}
+
+StreamBase & operator>> (StreamBase & sb, IndexDistance & st)
+{
+    return sb >> st.first >> st.second;
+}
+
+StreamBase & operator>> (StreamBase & sb, ObjectColor & st)
+{
+    return sb >> st.first >> st.second;
+}
+
+StreamBase & operator>> (StreamBase & sb, ResourceCount & st)
+{
+    return sb >> st.first >> st.second;
 }

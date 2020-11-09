@@ -23,14 +23,17 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include "agg.h"
+#include "text.h"
+#include "cursor.h"
 #include "settings.h"
 #include "world.h"
+#include "game.h"
 #include "spell.h"
+#include "heroes.h"
+#include "dialog.h"
+#include "dialog_selectitems.h"
 #include "artifact.h"
-
-#ifdef WITH_XML
-#include "xmlccwrap.h"
-#endif
 
 enum { ART_DISABLED = 0x01, ART_RNDUSED = 0x02 };
 enum { TYPE0, TYPE1, TYPE2, TYPE3, TYPE4 }; /*TYPE0: unique, TYPE1: morale/luck, TYPE2: resource, TYPE3: primary/mp/sp, TYPE4: secskills */
@@ -39,7 +42,7 @@ struct artifactstats_t
 {
     u8 bits;
     u8 extra;
-    const u8 type;
+    u8 type;
     const char* name;
     const char* description;
 };
@@ -108,9 +111,9 @@ artifactstats_t artifacts[] = {
 	{ 0, 0, TYPE0, _("Kinetic Pendant"), _("The %{name} makes all your troops immune to paralyze spells.") },
 	{ 0, 0, TYPE0, _("Pendant of Death"), _("The %{name} makes all your troops immune to holy spells.") },
 	{ 0, 0, TYPE0, _("Wand of Negation"), _("The %{name} protects your troops from the Dispel Magic spell.") },
-	{ 0, 50, TYPE4, _("Golden Bow"), _("The %{name} eliminates the %{count} percent penalty for your troops shooting past obstacles. (e.g. castle walls)") },
+	{ 0, 50, TYPE0, _("Golden Bow"), _("The %{name} eliminates the %{count} percent penalty for your troops shooting past obstacles. (e.g. castle walls)") },
 	{ 0, 1, TYPE4, _("Telescope"), _("The %{name} increases the amount of terrain your hero reveals when adventuring by %{count} extra square.") },
-	{ 0, 10,TYPE4, _("Statesman's Quill"), _("The %{name} reduces the cost of surrender to %{count} percent of the total cost of troops you have in your army.") },
+	{ 0, 10,TYPE0, _("Statesman's Quill"), _("The %{name} reduces the cost of surrender to %{count} percent of the total cost of troops you have in your army.") },
 	{ 0, 10,TYPE0, _("Wizard's Hat"), _("The %{name} increases the duration of your spells by %{count} turns.") },
 	{ 0, 2, TYPE4, _("Power Ring"), _("The %{name} returns %{count} extra power points/turn to your hero.") },
 	{ 0, 0, TYPE0, _("Ammo Cart"), _("The %{name} provides endless ammunition for all your troops that shoot.") },
@@ -155,43 +158,43 @@ artifactstats_t artifacts[] = {
 	{ 0, 0, TYPE0, "Unknown", "Unknown" },
 };
 
-const char* GetPluralDescription(const Artifact & art, u16 count)
+const char* GetPluralDescription(const Artifact & art, u32 count)
 {
     switch(art())
     {
 	case Artifact::ENCHANTED_HOURGLASS:
-	    return ngettext("The %{name} extends the duration of all your spells by %{count} turn.",
+	    return _n("The %{name} extends the duration of all your spells by %{count} turn.",
 			    "The %{name} extends the duration of all your spells by %{count} turns.", count);
 	case Artifact::WIZARD_HAT:
-	    return ngettext("The %{name} increases the duration of your spells by %{count} turn.",
+	    return _n("The %{name} increases the duration of your spells by %{count} turn.",
 			    "The %{name} increases the duration of your spells by %{count} turns.", count);
 	case Artifact::POWER_RING:
-	    return ngettext("The %{name} returns %{count} extra power point/turn to your hero.",
+	    return _n("The %{name} returns %{count} extra power point/turn to your hero.",
 			    "The %{name} returns %{count} extra power points/turn to your hero.", count);
         case Artifact::ENDLESS_POUCH_SULFUR:
-	    return ngettext("The %{name} provides %{count} unit of sulfur per day.",
+	    return _n("The %{name} provides %{count} unit of sulfur per day.",
 			    "The %{name} provides %{count} units of sulfur per day.", count);
         case Artifact::ENDLESS_VIAL_MERCURY:
-	    return ngettext("The %{name} provides %{count} unit of mercury per day.",
+	    return _n("The %{name} provides %{count} unit of mercury per day.",
 			    "The %{name} provides %{count} units of mercury per day.", count);
         case Artifact::ENDLESS_POUCH_GEMS:
-	    return ngettext("The %{name} provides %{count} unit of gems per day.",
+	    return _n("The %{name} provides %{count} unit of gems per day.",
 			    "The %{name} provides %{count} units of gems per day.", count);
         case Artifact::ENDLESS_CORD_WOOD:
-	    return ngettext("The %{name} provides %{count} unit of wood per day.",
+	    return _n("The %{name} provides %{count} unit of wood per day.",
 			    "The %{name} provides %{count} units of wood per day.", count);
         case Artifact::ENDLESS_CART_ORE:
-	    return ngettext("The %{name} provides %{count} unit of ore per day.",
+	    return _n("The %{name} provides %{count} unit of ore per day.",
 			    "The %{name} provides %{count} units of ore per day.", count);
         case Artifact::ENDLESS_POUCH_CRYSTAL:
-	    return ngettext("The %{name} provides %{count} unit of crystal per day.",
+	    return _n("The %{name} provides %{count} unit of crystal per day.",
 			    "The %{name} provides %{count} units of crystal per day.", count);
 	default: break;
     }
     return _(artifacts[art()].description);
 }
 
-bool SkipExtra(u8 art)
+bool SkipExtra(int art)
 {
     switch(art)
     {
@@ -227,11 +230,11 @@ void Artifact::UpdateStats(const std::string & spec)
     // parse artifacts.xml
     TiXmlDocument doc;
     const TiXmlElement* xml_artifacts = NULL;
-    size_t index = 0;
 
     if(doc.LoadFile(spec.c_str()) &&
         NULL != (xml_artifacts = doc.FirstChildElement("artifacts")))
     {
+	size_t index = 0;
         const TiXmlElement* xml_artifact = xml_artifacts->FirstChildElement("artifact");
         for(; xml_artifact && index < UNKNOWN; xml_artifact = xml_artifact->NextSiblingElement("artifact"), ++index)
         {
@@ -252,7 +255,7 @@ void Artifact::UpdateStats(const std::string & spec)
 #endif
 }
 
-Artifact::Artifact(u8 art) : id(art < UNKNOWN ? art : UNKNOWN), ext(0)
+Artifact::Artifact(int art) : id(art < UNKNOWN ? art : UNKNOWN), ext(0)
 {
 }
 
@@ -287,12 +290,12 @@ bool Artifact::operator!= (const Artifact & art) const
     return id != art.id;
 }
 
-u8 Artifact::operator() (void) const
+int Artifact::operator() (void) const
 {
     return id;
 }
 
-u8 Artifact::GetID(void) const
+int Artifact::GetID(void) const
 {
     return id;
 }
@@ -302,27 +305,27 @@ const char* Artifact::GetName(void) const
     return _(artifacts[id].name);
 }
 
-u8 Artifact::Type(void) const
+int Artifact::Type(void) const
 {
     return artifacts[id].type;
 }
 
 std::string Artifact::GetDescription(void) const
 {
-    u16 count = ExtraValue();
+    u32 count = ExtraValue();
     std::string str = GetPluralDescription(*this, count);
 
-    String::Replace(str, "%{name}", GetName());
+    StringReplace(str, "%{name}", GetName());
 
     if(id == Artifact::SPELL_SCROLL)
-        String::Replace(str, "%{spell}", Spell(ext).GetName());
+        StringReplace(str, "%{spell}", Spell(ext).GetName());
     else
-        String::Replace(str, "%{count}", count);
+        StringReplace(str, "%{count}", count);
 
     return str;
 }
 
-u16 Artifact::ExtraValue(void) const
+u32 Artifact::ExtraValue(void) const
 {
     switch(id)
     {
@@ -339,6 +342,24 @@ u16 Artifact::ExtraValue(void) const
     }
 
     return artifacts[id].extra;
+}
+
+bool Artifact::isAlchemistRemove(void) const
+{
+    switch(id)
+    {
+	case TAX_LIEN:
+	case FIZBIN_MISFORTUNE:
+	case HIDEOUS_MASK:
+	case ARM_MARTYR:
+	case HEART_FIRE:
+	case HEART_ICE:
+	case BROACH_SHIELDING:
+	case SPHERE_NEGATION:
+	return true;
+    }
+
+    return false;
 }
 
 bool Artifact::isUltimate(void) const
@@ -364,7 +385,7 @@ bool Artifact::isValid(void) const
     return id != UNKNOWN;
 }
 
-u8 Artifact::LoyaltyLevel(void) const
+int Artifact::LoyaltyLevel(void) const
 {
     switch(id)
     {
@@ -397,7 +418,7 @@ u8 Artifact::LoyaltyLevel(void) const
     return ART_NONE;
 }
 
-u8 Artifact::Level(void) const
+int Artifact::Level(void) const
 {
     switch(id)
     {
@@ -521,29 +542,40 @@ u8 Artifact::Level(void) const
 }
 
 /* return index sprite objnarti.icn */
-u8 Artifact::IndexSprite(void) const
+u32 Artifact::IndexSprite(void) const
 {
     return id < UNKNOWN ? id * 2 + 1 : 0;
 }
 
-u8 Artifact::IndexSprite32(void) const
+u32 Artifact::IndexSprite32(void) const
 {
     return id;
 }
 
-u8 Artifact::IndexSprite64(void) const
+u32 Artifact::IndexSprite64(void) const
 {
     return id + 1;
 }
 
-u8 Artifact::GetSpell(void) const
+int Artifact::GetSpell(void) const
 {
     return id == SPELL_SCROLL ? ext : Spell::NONE;
 }
 
-void Artifact::SetSpell(u8 v)
+void Artifact::SetSpell(int v)
 {
-    ext = v;
+    bool adv = Rand::Get(1);
+
+    switch(v)
+    {
+	case Spell::RANDOM:  ext = Spell::Rand(Rand::Get(1, 5), adv).GetID(); break;
+	case Spell::RANDOM1: ext = Spell::Rand(1, adv).GetID(); break;
+	case Spell::RANDOM2: ext = Spell::Rand(2, adv).GetID(); break;
+	case Spell::RANDOM3: ext = Spell::Rand(3, adv).GetID(); break;
+	case Spell::RANDOM4: ext = Spell::Rand(4, adv).GetID(); break;
+	case Spell::RANDOM5: ext = Spell::Rand(5, adv).GetID(); break;
+	default: ext = v; break;
+    }
 }
 
 void Artifact::Reset(void)
@@ -553,13 +585,13 @@ void Artifact::Reset(void)
 }
 
 /* get rand all artifact */
-u8 Artifact::Rand(level_t lvl)
+int Artifact::Rand(level_t lvl)
 {
-    std::vector<u8> v;
+    std::vector<int> v;
     v.reserve(25);
 
     // if possibly: make unique on map
-    for(u8 art = ULTIMATE_BOOK; art < UNKNOWN; ++art)
+    for(u32 art = ULTIMATE_BOOK; art < UNKNOWN; ++art)
         if((lvl & Artifact(art).Level()) &&
             !(artifacts[art].bits & ART_DISABLED) &&
 	    !(artifacts[art].bits & ART_RNDUSED)) v.push_back(art);
@@ -567,18 +599,18 @@ u8 Artifact::Rand(level_t lvl)
     //
     if(v.empty())
     {
-	for(u8 art = ULTIMATE_BOOK; art < UNKNOWN; ++art)
+	for(u32 art = ULTIMATE_BOOK; art < UNKNOWN; ++art)
     	if((lvl & Artifact(art).Level()) &&
             !(artifacts[art].bits & ART_DISABLED)) v.push_back(art);
     }
 
-    u8 res = v.size() ? *Rand::Get(v) : Artifact::UNKNOWN;
+    int res = v.size() ? *Rand::Get(v) : Artifact::UNKNOWN;
     artifacts[res].bits |= ART_RNDUSED;
 
     return res;
 }
 
-Artifact Artifact::FromMP2IndexSprite(u8 index)
+Artifact Artifact::FromMP2IndexSprite(u32 index)
 {
     if(0xA2 > index) return Artifact((index - 1) / 2);
     else
@@ -627,6 +659,16 @@ const char* Artifact::GetScenario(const Artifact & art)
     return NULL;
 }
 
+StreamBase & operator<< (StreamBase & msg, const Artifact & art)
+{
+    return msg << art.id << art.ext;
+}
+
+StreamBase & operator>> (StreamBase & msg, Artifact & art)
+{
+    return msg >> art.id >> art.ext;
+}
+
 BagArtifacts::BagArtifacts() : std::vector<Artifact>(HEROESMAXARTIFACT, Artifact::UNKNOWN)
 {
 }
@@ -643,17 +685,30 @@ bool BagArtifacts::isPresentArtifact(const Artifact & art) const
 
 bool BagArtifacts::PushArtifact(const Artifact & art)
 {
-    iterator it = std::find(begin(), end(), Artifact(Artifact::UNKNOWN));
- 
-    if(it == end()) return false;
+    if(art.isValid())
+    {
+	if(art() == Artifact::MAGIC_BOOK && isPresentArtifact(art))
+	    return false;
 
-    *it = art;
+	iterator it = std::find(begin(), end(), Artifact(Artifact::UNKNOWN));
+	if(it == end()) return false;
 
-    // book insert first
-    if(art() == Artifact::MAGIC_BOOK)
-	std::swap(*it, front());
+	*it = art;
 
-    return true;
+	// book insert first
+	if(art() == Artifact::MAGIC_BOOK)
+	    std::swap(*it, front());
+
+	return true;
+    }
+
+    return false;
+}
+
+void BagArtifacts::RemoveArtifact(const Artifact & art)
+{
+    iterator it = std::find(begin(), end(), art);
+    if(it != end()) (*it).Reset();
 }
 
 bool BagArtifacts::isFull(void) const
@@ -678,7 +733,7 @@ bool BagArtifacts::MakeBattleGarb(void)
     return true;
 }
 
-u8 BagArtifacts::CountArtifacts(void) const
+u32 BagArtifacts::CountArtifacts(void) const
 {
     return std::count_if(begin(), end(), std::mem_fun_ref(&Artifact::isValid));
 }
@@ -708,12 +763,12 @@ std::string BagArtifacts::String(void) const
     return os.str();
 }
 
-u8 BagArtifacts::Count(const Artifact & art) const
+u32 BagArtifacts::Count(const Artifact & art) const
 {
     return std::count(begin(), end(), art);
 }
 
-u16 GoldInsteadArtifact(u8 obj)
+u32 GoldInsteadArtifact(int obj)
 {
     switch(obj)
     {
@@ -726,4 +781,258 @@ u16 GoldInsteadArtifact(u8 obj)
 	default: break;
     }
     return 0;
+}
+
+ArtifactsBar::ArtifactsBar(const Heroes* ptr, bool mini, bool ro, bool change /* false */)
+	: hero(ptr), use_mini_sprite(mini), read_only(ro), can_change(change)
+{
+    if(use_mini_sprite)
+    {
+        const Sprite & sprite = AGG::GetICN(ICN::HSICONS, 0);
+        const Rect rt(26, 21, 32, 32);
+
+	backsf.Set(rt.w + 2, rt.h + 2, true);
+	backsf.DrawBorder(RGBA(0xD0, 0xC0, 0x48));
+	sprite.Blit(rt, 1, 1, backsf);
+
+	SetItemSize(backsf.w(), backsf.h());
+	spcursor.Set(backsf.w(), backsf.h(), true);
+	spcursor.DrawBorder(RGBA(0xb0, 0xb0, 0xb0));
+    }
+    else
+    {
+        const Sprite & sprite = AGG::GetICN(ICN::ARTIFACT, 0);
+        SetItemSize(sprite.w(), sprite.h());
+        spcursor = AGG::GetICN(ICN::NGEXTRA, 62);
+    }
+}
+
+void ArtifactsBar::ResetSelected(void)
+{
+    Cursor::Get().Hide();
+    spcursor.Hide();
+    Interface::ItemsActionBar<Artifact>::ResetSelected();
+}
+
+void ArtifactsBar::Redraw(Surface & dstsf)
+{
+    Cursor::Get().Hide();
+    spcursor.Hide();
+    Interface::ItemsActionBar<Artifact>::Redraw(dstsf);
+}
+
+void ArtifactsBar::RedrawBackground(const Rect & pos, Surface & dstsf)
+{
+    if(use_mini_sprite)
+    	backsf.Blit(pos, dstsf);
+    else
+	AGG::GetICN(ICN::ARTIFACT, 0).Blit(pos, dstsf);
+}
+
+void ArtifactsBar::RedrawItem(Artifact & art, const Rect & pos, bool selected, Surface & dstsf)
+{
+    if(art.isValid())
+    {
+	Cursor::Get().Hide();
+
+	if(use_mini_sprite)
+	    AGG::GetICN(ICN::ARTFX, art.IndexSprite32()).Blit(pos.x + 1, pos.y + 1, dstsf);
+	else
+	    AGG::GetICN(ICN::ARTIFACT, art.IndexSprite64()).Blit(pos, dstsf);
+
+	if(selected)
+	{
+	    if(use_mini_sprite)
+		spcursor.Move(pos.x, pos.y);
+	    else
+		spcursor.Move(pos.x - 3, pos.y - 3);
+	}
+    }
+}
+
+bool ArtifactsBar::ActionBarSingleClick(const Point & cursor, Artifact & art, const Rect & pos)
+{
+    if(isSelected())
+    {
+	std::swap(art, *GetSelectedItem());
+	return false;
+    }
+    else
+    if(art.isValid())
+    {
+	if(! read_only)
+	{
+	    Cursor::Get().Hide();
+	    spcursor.Hide();
+	}
+    }
+    else
+    {
+	if(can_change)
+	    art = Dialog::SelectArtifact();
+
+	return false;
+    }
+
+    return true;
+}
+
+bool ArtifactsBar::ActionBarDoubleClick(const Point & cursor, Artifact & art, const Rect & pos)
+{
+    if(art() == Artifact::MAGIC_BOOK)
+    {
+        if(can_change)
+	    const_cast<Heroes*>(hero)->EditSpellBook();
+	else
+	    hero->OpenSpellBook(SpellBook::ALL, false);
+    }
+    else
+    if(art() == Artifact::SPELL_SCROLL &&
+	Settings::Get().ExtHeroAllowTranscribingScroll() &&
+        hero->CanTranscribeScroll(art))
+    {
+	Spell spell = art.GetSpell();
+
+	if(! spell.isValid())
+        {
+            DEBUG(DBG_GAME, DBG_WARN, "invalid spell");
+        }
+	else
+        if(hero->CanLearnSpell(spell))
+        {
+	    payment_t cost = spell.GetCost();
+            u32 answer = 0;
+            std::string msg = _("Do you want to use your knowledge of magical secrets to transcribe the %{spell} Scroll into your spell book?\nThe Scroll will be consumed.\n Spell point: %{sp}");
+
+            StringReplace(msg, "%{spell}", spell.GetName());
+            StringReplace(msg, "%{sp}", spell.SpellPoint());
+
+	    if(spell.MovePoint())
+            {
+        	msg.append("\n");
+                msg.append("Move point: %{mp}");
+                StringReplace(msg, "%{mp}", spell.MovePoint());
+            }
+
+            if(cost.GetValidItemsCount())
+        	answer = Dialog::ResourceInfo("", msg, cost, Dialog::YES|Dialog::NO);
+            else
+        	answer = Dialog::Message("", msg, Font::BIG, Dialog::YES|Dialog::NO);
+
+    	    if(answer == Dialog::YES)
+		const_cast<Heroes*>(hero)->TranscribeScroll(art);
+	}
+    }
+    else
+	Dialog::ArtifactInfo(art.GetName(), "", art);
+
+    ResetSelected();
+
+    return true;
+}
+
+bool ArtifactsBar::ActionBarPressRight(const Point & cursor, Artifact & art, const Rect & pos)
+{
+    ResetSelected();
+
+    if(art.isValid())
+    {
+	if(can_change)
+    	    art.Reset();
+        else
+            Dialog::ArtifactInfo(art.GetName(), "", art, 0);
+    }
+
+    return true;
+}
+
+bool ArtifactsBar::ActionBarSingleClick(const Point & cursor, Artifact & art1, const Rect & pos1, Artifact & art2, const Rect & pos2)
+{
+    if(art1() != Artifact::MAGIC_BOOK && art2() != Artifact::MAGIC_BOOK)
+    {
+	std::swap(art1, art2);
+	return false;
+    }
+
+    return true;
+}
+
+bool ArtifactsBar::ActionBarCursor(const Point & cursor, Artifact & art, const Rect & pos)
+{
+    if(isSelected())
+    {
+        Artifact* art2 = GetSelectedItem();
+
+        if(&art == art2)
+        {
+	    if(art() == Artifact::MAGIC_BOOK)
+		msg = _("Open book");
+	    else
+	    if(art() == Artifact::SPELL_SCROLL &&
+		Settings::Get().ExtHeroAllowTranscribingScroll() &&
+    		hero->CanTranscribeScroll(art))
+		msg = _("Transcribe scroll");
+	    else
+	    {
+        	msg = _("View %{name}");
+        	StringReplace(msg, "%{name}", art.GetName());
+	    }
+        }
+        else
+        if(! art.isValid())
+        {
+            msg = _("Move %{name}");
+            StringReplace(msg, "%{name}", art2->GetName());
+        }
+        else
+        {
+            msg = _("Exchange %{name2} with %{name}");
+            StringReplace(msg, "%{name}", art.GetName());
+            StringReplace(msg, "%{name2}", art2->GetName());
+        }
+    }
+    else
+    if(art.isValid())
+    {
+        msg = _("Select %{name}");
+        StringReplace(msg, "%{name}", art.GetName());
+    }
+
+    return false;
+}
+
+bool ArtifactsBar::ActionBarCursor(const Point & cursor, Artifact & art1, const Rect & pos1, Artifact & art2 /* selected */, const Rect & pos2)
+{
+    if(art2() == Artifact::MAGIC_BOOK || art1() == Artifact::MAGIC_BOOK)
+	msg = _("Cannot move artifact");
+    else
+    if(art1.isValid())
+    {
+	msg = _("Exchange %{name2} with %{name}");
+        StringReplace(msg, "%{name}", art1.GetName());
+        StringReplace(msg, "%{name2}", art2.GetName());
+    }
+    else
+    {
+        msg = _("Move %{name}");
+        StringReplace(msg, "%{name}", art2.GetName());
+    }
+
+    return false;
+}
+
+bool ArtifactsBar::QueueEventProcessing(std::string* str)
+{
+    msg.clear();
+    bool res = Interface::ItemsActionBar<Artifact>::QueueEventProcessing();
+    if(str) *str = msg;
+    return res;
+}
+
+bool ArtifactsBar::QueueEventProcessing(ArtifactsBar & bar, std::string* str)
+{
+    msg.clear();
+    bool res = Interface::ItemsActionBar<Artifact>::QueueEventProcessing(bar);
+    if(str) *str = msg;
+    return res;
 }

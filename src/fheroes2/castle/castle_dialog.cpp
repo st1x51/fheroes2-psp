@@ -34,13 +34,13 @@
 #include "payment.h"
 #include "profit.h"
 #include "kingdom.h"
+#include "game.h"
 #include "race.h"
 #include "tools.h"
 #include "text.h"
-#include "portrait.h"
 #include "dialog.h"
 #include "statusbar.h"
-#include "selectarmybar.h"
+#include "army_bar.h"
 #include "pocketpc.h"
 
 void CastleRedrawTownName(const Castle & castle, const Point & dst);
@@ -88,9 +88,9 @@ bool AllowFlashBuilding(u32 build)
     return false;
 }
 
-const Sprite & GetActualSpriteBuilding(const Castle & castle, u32 build)
+Sprite GetActualSpriteBuilding(const Castle & castle, u32 build)
 {
-    u8 index = 0;
+    u32 index = 0;
     // correct index (mage guild)
     switch(build)
     {
@@ -119,7 +119,7 @@ building_t GetCurrentFlash(const Castle & castle, CastleDialog::CacheBuildings &
 	{
 	    if((*it).id & BUILD_MAGEGUILD)
 	    {
-		const u8 & lvl = castle.GetLevelMageGuild();
+		u32 lvl = castle.GetLevelMageGuild();
 
 		if(((*it).id == BUILD_MAGEGUILD1 && lvl > 1) ||
 		   ((*it).id == BUILD_MAGEGUILD2 && lvl > 2) ||
@@ -138,8 +138,7 @@ building_t GetCurrentFlash(const Castle & castle, CastleDialog::CacheBuildings &
 	if(! (*it).contour.isValid())
         {
             const Sprite & sprite = GetActualSpriteBuilding(castle, flash);
-    	    Surface::MakeContour((*it).contour, sprite, sprite.GetColorIndex(0xDA));
-	    (*it).contour.SetOffset(sprite.x() - 1, sprite.y() - 1);
+    	    (*it).contour = Sprite(sprite.RenderContour(RGBA(0xe0, 0xe0, 0)), sprite.x() - 1, sprite.y() - 1);
 	}
     }
 
@@ -156,95 +155,98 @@ void RedrawIcons(const Castle & castle, const CastleHeroes & heroes, const Point
     if(Settings::Get().QVGA())
     {
 	AGG::GetICN(ICN::SWAPWIN, 0).Blit(Rect(36, 267, 43, 43), pt.x + 2, pt.y + 79);
+	AGG::GetICN(ICN::SWAPWIN, 0).Blit(Rect(36, 267, 43, 43), pt.x + 2, pt.y + 124);
 
-	if(hero1 || !castle.isBuild(BUILD_CAPTAIN))
-	{
-    	    const Surface & icon = hero1 ? Portrait::Hero(*hero1, Portrait::MEDIUM) :
-					    AGG::GetICN(ICN::BRCREST, Color::GetIndex(castle.GetColor()));
-    	    icon.Blit(Rect((icon.w() - 41) / 2, (icon.h() - 41) / 2, 41, 41), pt.x + 3, pt.y + 80, display);
-	}
+	Surface icon1, icon2;
+
+	if(hero1)
+    	    icon1 = hero1->GetPortrait(PORT_MEDIUM);
 	else
 	if(castle.isBuild(BUILD_CAPTAIN))
-	{
-    	    const Surface & icon = Portrait::Captain(castle.GetRace(), Portrait::BIG);
-    	    icon.Blit(Rect((icon.w() - 41) / 2, 15, 41, 41), pt.x + 3, pt.y + 80, display);
-	}
-
-	AGG::GetICN(ICN::SWAPWIN, 0).Blit(Rect(36, 267, 43, 43), pt.x + 2, pt.y + 132);
+    	    icon1 = castle.GetCaptain().GetPortrait(PORT_MEDIUM);
+	else
+    	    icon1 = AGG::GetICN(ICN::BRCREST, Color::GetIndex(castle.GetColor()));
 
         if(hero2)
-	{
-    	    const Surface & icon = Portrait::Hero(*hero2, Portrait::MEDIUM);
-    	    icon.Blit(Rect((icon.w() - 41) / 2, (icon.h() - 41) / 2, 41, 41), pt.x + 3, pt.y + 133, display);
-	}
+    	    icon2 = hero2->GetPortrait(PORT_MEDIUM);
 	else
-	{
-    	    const Sprite & crest = AGG::GetICN(ICN::BRCREST, Color::GetIndex(castle.GetColor()));
-    	    crest.Blit(Rect((crest.w() - 41) / 2, (crest.h() - 41) / 2, 41, 41), pt.x + 3, pt.y + 133, display);
+	    icon2 = AGG::GetICN(ICN::BRCREST, Color::GetIndex(castle.GetColor()));
 
-	    //
-	    AGG::GetICN(ICN::STONEBAK, 0).Blit(Rect(0, 0, 223, 53), pt.x + 47, pt.y + 132);
-	}
+	if(icon1.isValid())
+	    icon1.Blit(Rect((icon1.w() - 41) / 2, (icon1.h() - 41) / 2, 41, 41), pt.x + 3, pt.y + 80, display);
+	if(icon2.isValid())
+    	    icon2.Blit(Rect((icon2.w() - 41) / 2, (icon2.h() - 41) / 2, 41, 41), pt.x + 3, pt.y + 125, display);
+
+        if(! hero2)
+	    AGG::GetICN(ICN::STONEBAK, 0).Blit(Rect(0, 0, 223, 53), pt.x + 47, pt.y + 124);
     }
     else
     {
 	AGG::GetICN(ICN::STRIP, 0).Blit(pt.x, pt.y + 256);
 
-	const Surface & sprite1 = hero1 ? Portrait::Hero(*hero1, Portrait::BIG) :
-	    (castle.isBuild(BUILD_CAPTAIN) ? Portrait::Captain(castle.GetRace(), Portrait::BIG) :
-		AGG::GetICN(ICN::CREST, Color::GetIndex(castle.GetColor())));
+	Surface icon1, icon2;
 
-	// icons 1
-	sprite1.Blit(pt.x + 5, pt.y + 262, display);
+	if(hero1)
+	    icon1 = hero1->GetPortrait(PORT_BIG);
+	else
+	if(castle.isBuild(BUILD_CAPTAIN))
+	    icon1 = castle.GetCaptain().GetPortrait(PORT_BIG);
+	else
+	    icon1 = AGG::GetICN(ICN::CREST, Color::GetIndex(castle.GetColor()));
 
-	const Surface & sprite2 = hero2 ? Portrait::Hero(*hero2, Portrait::BIG) :
-					    AGG::GetICN(ICN::STRIP, 3);
+	if(hero2)
+	    icon2 = hero2->GetPortrait(PORT_BIG);
+	else
+	    icon2 = AGG::GetICN(ICN::STRIP, 3);
 
-	// icons 2
-	sprite2.Blit(pt.x + 5, pt.y + 361, display);
+	if(icon1.isValid())
+	    icon1.Blit(pt.x + 5, pt.y + 262, display);
+	if(icon2.isValid())
+	    icon2.Blit(pt.x + 5, pt.y + 361, display);
 
-	// ext
 	if(! hero2)
     	    AGG::GetICN(ICN::STRIP, 11).Blit(pt.x + 112, pt.y + 361);
     }
 }
 
-u32 GetMageGuildBuilding(const Castle & castle)
+Surface GetMeetingSprite(void)
 {
-    switch(castle.GetLevelMageGuild())
-    {
-	case 1: return BUILD_MAGEGUILD1;
-	case 2: return BUILD_MAGEGUILD2;
-	case 3: return BUILD_MAGEGUILD3;
-	case 4: return BUILD_MAGEGUILD4;
-	case 5: return BUILD_MAGEGUILD5;
-	default: break;
-    }
-    return BUILD_NOTHING;
+    const Sprite & sprite = AGG::GetICN(ICN::ADVMCO, 8);
+    
+    Surface res(sprite.GetSize() + Size(4, 4), false);
+    res.Fill(ColorBlack);
+    res.DrawBorder(RGBA(0xe0, 0xb4, 0));
+    sprite.Blit(2, 2, res);
+
+    return res;
 }
 
-const Rect* GetMageGuildCoord(const Castle & castle, const CastleDialog::CacheBuildings & cacheBuildings)
+MeetingButton::MeetingButton(s32 px, s32 py)
 {
-    switch(castle.GetLevelMageGuild())
-    {
-	case 1: return &cacheBuildings.GetRect(BUILD_MAGEGUILD1);
-	case 2: return &cacheBuildings.GetRect(BUILD_MAGEGUILD2);
-	case 3: return &cacheBuildings.GetRect(BUILD_MAGEGUILD3);
-	case 4: return &cacheBuildings.GetRect(BUILD_MAGEGUILD4);
-	case 5: return &cacheBuildings.GetRect(BUILD_MAGEGUILD5);
-	default: break;
-    }
-    return NULL;
+    sf = GetMeetingSprite();
+
+    SetPos(px, py);
+    SetSize(sf.w(), sf.h());
+    SetSprite(sf, sf);
 }
 
-Dialog::answer_t Castle::OpenDialog(bool readonly, bool fade)
+SwapButton::SwapButton(s32 px, s32 py)
+{
+    sf = GetMeetingSprite().RenderRotate(1);
+
+    SetPos(px, py);
+    SetSize(sf.w(), sf.h());
+    SetSprite(sf, sf);
+}
+
+int Castle::OpenDialog(bool readonly, bool fade)
 {
     Settings & conf = Settings::Get();
-    
+
     if(conf.QVGA()) return PocketPC::CastleOpenDialog(*this, readonly);
 
-    const bool interface = conf.EvilInterface();
-    if(conf.DynamicInterface())
+    const bool interface = conf.ExtGameEvilInterface();
+    if(conf.ExtGameDynamicInterface())
     	conf.SetEvilInterface(GetRace() & (Race::BARB | Race::WRLK | Race::NECR));
 
     Display & display = Display::Get();
@@ -253,33 +255,28 @@ Dialog::answer_t Castle::OpenDialog(bool readonly, bool fade)
 
     // cursor
     Cursor & cursor = Cursor::Get();
-    
+
     cursor.Hide();
     cursor.SetThemes(cursor.POINTER);
 
-    Dialog::FrameBorder background;
-    background.SetPosition((display.w() - 640 - BORDERWIDTH * 2) / 2, (display.h() - 480 - BORDERWIDTH * 2) / 2, 640, 480);
-    background.Redraw();
+    // fade
+    if(conf.ExtGameUseFade()) display.Fade();
 
+    Dialog::FrameBorder background(Size(640, 480));
 
-    std::string msg_army, msg_date;
+    const Point & cur_pt = background.GetArea();
+    Point dst_pt(cur_pt);
+    std::string msg_date, msg_status;
 
     // date string
     msg_date = _("Month: %{month}, Week: %{week}, Day: %{day}");
-    String::Replace(msg_date, "%{month}", world.GetMonth());
-    String::Replace(msg_date, "%{week}", world.GetWeek());
-    String::Replace(msg_date, "%{day}", world.GetDay());
-
-
-    // fade
-    if(conf.ExtUseFade()) display.Fade();
-        
-    const Point cur_pt(background.GetArea().x, background.GetArea().y);
-    Point dst_pt(cur_pt);
+    StringReplace(msg_date, "%{month}", world.GetMonth());
+    StringReplace(msg_date, "%{week}", world.GetWeek());
+    StringReplace(msg_date, "%{day}", world.GetDay());
 
     // button prev castle
     dst_pt.y += 480 - 19;
-    Button buttonPrevCastle(dst_pt, ICN::SMALLBAR, 1, 2);
+    Button buttonPrevCastle(dst_pt.x, dst_pt.y, ICN::SMALLBAR, 1, 2);
 
     // bottom small bar
     const Sprite & bar = AGG::GetICN(ICN::SMALLBAR, 0);
@@ -292,10 +289,10 @@ Dialog::answer_t Castle::OpenDialog(bool readonly, bool fade)
 
     // button next castle
     dst_pt.x += bar.w();
-    Button buttonNextCastle(dst_pt, ICN::SMALLBAR, 3, 4);
+    Button buttonNextCastle(dst_pt.x, dst_pt.y, ICN::SMALLBAR, 3, 4);
 
     // color crest
-    const Sprite & crest = AGG::GetICN(ICN::CREST, Color::GetIndex(color));
+    const Sprite & crest = AGG::GetICN(ICN::CREST, Color::GetIndex(GetColor()));
     dst_pt.x = cur_pt.x + 5;
     dst_pt.y = cur_pt.y + 262;
     const Rect rectSign1(dst_pt, crest.w(), crest.h());
@@ -306,94 +303,55 @@ Dialog::answer_t Castle::OpenDialog(bool readonly, bool fade)
     dst_pt.x = cur_pt.x + 112;
     dst_pt.y = cur_pt.y + 262;
 
-    SelectArmyBar selectArmy1;
-    if(heroes.Guard())
-    {
-	selectArmy1.SetArmy(heroes.Guard()->GetArmy());
-	selectArmy1.SetSaveLastTroop();
-    }
-    else
-	selectArmy1.SetArmy(army);
-    selectArmy1.SetPos(dst_pt);
-    selectArmy1.SetInterval(6);
-    selectArmy1.SetBackgroundSprite(AGG::GetICN(ICN::STRIP, 2));
-    selectArmy1.SetCursorSprite(AGG::GetICN(ICN::STRIP, 1));
-    selectArmy1.SetCastle(*this);
-    if(readonly) selectArmy1.SetReadOnly();
+    // castle army bar
+    ArmyBar selectArmy1((heroes.Guard() ? & heroes.Guard()->GetArmy() : & army), false, readonly);
+    selectArmy1.SetColRows(5, 1);
+    selectArmy1.SetPos(dst_pt.x, dst_pt.y);
+    selectArmy1.SetHSpace(6);
     selectArmy1.Redraw();
 
     // portrait heroes or captain or sign
     dst_pt.x = cur_pt.x + 5;
     dst_pt.y = cur_pt.y + 361;
-    
+
     const Rect rectSign2(dst_pt.x, dst_pt.y, 100, 92);
 
     // castle_heroes troops background
     dst_pt.x = cur_pt.x + 112;
     dst_pt.y = cur_pt.y + 361;
 
-    SelectArmyBar selectArmy2;
-    selectArmy2.SetPos(dst_pt);
-    selectArmy2.SetInterval(6);
-    selectArmy2.SetBackgroundSprite(AGG::GetICN(ICN::STRIP, 2));
-    selectArmy2.SetCursorSprite(AGG::GetICN(ICN::STRIP, 1));
-    selectArmy2.SetSaveLastTroop();
-    selectArmy2.SetCastle(*this);
+    ArmyBar selectArmy2(NULL, false, readonly);
+    selectArmy2.SetColRows(5, 1);
+    selectArmy2.SetPos(dst_pt.x, dst_pt.y);
+    selectArmy2.SetHSpace(6);
 
     if(heroes.Guest())
     {
-	heroes.Guest()->MovePointsScaleFixed();
-        selectArmy2.SetArmy(heroes.Guest()->GetArmy());
+        heroes.Guest()->MovePointsScaleFixed();
+        selectArmy2.SetArmy(& heroes.Guest()->GetArmy());
         selectArmy2.Redraw();
     }
-    
+
     // resource
-    RedrawResourcePanel(cur_pt);
+    const Rect rectResource = RedrawResourcePanel(cur_pt);
+
+    // button swap
+    SwapButton buttonSwap(cur_pt.x + 4, cur_pt.y + 345);
+    MeetingButton buttonMeeting(cur_pt.x + 88, cur_pt.y + 345);
+
+    if(heroes.Guest() && heroes.Guard() && !readonly)
+    {
+	buttonSwap.Draw();
+	buttonMeeting.Draw();
+    }
 
     // button exit
     dst_pt.x = cur_pt.x + 553;
     dst_pt.y = cur_pt.y + 428;
-    Button buttonExit(dst_pt, ICN::SWAPBTN, 0, 1);
+    Button buttonExit(dst_pt.x, dst_pt.y, ICN::SWAPBTN, 0, 1);
 
     // fill cache buildings
     CastleDialog::CacheBuildings cacheBuildings(*this, cur_pt);
-
-    const Rect & coordBuildingThievesGuild = cacheBuildings.GetRect(BUILD_THIEVESGUILD);
-    const Rect & coordBuildingTavern = cacheBuildings.GetRect(race == Race::NECR ? BUILD_SHRINE : BUILD_TAVERN);
-    const Rect & coordBuildingShipyard = cacheBuildings.GetRect(BUILD_SHIPYARD);
-    const Rect & coordBuildingWell = cacheBuildings.GetRect(BUILD_WELL);
-    const Rect & coordBuildingStatue = cacheBuildings.GetRect(BUILD_STATUE);
-    const Rect & coordBuildingMarketplace = cacheBuildings.GetRect(BUILD_MARKETPLACE);
-    const Rect & coordBuildingWel2 = cacheBuildings.GetRect(BUILD_WEL2);
-    const Rect & coordBuildingMoat = cacheBuildings.GetRect(BUILD_MOAT);
-    const Rect & coordBuildingSpec = cacheBuildings.GetRect(BUILD_SPEC);
-    const Rect & coordBuildingCastle = cacheBuildings.GetRect(BUILD_CASTLE);
-    const Rect & coordBuildingCaptain = cacheBuildings.GetRect(BUILD_CAPTAIN);
-    const Rect & coordBuildingTent = cacheBuildings.GetRect(BUILD_TENT);
-    const Rect & coordDwellingMonster1 = cacheBuildings.GetRect(DWELLING_MONSTER1);
-    const Rect & coordDwellingMonster2 = cacheBuildings.GetRect(DWELLING_MONSTER2);
-    const Rect & coordDwellingMonster3 = cacheBuildings.GetRect(DWELLING_MONSTER3);
-    const Rect & coordDwellingMonster4 = cacheBuildings.GetRect(DWELLING_MONSTER4);
-    const Rect & coordDwellingMonster5 = cacheBuildings.GetRect(DWELLING_MONSTER5);
-    const Rect & coordDwellingMonster6 = cacheBuildings.GetRect(DWELLING_MONSTER6);
-
-    const Rect*	coordMageGuild = GetMageGuildCoord(*this, cacheBuildings);
-
-    // update extra description
-    payment_t profit;
-    std::string description_well = GetDescriptionBuilding(BUILD_WELL, race);
-    std::string description_wel2 = GetDescriptionBuilding(BUILD_WEL2, race);
-    std::string description_castle = GetDescriptionBuilding(BUILD_CASTLE, race);
-    std::string description_statue = GetDescriptionBuilding(BUILD_STATUE, race);
-    std::string description_spec = GetDescriptionBuilding(BUILD_SPEC, race);
-    String::Replace(description_well, "%{count}", GetGrownWell());
-    String::Replace(description_wel2, "%{count}", GetGrownWel2());
-    profit = ProfitConditions::FromBuilding(BUILD_CASTLE, race);
-    String::Replace(description_castle, "%{count}", profit.gold);
-    profit = ProfitConditions::FromBuilding(BUILD_STATUE, race);
-    String::Replace(description_statue, "%{count}", profit.gold);
-    profit = ProfitConditions::FromBuilding(BUILD_SPEC, race);
-    String::Replace(description_spec, "%{count}", profit.gold);
 
     // draw building
     CastleDialog::RedrawAllBuilding(*this, cur_pt, cacheBuildings);
@@ -412,143 +370,136 @@ Dialog::answer_t Castle::OpenDialog(bool readonly, bool fade)
     buttonExit.Draw();
 
     AGG::PlayMusic(MUS::FromRace(race));
-    
+
     LocalEvent & le = LocalEvent::Get();
-
     cursor.Show();
-
     display.Flip();
 
-    Dialog::answer_t result = Dialog::ZERO;
-
-    bool army_redraw = false;
+    int result = Dialog::ZERO;
+    bool need_redraw = false;
 
     // dialog menu loop
     while(le.HandleEvents())
     {
         // exit
-	if(le.MouseClickLeft(buttonExit) || Game::HotKeyPress(Game::EVENT_DEFAULT_EXIT)){ result = Dialog::CANCEL; break; }
+	if(le.MouseClickLeft(buttonExit) || Game::HotKeyPressEvent(Game::EVENT_DEFAULT_EXIT)){ result = Dialog::CANCEL; break; }
 
         if(buttonPrevCastle.isEnable()) le.MousePressLeft(buttonPrevCastle) ? buttonPrevCastle.PressDraw() : buttonPrevCastle.ReleaseDraw();
         if(buttonNextCastle.isEnable()) le.MousePressLeft(buttonNextCastle) ? buttonNextCastle.PressDraw() : buttonNextCastle.ReleaseDraw();
 
         le.MousePressLeft(buttonExit) ? buttonExit.PressDraw() : buttonExit.ReleaseDraw();
 
-       // selector troops event
-        if(heroes.Guest() && selectArmy2.isValid())
-        {
-            if(le.MouseCursor(selectArmy1.GetArea()) || le.MouseCursor(selectArmy2.GetArea()))
-	    {
-		msg_army = msg_date;
-
-                if(SelectArmyBar::QueueEventProcessing(selectArmy1, selectArmy2, &msg_army))
-		    RedrawResourcePanel(cur_pt);
-    	    }
-        }
+	if(le.MouseClickLeft(rectResource))
+	    Dialog::ResourceInfo("", _("Income:"), world.GetKingdom(GetColor()).GetIncome(INCOME_ALL), Dialog::OK);
 	else
-        {
-            if(le.MouseCursor(selectArmy1.GetArea()))
-	    {
-		msg_army = msg_date;
+	if(le.MousePressRight(rectResource))
+	    Dialog::ResourceInfo("", _("Income:"), world.GetKingdom(GetColor()).GetIncome(INCOME_ALL), 0);
 
-                if(SelectArmyBar::QueueEventProcessing(selectArmy1, &msg_army))
-		    RedrawResourcePanel(cur_pt);
-	    }
-	}
-
-	// move hero to guardian
-	if(conf.ExtAllowCastleGuardians() && !readonly && heroes.Guest() && !heroes.Guard() && le.MouseClickLeft(rectSign1))
+        // selector troops event
+        if((selectArmy2.isValid() &&
+    	    ((le.MouseCursor(selectArmy1.GetArea()) && selectArmy1.QueueEventProcessing(selectArmy2, &msg_status)) ||
+             (le.MouseCursor(selectArmy2.GetArea()) && selectArmy2.QueueEventProcessing(selectArmy1, &msg_status)))) ||
+	   (!selectArmy2.isValid() && le.MouseCursor(selectArmy1.GetArea()) && selectArmy1.QueueEventProcessing(&msg_status)))
 	{
-	    if(! heroes.Guest()->GetArmy().CanJoinArmy(army))
+	    cursor.Hide();
+	    need_redraw = true;
+        }
+
+	if(conf.ExtCastleAllowGuardians() && !readonly)
+	{
+	    Army* army1 = NULL;
+	    Army* army2 = NULL;
+
+	    // swap guest <-> guardian
+	    if(heroes.Guest() && heroes.Guard())
 	    {
-		// FIXME: correct message
-		Dialog::Message("Join Error", "Army is full", Font::BIG, Dialog::OK);
+		if(le.MouseClickLeft(buttonSwap))
+		{
+		    SwapCastleHeroes(heroes);
+		    army1 = &heroes.Guard()->GetArmy();
+		    army2 = &heroes.Guest()->GetArmy();
+		}
+		else
+		if(le.MouseClickLeft(buttonMeeting))
+		{
+		    heroes.Guest()->MeetingDialog(*heroes.Guard());
+		    need_redraw = true;
+		}
 	    }
 	    else
+	    // move hero to guardian
+	    if(heroes.Guest() && !heroes.Guard() && le.MouseClickLeft(rectSign1))
 	    {
-		heroes.Guest()->SetModes(Heroes::GUARDIAN);
-		heroes.Guest()->ResetModes(Heroes::SLEEPER);
-		heroes.Swap();
-		heroes.Guard()->GetArmy().JoinArmy(army);
-
-		world.GetTiles(center).SetHeroes(NULL);
-
-		// free position
-		Point position(heroes.Guard()->GetCenter());
-		position.y -= 1;
-		heroes.Guard()->SetCenter(position);
-		heroes.Guard()->GetPath().Reset();
-
-		cursor.Hide();
-        	if(selectArmy1.isSelected()) selectArmy1.Reset();
-        	if(selectArmy2.isSelected()) selectArmy2.Reset();
-		selectArmy2.ResetArmy();
-		selectArmy1.SetArmy(heroes.Guard()->GetArmy());
-		selectArmy1.SetSaveLastTroop();
-		RedrawIcons(*this, heroes, cur_pt);
-        	selectArmy2.Redraw();
-        	selectArmy1.Redraw();
-		CastleRedrawTownName(*this, cur_pt);
-		cursor.Show();
-		display.Flip();
+		if(! heroes.Guest()->GetArmy().CanJoinTroops(army))
+		{
+		    // FIXME: correct message
+		    Dialog::Message(_("Join Error"), _("Army is full"), Font::BIG, Dialog::OK);
+		}
+		else
+		{
+		    SwapCastleHeroes(heroes);
+		    army1 = &heroes.Guard()->GetArmy();
+		}
 	    }
-	}
-	else
-	// move guardian to hero
-	if(conf.ExtAllowCastleGuardians() && !readonly && !heroes.Guest() && heroes.Guard() && le.MouseClickLeft(rectSign2))
-	{
-	    heroes.Guard()->ResetModes(Heroes::GUARDIAN);
-	    heroes.Swap();
+	    else
+	    // move guardian to hero
+	    if(!heroes.Guest() && heroes.Guard() && le.MouseClickLeft(rectSign2))
+	    {
+		SwapCastleHeroes(heroes);
+		army2 = &heroes.Guest()->GetArmy();
+	    }
 
-	    // restore position
-	    Point position(heroes.Guest()->GetCenter());
-	    position.y += 1;
-	    heroes.Guest()->SetCenter(position);
-	    heroes.Guest()->GetPath().Reset();
+	    if(army1 || army2)
+	    {
+		cursor.Hide();
+        	if(selectArmy1.isSelected()) selectArmy1.ResetSelected();
+        	if(selectArmy2.isValid() && selectArmy2.isSelected()) selectArmy2.ResetSelected();
 
-	    world.GetTiles(center).SetHeroes(heroes.Guest());
+		if(army1 && army2)
+		{
+		    selectArmy1.SetArmy(army1);
+		    selectArmy2.SetArmy(army2);
+		}
+		else
+		if(army1)
+		{
+		    selectArmy1.SetArmy(army1);
+		    selectArmy2.SetArmy(NULL);
+		}
+		else
+		if(army2)
+		{
+		    selectArmy1.SetArmy(&army);
+		    selectArmy2.SetArmy(army2);
+		}
 
-	    cursor.Hide();
-    	    if(selectArmy1.isSelected()) selectArmy1.Reset();
-    	    if(selectArmy2.isSelected()) selectArmy2.Reset();
-	    selectArmy1.ResetArmy();
-	    selectArmy1.SetArmy(army);
-	    selectArmy2.SetArmy(heroes.Guest()->GetArmy());
-	    selectArmy2.SetSaveLastTroop();
-	    RedrawIcons(*this, heroes, cur_pt);
-    	    selectArmy1.Redraw();
-    	    selectArmy2.Redraw();
-	    CastleRedrawTownName(*this, cur_pt);
-	    cursor.Show();
-	    display.Flip();
+		RedrawIcons(*this, heroes, cur_pt);
+		need_redraw = true;
+	    }
 	}
 
 	// view guardian
 	if(!readonly && heroes.Guard() && le.MouseClickLeft(rectSign1))
 	{
 	    Game::DisableChangeMusic(true);
-	    Game::OpenHeroesDialog(heroes.Guard());
+	    Game::OpenHeroesDialog(*heroes.Guard());
 
-	    cursor.Hide();
-            if(selectArmy1.isSelected()) selectArmy1.Reset();
-            if(selectArmy2.isSelected()) selectArmy2.Reset();
-            selectArmy2.Redraw();
-	    cursor.Show();
-	    display.Flip();
+            if(selectArmy1.isSelected()) selectArmy1.ResetSelected();
+	    if(selectArmy2.isValid() && selectArmy2.isSelected()) selectArmy2.ResetSelected();
+
+	    need_redraw = true;
 	}
 	else
 	// view hero
 	if(!readonly && heroes.Guest() && le.MouseClickLeft(rectSign2))
 	{
 	    Game::DisableChangeMusic(true);
-	    Game::OpenHeroesDialog(heroes.Guest());
+	    Game::OpenHeroesDialog(*heroes.Guest());
 
-	    cursor.Hide();
-            if(selectArmy1.isSelected()) selectArmy1.Reset();
-            if(selectArmy2.isSelected()) selectArmy2.Reset();
-            selectArmy2.Redraw();
-	    cursor.Show();
-	    display.Flip();
+            if(selectArmy1.isSelected()) selectArmy1.ResetSelected();
+	    if(selectArmy2.isValid() && selectArmy2.isSelected()) selectArmy2.ResetSelected();
+
+	    need_redraw = true;
 	}
 
         // prev castle
@@ -556,361 +507,257 @@ Dialog::answer_t Castle::OpenDialog(bool readonly, bool fade)
 	else
         // next castle
 	if(buttonNextCastle.isEnable() && le.MouseClickLeft(buttonNextCastle)){ result = Dialog::NEXT; break; }
-	else
-	// left click building
-	if((building & BUILD_THIEVESGUILD) && le.MouseClickLeft(coordBuildingThievesGuild))
-	    Dialog::ThievesGuild(false);
-	else
-	if((building & BUILD_SHRINE) && le.MouseClickLeft(coordBuildingTavern))
-	    Dialog::Message(GetStringBuilding(BUILD_SHRINE, race), GetDescriptionBuilding(BUILD_SHRINE, race), Font::BIG, Dialog::OK);
-	else
-	if((building & BUILD_TAVERN) && le.MouseClickLeft(coordBuildingTavern))
-	    OpenTavern();
-	else
-	if(!readonly && (building & BUILD_SHIPYARD) && le.MouseClickLeft(coordBuildingShipyard))
-	{
-	    cursor.Hide();
 
-	    if(Dialog::OK == Dialog::BuyBoat(AllowBuyBoat()))
-	    {
-		BuyBoat();
-		RedrawResourcePanel(cur_pt);
-    		// RedrawResourcePanel destroy sprite buttonExit
-		if(buttonExit.isPressed()) buttonExit.Draw();
-	    }
-	    cursor.Show();
-	    display.Flip();
-	}
-	else
-	if((building & BUILD_WELL) && le.MouseClickLeft(coordBuildingWell))
+	// buildings event
+#if defined(ANDROID)
+	CastleDialog::CacheBuildings::const_reverse_iterator crend = cacheBuildings.rend();
+	for(CastleDialog::CacheBuildings::const_reverse_iterator
+    	    it = cacheBuildings.rbegin(); it != crend; ++it)
+#else
+	for(CastleDialog::CacheBuildings::const_reverse_iterator
+    	    it = cacheBuildings.rbegin(); it != cacheBuildings.rend(); ++it)
+#endif
 	{
-	    if(readonly)
-		Dialog::Message(GetStringBuilding(BUILD_WELL, race), description_well, Font::BIG, Dialog::OK);
-	    else
-	    {
-		OpenWell();
-		army_redraw = true;
+    	    if((*it).id == GetActualDwelling((*it).id) && isBuild((*it).id))
+    	    {
+        	if(!readonly && le.MouseClickLeft((*it).coord) &&
+            	    Castle::RecruitMonster(Dialog::RecruitMonster(
+                	Monster(race, GetActualDwelling((*it).id)), GetDwellingLivedCount((*it).id), true)))
+                	need_redraw = true;
+        	else
+        	if(le.MousePressRight((*it).coord))
+            	    Dialog::DwellingInfo(Monster(race, GetActualDwelling((*it).id)), GetDwellingLivedCount((*it).id));
+
+		if(le.MouseCursor((*it).coord))
+		    msg_status = Monster(race, (*it).id).GetName();
 	    }
 	}
-	else
-	if((building & BUILD_STATUE) && le.MouseClickLeft(coordBuildingStatue))
-	    Dialog::Message(GetStringBuilding(BUILD_STATUE), description_statue, Font::BIG, Dialog::OK);
-	else
-	if((building & BUILD_MARKETPLACE) && le.MouseClickLeft(coordBuildingMarketplace))
+
+	for(CastleDialog::CacheBuildings::const_iterator
+    	    it = cacheBuildings.begin(); it != cacheBuildings.end(); ++it)
 	{
-	    if(readonly)
-		Dialog::Message(GetStringBuilding(BUILD_MARKETPLACE, race), GetDescriptionBuilding(BUILD_MARKETPLACE), Font::BIG, Dialog::OK);
-	    else
+    	    if(BUILD_MAGEGUILD & (*it).id)
+    	    {
+        	for(u32 id = BUILD_MAGEGUILD5; id >= BUILD_MAGEGUILD1; id >>= 1)
+            	    if(isBuild(id) && id == (*it).id)
+        	{
+            	    if(le.MouseClickLeft((*it).coord))
+            	    {
+                	if(heroes.Guard() && ! heroes.Guard()->HaveSpellBook() && heroes.Guard()->BuySpellBook(this))
+                    	    need_redraw = true;
+
+                	if(heroes.Guest() && ! heroes.Guest()->HaveSpellBook() && heroes.Guest()->BuySpellBook(this))
+                    	    need_redraw = true;
+
+                	OpenMageGuild();
+            	    }
+            	    else
+            	    if(le.MousePressRight((*it).coord))
+                	Dialog::Message(GetStringBuilding((*it).id), GetDescriptionBuilding((*it).id), Font::BIG);
+
+		    if(le.MouseCursor((*it).coord))
+			msg_status = GetStringBuilding((*it).id);
+        	}
+    	    }
+    	    else
+            if(isBuild((*it).id))
 	    {
-		cursor.Hide();
-		Dialog::Marketplace();
-		cursor.Show();
-		display.Flip();
-		RedrawResourcePanel(cur_pt);
-		// RedrawResourcePanel destroy sprite buttonExit
-		if(buttonExit.isPressed()) buttonExit.Draw();
-	    }
+        	if(le.MouseClickLeft((*it).coord))
+        	{
+    		    if(selectArmy1.isSelected()) selectArmy1.ResetSelected();
+    		    if(selectArmy2.isValid() && selectArmy2.isSelected()) selectArmy2.ResetSelected();
+
+            	    if(readonly && ((*it).id & (BUILD_SHIPYARD | BUILD_MARKETPLACE | BUILD_WELL | BUILD_TENT | BUILD_CASTLE)))
+                	Dialog::Message(GetStringBuilding((*it).id), GetDescriptionBuilding((*it).id), Font::BIG, Dialog::OK);
+            	    else
+            	    switch((*it).id)
+            	    {
+                	case BUILD_THIEVESGUILD:
+                    	    Dialog::ThievesGuild(false);
+                    	    break;
+
+                	case BUILD_TAVERN:
+                    	    OpenTavern();
+                    	    break;
+
+                	case BUILD_CAPTAIN:
+                	case BUILD_STATUE:
+                	case BUILD_WEL2:
+                	case BUILD_MOAT:
+                	case BUILD_SPEC:
+                	case BUILD_SHRINE:
+                    	    Dialog::Message(GetStringBuilding((*it).id), GetDescriptionBuilding((*it).id), Font::BIG, Dialog::OK);
+                    	    break;
+
+                	case BUILD_SHIPYARD:
+                    	    if(Dialog::OK == Dialog::BuyBoat(AllowBuyBoat()))
+                    	    {
+                        	BuyBoat();
+                        	need_redraw = true;
+                    	    }
+                    	    break;
+
+                	case BUILD_MARKETPLACE:
+                    	    Dialog::Marketplace();
+                    	    need_redraw = true;
+			    break;
+
+                	case BUILD_WELL:
+                    	    OpenWell();
+                    	    need_redraw = true;
+			    break;
+
+			case BUILD_TENT:
+			    if(!Modes(ALLOWCASTLE))
+				Dialog::Message(_("Town"), _("This town may not be upgraded to a castle."), Font::BIG, Dialog::OK);
+			    else
+			    if(Dialog::OK == DialogBuyCastle(true))
+			    {
+    				AGG::PlaySound(M82::BUILDTWN);
+
+				CastleDialog::RedrawAnimationBuilding(*this, cur_pt, cacheBuildings, BUILD_CASTLE);
+				BuyBuilding(BUILD_CASTLE);
+
+                    		need_redraw = true;
+			    }
+			    break;
+
+			case BUILD_CASTLE:
+			{
+			    const Heroes* prev = heroes.Guest();
+			    const u32 build = OpenTown();
+			    heroes = world.GetHeroes(*this);
+			    bool buyhero = (heroes.Guest() && (heroes.Guest() != prev));
+
+			    if(BUILD_NOTHING != build)
+			    {
+    				AGG::PlaySound(M82::BUILDTWN);
+
+				CastleDialog::RedrawAnimationBuilding(*this, cur_pt, cacheBuildings, build);
+				BuyBuilding(build);
+
+				if(BUILD_CAPTAIN == build)
+				    RedrawIcons(*this, heroes, cur_pt);
+
+				need_redraw = true;
+			    }
+
+			    if(buyhero)
+			    {
+            			if(prev)
+				{
+				    selectArmy1.SetArmy(& heroes.Guard()->GetArmy());
+            			    selectArmy2.SetArmy(NULL);
+				    cursor.Hide();
+				    RedrawIcons(*this, CastleHeroes(NULL, heroes.Guard()), cur_pt);
+				    selectArmy1.Redraw();
+				    if(selectArmy2.isValid()) selectArmy2.Redraw();
+				    cursor.Show();
+				    display.Flip();
+            			}
+				selectArmy2.SetArmy(& heroes.Guest()->GetArmy());
+				AGG::PlaySound(M82::BUILDTWN);
+
+				// animate fade in for hero army bar
+				const Rect rt(0, 98, 552, 107);
+				Surface sf(rt, false);
+            			AGG::GetICN(ICN::STRIP, 0).Blit(rt, 0, 0, sf);
+				Surface port = heroes.Guest()->GetPortrait(PORT_BIG);
+				if(port.isValid()) port.Blit(6, 6, sf);
+				const Point savept = selectArmy2.GetPos();
+				selectArmy2.SetPos(112, 5);
+				selectArmy2.Redraw(sf);
+				selectArmy2.SetPos(savept.x, savept.y);
+
+				RedrawResourcePanel(cur_pt);
+
+				int alpha = 0;
+				while(le.HandleEvents() && alpha < 240)
+				{
+    				    if(Game::AnimateInfrequentDelay(Game::CASTLE_BUYHERO_DELAY))
+    				    {
+        				cursor.Hide();
+        				sf.SetAlphaMod(alpha);
+        				sf.Blit(cur_pt.x, cur_pt.y + 356, display);
+        				cursor.Show();
+        				display.Flip();
+        				alpha += 10;
+    				    }
+				}
+
+				RedrawIcons(*this, heroes, cur_pt);
+				need_redraw = true;
+			    }
+			}
+			break;
+
+                	default: break;
+            	    }
+        	}
+        	else
+        	if(le.MousePressRight((*it).coord))
+            	    Dialog::Message(GetStringBuilding((*it).id), GetDescriptionBuilding((*it).id), Font::BIG);
+
+		if(le.MouseCursor((*it).coord))
+		    msg_status = GetStringBuilding((*it).id);
+    	    }
 	}
-	else
-	if((building & BUILD_WEL2) && le.MouseClickLeft(coordBuildingWel2))
-	    Dialog::Message(GetStringBuilding(BUILD_WEL2, race), description_wel2, Font::BIG, Dialog::OK);
-	else
-	if((building & BUILD_MOAT) && le.MouseClickLeft(coordBuildingMoat))
-	    Dialog::Message(GetStringBuilding(BUILD_MOAT), GetDescriptionBuilding(BUILD_MOAT), Font::BIG, Dialog::OK);
-	else
-	if((building & BUILD_SPEC) && le.MouseClickLeft(coordBuildingSpec))
-	    Dialog::Message(GetStringBuilding(BUILD_SPEC, race), description_spec, Font::BIG, Dialog::OK);
-	else
-	if(readonly &&
-	    (((building & BUILD_CASTLE) && le.MouseClickLeft(coordBuildingCastle)) ||
-	     (!(building & BUILD_CASTLE) && le.MouseClickLeft(coordBuildingTent))))
-		Dialog::Message(GetStringBuilding(BUILD_CASTLE, race), description_castle, Font::BIG, Dialog::OK);
-	else
-	if(building & BUILD_CASTLE && le.MouseClickLeft(coordBuildingCastle))
-	{
-	    const Heroes* prev = heroes.Guest();
-	    const u32 build = OpenTown();
-	    heroes = world.GetHeroes(*this);
-	    const bool buyhero = (heroes.Guest() && (heroes.Guest() != prev));
 
-	    if(BUILD_NOTHING != build)
-	    {
-		cursor.Hide();
 
-                if(selectArmy1.isSelected()) selectArmy1.Reset();
-
-		// play sound
-    		AGG::PlaySound(M82::BUILDTWN);
-
-		CastleDialog::RedrawAnimationBuilding(*this, cur_pt, cacheBuildings, build);
-		BuyBuilding(build);
-		RedrawResourcePanel(cur_pt);
-
-		if(BUILD_CAPTAIN == build)
-		    RedrawIcons(*this, heroes, cur_pt);
-
-    		// RedrawResourcePanel destroy sprite buttonExit
-		if(buttonExit.isPressed()) buttonExit.Draw();
-
-		cursor.Show();
-		display.Flip();
-
-		// update mage guild coord
-		coordMageGuild = GetMageGuildCoord(*this, cacheBuildings);
-	    }
-
-	    if(heroes.Guest())
-	    {
-		cursor.Hide();
-
-                if(selectArmy2.isSelected()) selectArmy2.Reset();
-
-		if(buyhero)
-		{
-		    const Rect rt(0, 98, 552, 107);
-		    Surface sf(rt.w, rt.h, false);
-            	    AGG::GetICN(ICN::STRIP, 0).Blit(rt, 0, 0, sf);
-		    const Surface & port = Portrait::Hero((*heroes.Guest()), Portrait::BIG);
-		    port.Blit(6, 6, sf);
-            	    selectArmy2.SetArmy(heroes.Guest()->GetArmy());
-		    selectArmy2.SetPos(112, 5);
-		    selectArmy2.Redraw(sf);
-		    selectArmy2.SetPos(cur_pt.x + 112, cur_pt.y + 361);
-
-		    AGG::PlaySound(M82::BUILDTWN);
-		    RedrawResourcePanel(cur_pt);
-
-		    LocalEvent & le = LocalEvent::Get();
-		    u8 alpha = 0;
-
-		    while(le.HandleEvents() && alpha < 240)
-		    {
-    			if(Game::AnimateInfrequent(Game::CASTLE_BUYHERO_DELAY))
-    			{
-    			    cursor.Hide();
-        		    sf.Blit(alpha, cur_pt.x, cur_pt.y + 356, display);
-    			    cursor.Show();
-        		    display.Flip();
-        		    alpha += 10;
-    			}
-		    }
-
-		    cursor.Hide();
-		    RedrawIcons(*this, heroes, cur_pt);
-            	    selectArmy2.Redraw();
-		}
-
-		cursor.Show();
-		display.Flip();
-	    }
-	}
-	else
-	// buy castle
-	if(!(building & BUILD_CASTLE) && le.MouseClickLeft(coordBuildingTent))
-	{
-	    if(!Modes(ALLOWCASTLE))
-	    {
-		Dialog::Message(_("Town"), _("This town may not be upgraded to a castle."), Font::BIG, Dialog::OK);
-	    }
-	    else
-	    if(Dialog::OK == DialogBuyCastle(true))
-	    {
-		cursor.Hide();
-
-		// play sound
-    		AGG::PlaySound(M82::BUILDTWN);
-
-		CastleDialog::RedrawAnimationBuilding(*this, cur_pt, cacheBuildings, BUILD_CASTLE);
-		BuyBuilding(BUILD_CASTLE);
-		RedrawResourcePanel(cur_pt);
-
-		// RedrawResourcePanel destroy sprite buttonExit
-		if(buttonExit.isPressed()) buttonExit.Draw();
-
-		cursor.Show();
-		display.Flip();
-	    }
-	}
-	else
-	// captain
-	if((building & BUILD_CAPTAIN) && le.MouseClickLeft(coordBuildingCaptain))
-	    Dialog::Message(GetStringBuilding(BUILD_CAPTAIN), GetDescriptionBuilding(BUILD_CAPTAIN), Font::BIG, Dialog::OK);
-	else
-	// left click mage guild
-	if(coordMageGuild && le.MouseClickLeft(*coordMageGuild))
-	{
-		// buy spell book
-		if(!heroes.Guest() || heroes.Guest()->HaveSpellBook())
-		    OpenMageGuild();
-		else
-		if(heroes.Guest()->BuySpellBook(this))
-		    army_redraw = true;
-	}
-	else
-	// left click dwelling monster
-	if(!readonly && (building & DWELLING_MONSTER1) && le.MouseClickLeft(coordDwellingMonster1) &&
-	    Castle::RecruitMonster(DWELLING_MONSTER1, Dialog::RecruitMonster(Monster(race, DWELLING_MONSTER1), dwelling[0])))
-		army_redraw = true;
-	else
-	if(!readonly && (building & DWELLING_MONSTER2) && le.MouseClickLeft(coordDwellingMonster2) &&
-	    Castle::RecruitMonster(DWELLING_MONSTER2, Dialog::RecruitMonster(Monster(race, GetActualDwelling(DWELLING_MONSTER2)), dwelling[1])))
-		army_redraw = true;
-	else
-	if(!readonly && (building & DWELLING_MONSTER3) && le.MouseClickLeft(coordDwellingMonster3) &&
-	    Castle::RecruitMonster(DWELLING_MONSTER3, Dialog::RecruitMonster(Monster(race, GetActualDwelling(DWELLING_MONSTER3)), dwelling[2])))
-		army_redraw = true;
-	else
-	if(!readonly && (building & DWELLING_MONSTER4) && le.MouseClickLeft(coordDwellingMonster4) &&
-	    Castle::RecruitMonster(DWELLING_MONSTER4, Dialog::RecruitMonster(Monster(race, GetActualDwelling(DWELLING_MONSTER4)), dwelling[3])))
-		army_redraw = true;
-	else
-	if(!readonly && (building & DWELLING_MONSTER5) && le.MouseClickLeft(coordDwellingMonster5) &&
-	    Castle::RecruitMonster(DWELLING_MONSTER5, Dialog::RecruitMonster(Monster(race, GetActualDwelling(DWELLING_MONSTER5)), dwelling[4])))
-		army_redraw = true;
-	else
-	if(!readonly && (building & DWELLING_MONSTER6) && le.MouseClickLeft(coordDwellingMonster6) &&
-	    Castle::RecruitMonster(DWELLING_MONSTER6, Dialog::RecruitMonster(Monster(race, GetActualDwelling(DWELLING_MONSTER6)), dwelling[5])))
-		army_redraw = true;
-
-	if(army_redraw)
+	if(need_redraw)
 	{
 	    cursor.Hide();
 	    selectArmy1.Redraw();
+	    if(selectArmy2.isValid()) selectArmy2.Redraw();
+	    CastleRedrawTownName(*this, cur_pt);
 	    RedrawResourcePanel(cur_pt);
-	    // RedrawResourcePanel destroy sprite buttonExit
+	    if(heroes.Guest() && heroes.Guard() && !readonly)
+	    {
+		buttonSwap.Draw();
+		buttonMeeting.Draw();
+	    }
 	    if(buttonExit.isPressed()) buttonExit.Draw();
 	    cursor.Show();
 	    display.Flip();
-	    army_redraw = false;
+	    need_redraw = false;
 	}
 
-	// right press building
-	if(building & BUILD_THIEVESGUILD && le.MousePressRight(coordBuildingThievesGuild)) Dialog::Message(GetStringBuilding(BUILD_THIEVESGUILD), GetDescriptionBuilding(BUILD_THIEVESGUILD), Font::BIG);
-	else
-	if(building & BUILD_SHRINE && le.MousePressRight(coordBuildingTavern)) Dialog::Message(GetStringBuilding(BUILD_SHRINE, race), GetDescriptionBuilding(BUILD_SHRINE, race), Font::BIG);
-	else
-	if(building & BUILD_TAVERN && le.MousePressRight(coordBuildingTavern)) Dialog::Message(GetStringBuilding(BUILD_TAVERN, race), GetDescriptionBuilding(BUILD_TAVERN, race), Font::BIG);
-	else
-	if(building & BUILD_SHIPYARD && le.MousePressRight(coordBuildingShipyard)) Dialog::Message(GetStringBuilding(BUILD_SHIPYARD), GetDescriptionBuilding(BUILD_SHIPYARD), Font::BIG);
-	else
-	if(building & BUILD_WELL && le.MousePressRight(coordBuildingWell)) Dialog::Message(GetStringBuilding(BUILD_WELL), description_well, Font::BIG);
-	else
-	if(building & BUILD_STATUE && le.MousePressRight(coordBuildingStatue)) Dialog::Message(GetStringBuilding(BUILD_STATUE), description_statue, Font::BIG);
-	else
-	if(building & BUILD_MARKETPLACE && le.MousePressRight(coordBuildingMarketplace)) Dialog::Message(GetStringBuilding(BUILD_MARKETPLACE), GetDescriptionBuilding(BUILD_MARKETPLACE), Font::BIG);
-	else
-	if(building & BUILD_WEL2 && le.MousePressRight(coordBuildingWel2)) Dialog::Message(GetStringBuilding(BUILD_WEL2, race), description_wel2, Font::BIG);
-	else
-	if(building & BUILD_MOAT && le.MousePressRight(coordBuildingMoat)) Dialog::Message(GetStringBuilding(BUILD_MOAT), GetDescriptionBuilding(BUILD_MOAT), Font::BIG);
-	else
-	if(building & BUILD_SPEC && le.MousePressRight(coordBuildingSpec)) Dialog::Message(GetStringBuilding(BUILD_SPEC, race), description_spec, Font::BIG);
-	else
-	if(building & BUILD_CASTLE && le.MousePressRight(coordBuildingCastle)) Dialog::Message(GetStringBuilding(BUILD_CASTLE), description_castle, Font::BIG);
-	else
-	if(!(building & BUILD_CASTLE) && le.MousePressRight(coordBuildingTent)) Dialog::Message(GetStringBuilding(BUILD_TENT), GetDescriptionBuilding(BUILD_TENT), Font::BIG);
-	else
-	if(building & BUILD_CAPTAIN && le.MousePressRight(coordBuildingCaptain)) Dialog::Message(GetStringBuilding(BUILD_CAPTAIN), GetDescriptionBuilding(BUILD_CAPTAIN), Font::BIG);
-	else
-	// right press mage guild
-	if(coordMageGuild &&
-	    le.MousePressRight(*coordMageGuild))
-		Dialog::Message(GetStringBuilding(GetMageGuildBuilding(*this)), GetDescriptionBuilding(GetMageGuildBuilding(*this)), Font::BIG);
-	else
-	// right press dwelling monster
-	if(building & DWELLING_MONSTER1 && le.MousePressRight(coordDwellingMonster1))
-	    Dialog::DwellingInfo(Monster(race, DWELLING_MONSTER1), dwelling[0]);
-	else
-	if(building & DWELLING_MONSTER2 && le.MousePressRight(coordDwellingMonster2))
-	    Dialog::DwellingInfo(Monster(race, GetActualDwelling(DWELLING_MONSTER2)), dwelling[1]);
-	else
-	if(building & DWELLING_MONSTER3 && le.MousePressRight(coordDwellingMonster3))
-	    Dialog::DwellingInfo(Monster(race, GetActualDwelling(DWELLING_MONSTER3)), dwelling[2]);
-	else
-	if(building & DWELLING_MONSTER4 && le.MousePressRight(coordDwellingMonster4))
-	    Dialog::DwellingInfo(Monster(race, GetActualDwelling(DWELLING_MONSTER4)), dwelling[3]);
-	else
-	if(building & DWELLING_MONSTER5 && le.MousePressRight(coordDwellingMonster5))
-	    Dialog::DwellingInfo(Monster(race, GetActualDwelling(DWELLING_MONSTER5)), dwelling[4]);
-	else
-	if(building & DWELLING_MONSTER6 && le.MousePressRight(coordDwellingMonster6))
-	    Dialog::DwellingInfo(Monster(race, GetActualDwelling(DWELLING_MONSTER6)), dwelling[5]);
-
-	// status armybar
-        if((le.MouseCursor(selectArmy1.GetArea()) || le.MouseCursor(selectArmy2.GetArea())) &&
-	    heroes.Guest())
-	{
-	    statusBar.ShowMessage(msg_army);
-	}
-	else
-        if(le.MouseCursor(selectArmy1.GetArea()))
-	{
-	    statusBar.ShowMessage(msg_army);
-	}
-	else
 	// status message exit
-	if(le.MouseCursor(buttonExit)) statusBar.ShowMessage(isCastle() ? _("Exit castle") : _("Exit town"));
+	if(le.MouseCursor(buttonExit))
+	    msg_status = isCastle() ? _("Exit castle") : _("Exit town");
+	else
+	if(le.MouseCursor(rectResource))
+	    msg_status = _("Show income");
 	else
 	// status message prev castle
-	if(le.MouseCursor(buttonPrevCastle)) statusBar.ShowMessage(_("Show previous town"));
+	if(le.MouseCursor(buttonPrevCastle))
+	    msg_status = _("Show previous town");
 	else
 	// status message next castle
-	if(le.MouseCursor(buttonNextCastle)) statusBar.ShowMessage(_("Show next town"));
+	if(le.MouseCursor(buttonNextCastle))
+	    msg_status = _("Show next town");
+	else
+	if(heroes.Guest() && heroes.Guard() && le.MouseCursor(buttonSwap))
+	    msg_status = _("Swap Heroes");
+	else
+	if(heroes.Guest() && heroes.Guard() && le.MouseCursor(buttonMeeting))
+	    msg_status = _("Meeting Heroes");
 	else
 	// status message over sign
-	if(heroes.Guard() && le.MouseCursor(rectSign1)) statusBar.ShowMessage(_("View Hero"));
-	else
-	// status message view hero
-	if(heroes.Guest() && le.MouseCursor(rectSign2)) statusBar.ShowMessage(_("View Hero"));
-	else
-	// building
-	if(building & BUILD_THIEVESGUILD && le.MouseCursor(coordBuildingThievesGuild)) statusBar.ShowMessage(GetStringBuilding(BUILD_THIEVESGUILD));
-	else
-	if(building & BUILD_SHRINE && le.MouseCursor(coordBuildingTavern)) statusBar.ShowMessage(GetStringBuilding(BUILD_SHRINE, race));
-	else
-	if(building & BUILD_TAVERN && le.MouseCursor(coordBuildingTavern)) statusBar.ShowMessage(GetStringBuilding(BUILD_TAVERN, race));
-	else
-	if(building & BUILD_SHIPYARD && le.MouseCursor(coordBuildingShipyard)) statusBar.ShowMessage(GetStringBuilding(BUILD_SHIPYARD));
-	else
-	if(building & BUILD_WELL && le.MouseCursor(coordBuildingWell)) statusBar.ShowMessage(GetStringBuilding(BUILD_WELL));
-	else
-	if(building & BUILD_STATUE && le.MouseCursor(coordBuildingStatue)) statusBar.ShowMessage(GetStringBuilding(BUILD_STATUE));
-	else
-	if(building & BUILD_MARKETPLACE && le.MouseCursor(coordBuildingMarketplace)) statusBar.ShowMessage(GetStringBuilding(BUILD_MARKETPLACE));
-	else
-	if(building & BUILD_WEL2 && le.MouseCursor(coordBuildingWel2)) statusBar.ShowMessage(GetStringBuilding(BUILD_WEL2, race));
-	else
-	if(building & BUILD_MOAT && le.MouseCursor(coordBuildingMoat)) statusBar.ShowMessage(GetStringBuilding(BUILD_MOAT));
-	else
-	if(building & BUILD_SPEC && le.MouseCursor(coordBuildingSpec)) statusBar.ShowMessage(GetStringBuilding(BUILD_SPEC, race));
-	else
-	if(building & BUILD_CASTLE && le.MouseCursor(coordBuildingCastle)) statusBar.ShowMessage(GetStringBuilding(BUILD_CASTLE));
-	else
-	if(!(building & BUILD_CASTLE) && le.MouseCursor(coordBuildingTent)) statusBar.ShowMessage(GetStringBuilding(BUILD_TENT));
-	else
-	if(building & BUILD_CAPTAIN && le.MouseCursor(coordBuildingCaptain)) statusBar.ShowMessage(GetStringBuilding(BUILD_CAPTAIN));
-	else
-	// mage guild
-	if(coordMageGuild && le.MouseCursor(*coordMageGuild)) statusBar.ShowMessage(GetStringBuilding(GetMageGuildBuilding(*this)));
-	else
-	// dwelling monster
-	if(building & DWELLING_MONSTER1 && le.MouseCursor(coordDwellingMonster1)) statusBar.ShowMessage(Monster(race, DWELLING_MONSTER1).GetName());
-	else
-	if(building & DWELLING_MONSTER2 && le.MouseCursor(coordDwellingMonster2)) statusBar.ShowMessage(Monster(race, DWELLING_UPGRADE2 & building ? DWELLING_UPGRADE2 : DWELLING_MONSTER2).GetName());
-	else
-	if(building & DWELLING_MONSTER3 && le.MouseCursor(coordDwellingMonster3)) statusBar.ShowMessage(Monster(race, DWELLING_UPGRADE3 & building ? DWELLING_UPGRADE3 : DWELLING_MONSTER3).GetName());
-	else
-	if(building & DWELLING_MONSTER4 && le.MouseCursor(coordDwellingMonster4)) statusBar.ShowMessage(Monster(race, DWELLING_UPGRADE4 & building ? DWELLING_UPGRADE4 : DWELLING_MONSTER4).GetName());
-	else
-	if(building & DWELLING_MONSTER5 && le.MouseCursor(coordDwellingMonster5)) statusBar.ShowMessage(Monster(race, DWELLING_UPGRADE5 & building ? DWELLING_UPGRADE5 : DWELLING_MONSTER5).GetName());
-	else
-	if(building & DWELLING_MONSTER6 && le.MouseCursor(coordDwellingMonster6)) statusBar.ShowMessage(Monster(race, DWELLING_UPGRADE6 & building ? (DWELLING_UPGRADE7 & building ? DWELLING_UPGRADE7 : DWELLING_UPGRADE6) : DWELLING_MONSTER6).GetName());
+	if((heroes.Guard() && le.MouseCursor(rectSign1)) ||
+	   (heroes.Guest() && le.MouseCursor(rectSign2)))
+	    msg_status = _("View Hero");
+
+	if(msg_status.empty())
+	    statusBar.ShowMessage(msg_date);
 	else
 	{
-	    statusBar.ShowMessage(msg_date);
+	    statusBar.ShowMessage(msg_status);
+	    msg_status.clear();
 	}
 
 	// animation sprite
-	if(Game::AnimateInfrequent(Game::CASTLE_AROUND_DELAY))
+	if(Game::AnimateInfrequentDelay(Game::CASTLE_AROUND_DELAY))
 	{
 	    cursor.Hide();
 	    CastleDialog::RedrawAllBuilding(*this, cur_pt, cacheBuildings,
@@ -923,7 +770,7 @@ Dialog::answer_t Castle::OpenDialog(bool readonly, bool fade)
     if(heroes.Guest() && conf.ExtHeroRecalculateMovement())
 	heroes.Guest()->RecalculateMovePoints();
 
-    if(conf.DynamicInterface())
+    if(conf.ExtGameDynamicInterface())
 	conf.SetEvilInterface(interface);
 
     Game::DisableChangeMusic(false);
@@ -932,7 +779,7 @@ Dialog::answer_t Castle::OpenDialog(bool readonly, bool fade)
 }
 
 /* redraw resource info panel */
-void Castle::RedrawResourcePanel(const Point & pt)
+Rect Castle::RedrawResourcePanel(const Point & pt)
 {
     Display & display = Display::Get();
     const Funds & resource = world.GetKingdom(GetColor()).GetFunds();
@@ -940,9 +787,8 @@ void Castle::RedrawResourcePanel(const Point & pt)
     Point dst_pt = pt;
 
     Rect src_rt(dst_pt.x + 552, dst_pt.y + 262, 82, 192);
-    display.FillRect(0, 0, 0, src_rt);
+    display.FillRect(src_rt, ColorBlack);
 
-    std::string count;
     Text text;
 
     // sprite wood
@@ -950,11 +796,9 @@ void Castle::RedrawResourcePanel(const Point & pt)
     dst_pt.y = src_rt.y + 10;
     const Sprite & wood = AGG::GetICN(ICN::RESOURCE, 0);
     wood.Blit(dst_pt);
-    
+
     // count wood
-    count.erase();
-    String::AddInt(count, resource.wood);
-    text.Set(count, Font::SMALL);
+    text.Set(GetString(resource.wood), Font::SMALL);
     dst_pt.y += 22;
     text.Blit(dst_pt.x + (wood.w() - text.w()) / 2, dst_pt.y);
 
@@ -963,11 +807,9 @@ void Castle::RedrawResourcePanel(const Point & pt)
     dst_pt.y = src_rt.y + 6;
     const Sprite & sulfur = AGG::GetICN(ICN::RESOURCE, 3);
     sulfur.Blit(dst_pt);
-    
+
     // count sulfur
-    count.erase();
-    String::AddInt(count, resource.sulfur);
-    text.Set(count);
+    text.Set(GetString(resource.sulfur));
     dst_pt.y += 26;
     text.Blit(dst_pt.x + (sulfur.w() - text.w()) / 2, dst_pt.y);
 
@@ -976,11 +818,9 @@ void Castle::RedrawResourcePanel(const Point & pt)
     dst_pt.y = src_rt.y + 45;
     const Sprite & crystal = AGG::GetICN(ICN::RESOURCE, 4);
     crystal.Blit(dst_pt);
-    
+
     // count crystal
-    count.erase();
-    String::AddInt(count, resource.crystal);
-    text.Set(count);
+    text.Set(GetString(resource.crystal));
     dst_pt.y += 33;
     text.Blit(dst_pt.x + (crystal.w() - text.w()) / 2, dst_pt.y);
 
@@ -989,11 +829,9 @@ void Castle::RedrawResourcePanel(const Point & pt)
     dst_pt.y = src_rt.y + 47;
     const Sprite & mercury = AGG::GetICN(ICN::RESOURCE, 1);
     mercury.Blit(dst_pt);
-    
+
     // count mercury
-    count.erase();
-    String::AddInt(count, resource.mercury);
-    text.Set(count);
+    text.Set(GetString(resource.mercury));
     dst_pt.y += 34;
     text.Blit(dst_pt.x + (mercury.w() - text.w()) / 2, dst_pt.y);
 
@@ -1002,11 +840,9 @@ void Castle::RedrawResourcePanel(const Point & pt)
     dst_pt.y = src_rt.y + 92;
     const Sprite & ore = AGG::GetICN(ICN::RESOURCE, 2);
     ore.Blit(dst_pt);
-    
+
     // count ore
-    count.erase();
-    String::AddInt(count, resource.ore);
-    text.Set(count);
+    text.Set(GetString(resource.ore));
     dst_pt.y += 26;
     text.Blit(dst_pt.x + (ore.w() - text.w()) / 2, dst_pt.y);
 
@@ -1015,11 +851,9 @@ void Castle::RedrawResourcePanel(const Point & pt)
     dst_pt.y = src_rt.y + 92;
     const Sprite & gems = AGG::GetICN(ICN::RESOURCE, 5);
     gems.Blit(dst_pt);
-    
+
     // count gems
-    count.erase();
-    String::AddInt(count, resource.gems);
-    text.Set(count);
+    text.Set(GetString(resource.gems));
     dst_pt.y += 26;
     text.Blit(dst_pt.x + (gems.w() - text.w()) / 2, dst_pt.y);
 
@@ -1028,17 +862,17 @@ void Castle::RedrawResourcePanel(const Point & pt)
     dst_pt.y = src_rt.y + 130;
     const Sprite & gold = AGG::GetICN(ICN::RESOURCE, 6);
     gold.Blit(dst_pt);
-    
+
     // count gold
-    count.erase();
-    String::AddInt(count, resource.gold);
-    text.Set(count);
+    text.Set(GetString(resource.gold));
     dst_pt.y += 24;
     text.Blit(dst_pt.x + (gold.w() - text.w()) / 2, dst_pt.y);
-    
+
     // sprite button exit
     dst_pt.x = src_rt.x + 1;
     dst_pt.y = src_rt.y + 166;
     const Sprite & exit = AGG::GetICN(ICN::SWAPBTN, 0);
     exit.Blit(dst_pt);
+
+    return src_rt;
 }

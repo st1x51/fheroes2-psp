@@ -22,32 +22,28 @@
 
 #include <sstream>
 #include <ctime>
-#include <cstdlib>
 #include <algorithm>
 
+#include "system.h"
 #include "gamedefs.h"
 #include "tinyconfig.h"
 #include "agg.h"
 #include "settings.h"
 #include "game.h"
+#include "game_interface.h"
 
 namespace Game
 {
-    void HotKeysDefaults(void);
-    void HotKeysLoad(const std::string &);
-    const char* EventsName(events_t);
-    void KeyboardGlobalFilter(int, u16);
-
-    events_t & operator++ (events_t & evnt)
-    {
-	return evnt = (EVENT_LAST == evnt ? EVENT_NONE : events_t(evnt + 1));
-    }
+    void	HotKeysDefaults(void);
+    void	HotKeysLoad(const std::string &);
+    const	char* EventsName(int);
+    void	KeyboardGlobalFilter(int, int);
 
     KeySym key_events[EVENT_LAST];
     int key_groups = 0;
 }
 
-const char* Game::EventsName(events_t evnt)
+const char* Game::EventsName(int evnt)
 {
     switch(evnt)
     {
@@ -96,7 +92,7 @@ const char* Game::EventsName(events_t evnt)
 	case EVENT_BATTLE_SURRENDER:	return "battle surrender";
 	case EVENT_BATTLE_AUTOSWITCH:	return "battle auto switch";
 	case EVENT_BATTLE_OPTIONS:	return "battle options";
-	case EVENT_BATTLE_HARDSKIP:	return "battle hard skip";
+	case EVENT_BATTLE_HARDSKIP:	return "battle.hard skip";
 	case EVENT_BATTLE_SOFTSKIP:	return "battle soft skip";
 
 	case EVENT_MOVELEFT:		return "move left";
@@ -222,7 +218,7 @@ void Game::HotKeysDefaults(void)
     // key_events[EVENT_SWITCHGROUP] = KEY_NONE;
 }
 
-bool Game::HotKeyPress(events_t evnt)
+bool Game::HotKeyPressEvent(int evnt)
 {
     LocalEvent & le = LocalEvent::Get();
     return le.KeyPress() && le.KeyValue() == key_events[evnt];
@@ -230,23 +226,22 @@ bool Game::HotKeyPress(events_t evnt)
 
 void Game::HotKeysLoad(const std::string & hotkeys)
 {
-    Tiny::Config config;
-    const Tiny::Entry* entry = NULL;
-
-    config.SetSeparator('=');
-    config.SetComment('#');
+    TinyConfig config('=', '#');
+    //const Tiny::Entry* entry = NULL;
 
     if(config.Load(hotkeys.c_str()))
     {
-	for(events_t evnt = EVENT_NONE; evnt < EVENT_LAST; ++evnt)
+	int ival = 0;
+
+	for(int evnt = EVENT_NONE; evnt < EVENT_LAST; ++evnt)
 	{
 	    const char* name = EventsName(evnt);
 	    if(name)
 	    {
-		entry = config.Find(name);
-		if(entry)
+		ival = config.IntParams(name);
+		if(ival)
 		{
-		    const KeySym sym = GetKeySym(entry->IntParams());
+		    const KeySym sym = GetKeySym(ival);
 		    key_events[evnt] = sym;
 		    DEBUG(DBG_GAME, DBG_INFO, "events: " << EventsName(evnt) << ", key: " << KeySymGetName(sym));
 		}
@@ -256,39 +251,39 @@ void Game::HotKeysLoad(const std::string & hotkeys)
 #ifdef WITHOUT_MOUSE
 	LocalEvent & le = LocalEvent::Get();
 
-	entry = config.Find("emulate mouse up");
-        if(entry) le.SetEmulateMouseUpKey(GetKeySym(entry->IntParams()));
+	ival = config.IntParams("emulate mouse up");
+        if(ival) le.SetEmulateMouseUpKey(GetKeySym(ival));
 
-        entry = config.Find("emulate mouse down");
-        if(entry) le.SetEmulateMouseDownKey(GetKeySym(entry->IntParams()));
+        ival = config.IntParams("emulate mouse down");
+        if(ival) le.SetEmulateMouseDownKey(GetKeySym(ival));
 
-        entry = config.Find("emulate mouse left");
-        if(entry) le.SetEmulateMouseLeftKey(GetKeySym(entry->IntParams()));
+        ival = config.IntParams("emulate mouse left");
+        if(ival) le.SetEmulateMouseLeftKey(GetKeySym(ival));
 
-        entry = config.Find("emulate mouse right");
-        if(entry) le.SetEmulateMouseRightKey(GetKeySym(entry->IntParams()));
+        ival = config.IntParams("emulate mouse right");
+        if(ival) le.SetEmulateMouseRightKey(GetKeySym(ival));
 
-        entry = config.Find("emulate press left");
-        if(entry) le.SetEmulatePressLeftKey(GetKeySym(entry->IntParams()));
+        ival = config.IntParams("emulate press left");
+        if(ival) le.SetEmulatePressLeftKey(GetKeySym(ival));
 
-        entry = config.Find("emulate press right");
-        if(entry) le.SetEmulatePressRightKey(GetKeySym(entry->IntParams()));
+        ival = config.IntParams("emulate press right");
+        if(ival) le.SetEmulatePressRightKey(GetKeySym(ival));
 #endif
     }
 }
 
-void Game::KeyboardGlobalFilter(int sym, u16 mod)
+void Game::KeyboardGlobalFilter(int sym, int mod)
 {
     Display & display = Display::Get();
 
     // system hotkeys
     if(sym == key_events[EVENT_SYSTEM_FULLSCREEN])
-	display.FullScreen();
+	display.ToggleFullScreen();
     else
     if(sym == key_events[EVENT_SYSTEM_SCREENSHOT])
     {
         std::ostringstream stream;
-        stream << Settings::Get().LocalPrefix() << SEPARATOR << "files" << SEPARATOR << "save" << SEPARATOR << "screenshot_" << std::time(0);
+        stream << System::ConcatePath(Settings::GetSaveDir(), "screenshot_") << std::time(0);
 
 #ifndef WITH_IMAGE
         stream << ".bmp";
@@ -309,10 +304,11 @@ void Game::KeyboardGlobalFilter(int sym, u16 mod)
     else
     if(sym == key_events[EVENT_SYSTEM_DEBUG1])
     {
-	AGG::Cache::Get().Dump();
+	Interface::Basic::Get().EventDebug1();
     }
     else
     if(sym == key_events[EVENT_SYSTEM_DEBUG2])
     {
+	Interface::Basic::Get().EventDebug2();
     }
 }

@@ -25,14 +25,16 @@
 #include "cursor.h"
 #include "difficulty.h"
 #include "settings.h"
+#include "dialog.h"
 #include "maps.h"
 #include "maps_fileinfo.h"
+#include "game.h"
 #include "dialog_selectscenario.h"
 #include "text.h"
 #include "tools.h"
 #include "pocketpc.h"
 
-Game::menu_t PocketPC::SelectScenario(void)
+int PocketPC::SelectScenario(void)
 {
     Settings & conf = Settings::Get();
     Cursor & cursor = Cursor::Get();
@@ -75,16 +77,8 @@ Game::menu_t PocketPC::SelectScenario(void)
 	}
     }
 
-    const u16 window_w = 320;
-    const u16 window_h = 224;
-
-    Dialog::FrameBorder frameborder;
-    frameborder.SetPosition((display.w() - window_w) / 2 - BORDERWIDTH, (display.h() - window_h) / 2 - BORDERWIDTH, window_w, window_h);
-    frameborder.Redraw();
-
+    Dialog::FrameBorder frameborder(Size(320, 224));
     const Rect & rt = frameborder.GetArea();
-    const Sprite & background = AGG::GetICN(ICN::STONEBAK, 0);
-    background.Blit(Rect(0, 0, window_w, window_h), rt);
 
     ButtonGroups btnGroups(rt, Dialog::OK|Dialog::CANCEL);
 
@@ -105,7 +99,7 @@ Game::menu_t PocketPC::SelectScenario(void)
     listbox.RedrawBackground(rt);
     listbox.SetScrollButtonUp(ICN::REQUESTS, 5, 6, Point(rt.x + 285, rt.y + 40));
     listbox.SetScrollButtonDn(ICN::REQUESTS, 7, 8, Point(rt.x + 285, rt.y + 175));
-    listbox.SetScrollSplitter(AGG::GetICN(ICN::ESCROLL, 3), Rect(rt.x + 288, rt.y + 58, 12, 114));
+    listbox.SetScrollSplitter(AGG::GetICN(ICN::ESCROLL, 3), Rect(rt.x + 286, rt.y + 58, 12, 114));
     listbox.SetAreaMaxItems(8);
     listbox.SetAreaItems(Rect(rt.x + 17, rt.y + 37, 266, 156));
     listbox.SetListContent(all);
@@ -120,7 +114,7 @@ Game::menu_t PocketPC::SelectScenario(void)
     buttonSelectXLarge.Draw();
     buttonSelectAll.Draw();
 
-    u16 result = Dialog::ZERO;
+    u32 result = Dialog::ZERO;
 
     cursor.Show();
     display.Flip();
@@ -133,27 +127,32 @@ Game::menu_t PocketPC::SelectScenario(void)
 	le.MousePressLeft(buttonSelectXLarge) && buttonSelectXLarge.isEnable() ? buttonSelectXLarge.PressDraw() : buttonSelectXLarge.ReleaseDraw();
 	le.MousePressLeft(buttonSelectAll) ? buttonSelectAll.PressDraw() : buttonSelectAll.ReleaseDraw();
 
+	listbox.QueueEventProcessing();
 	result = btnGroups.QueueEventProcessing();
 
-	if(((le.MouseClickLeft(buttonSelectSmall) || le.KeyPress(KEY_s)) && buttonSelectSmall.isEnable()) && buttonSelectSmall.isEnable())
+	if((le.MouseClickLeft(buttonSelectSmall) || le.KeyPress(KEY_s)) &&
+		buttonSelectSmall.isEnable() && buttonSelectSmall.isEnable())
 	{
 	    listbox.SetListContent(small);
 	    cursor.Hide();
 	}
 	else
-	if(((le.MouseClickLeft(buttonSelectMedium) || le.KeyPress(KEY_m)) && buttonSelectMedium.isEnable()) && buttonSelectMedium.isEnable())
+	if((le.MouseClickLeft(buttonSelectMedium) || le.KeyPress(KEY_m)) &&
+		buttonSelectMedium.isEnable() && buttonSelectMedium.isEnable())
 	{
 	    listbox.SetListContent(medium);
 	    cursor.Hide();
 	}
 	else
-	if(((le.MouseClickLeft(buttonSelectLarge) || le.KeyPress(KEY_l)) && buttonSelectLarge.isEnable()) && buttonSelectLarge.isEnable())
+	if((le.MouseClickLeft(buttonSelectLarge) || le.KeyPress(KEY_l)) &&
+		buttonSelectLarge.isEnable() && buttonSelectLarge.isEnable())
 	{
 	    listbox.SetListContent(large);
 	    cursor.Hide();
 	}
 	else
-	if(((le.MouseClickLeft(buttonSelectXLarge) || le.KeyPress(KEY_x)) && buttonSelectXLarge.isEnable()) && buttonSelectXLarge.isEnable())
+	if((le.MouseClickLeft(buttonSelectXLarge) || le.KeyPress(KEY_x)) &&
+		buttonSelectXLarge.isEnable() && buttonSelectXLarge.isEnable())
 	{
 	    listbox.SetListContent(xlarge);
 	    cursor.Hide();
@@ -164,8 +163,6 @@ Game::menu_t PocketPC::SelectScenario(void)
 	    listbox.SetListContent(all);
 	    cursor.Hide();
 	}
-
-	listbox.QueueEventProcessing();
 
 	if(!cursor.isVisible())
 	{

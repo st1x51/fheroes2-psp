@@ -27,12 +27,14 @@
 #include "button.h"
 #include "cursor.h"
 #include "castle.h"
+#include "dialog.h"
+#include "game.h"
 #include "race.h"
 #include "settings.h"
 #include "mageguild.h"
 #include "text.h"
 
-RowSpells::RowSpells(const Point & pos, const Castle & castle, u8 lvl)
+RowSpells::RowSpells(const Point & pos, const Castle & castle, int lvl)
 {
     const MageGuild & guild = castle.GetMageGuild();
     bool hide = castle.GetLevelMageGuild() < lvl;
@@ -40,7 +42,7 @@ RowSpells::RowSpells(const Point & pos, const Castle & castle, u8 lvl)
     const Sprite & roll_hide = AGG::GetICN(ICN::TOWNWIND, 1);
     const Sprite & roll = (hide ? roll_hide : roll_show);
 
-    u8 count = 0;
+    u32 count = 0;
 
     switch(lvl)
     {
@@ -52,7 +54,7 @@ RowSpells::RowSpells(const Point & pos, const Castle & castle, u8 lvl)
 	default: break;
     }
 
-    for(u8 ii = 0; ii < count; ++ii)
+    for(u32 ii = 0; ii < count; ++ii)
 	coords.push_back(Rect(pos.x + coords.size() * (Settings::Get().QVGA() ? 72 : 110) - roll.w() / 2, pos.y, roll.w(), roll.h()));
 
     if(castle.HaveLibraryCapability())
@@ -99,7 +101,7 @@ void RowSpells::Redraw(void)
 	    {
 		icon.Blit(dst.x + 5 + (dst.w - icon.w()) / 2, dst.y + 40 - icon.h() / 2);
 
-		TextBox text(spell.GetName(), Font::SMALL, 78);
+		TextBox text(std::string(spell.GetName()) + " [" + GetString(spell.SpellPoint(NULL)) + "]", Font::SMALL, 78);
 		text.Blit(dst.x + 18, dst.y + 62);
 	    }
 	}
@@ -134,38 +136,23 @@ bool RowSpells::QueueEventProcessing(void)
 void Castle::OpenMageGuild(void)
 {
     Display & display = Display::Get();
-
-    // cursor
     Cursor & cursor = Cursor::Get();
-
     cursor.Hide();
 
-    Dialog::FrameBorder frameborder;
-    frameborder.SetPosition((display.w() - 640 - BORDERWIDTH * 2) / 2, (display.h() - 480 - BORDERWIDTH * 2) / 2, 640, 480);
-    frameborder.Redraw();
-    
-    const Point cur_pt(frameborder.GetArea().x, frameborder.GetArea().y);
-    Point dst_pt(cur_pt);
-
-    AGG::GetICN(ICN::STONEBAK, 0).Blit(dst_pt);
-
-    std::string message;
+    Dialog::FrameBorder frameborder(Size(640, 480));
+    const Point & cur_pt = frameborder.GetArea();
     Text text;
 
     // bar
-    dst_pt.x = cur_pt.x;
-    dst_pt.y = cur_pt.y + 461;
-    AGG::GetICN(ICN::WELLXTRA, 2).Blit(dst_pt);
+    AGG::GetICN(ICN::WELLXTRA, 2).Blit(cur_pt.x, cur_pt.y + 461);
 
     // text bar
     text.Set(_("The above spells have been added to your book."), Font::BIG);
-    dst_pt.x = cur_pt.x + 280 - text.w() / 2;
-    dst_pt.y = cur_pt.y + 461;
-    text.Blit(dst_pt);
+    text.Blit(cur_pt.x + 280 - text.w() / 2, cur_pt.y + 461);
 
-    const u8 level = GetLevelMageGuild();
+    const int level = GetLevelMageGuild();
     // sprite
-    ICN::icn_t icn = ICN::UNKNOWN;
+    int icn = ICN::UNKNOWN;
     switch(race)
     {
         case Race::KNGT: icn = ICN::MAGEGLDK; break;
@@ -177,9 +164,7 @@ void Castle::OpenMageGuild(void)
 	default: break;
     }
     const Sprite & sprite = AGG::GetICN(icn, level - 1);
-    dst_pt.x = cur_pt.x + 90 - sprite.w() / 2;
-    dst_pt.y = cur_pt.y + 290 - sprite.h();
-    sprite.Blit(dst_pt);
+    sprite.Blit(cur_pt.x + 90 - sprite.w() / 2, cur_pt.y + 290 - sprite.h());
 
     RowSpells spells5(Point(cur_pt.x + 250, cur_pt.y +  5),  *this, 5);
     RowSpells spells4(Point(cur_pt.x + 250, cur_pt.y +  95), *this, 4);
@@ -192,19 +177,16 @@ void Castle::OpenMageGuild(void)
     spells3.Redraw();
     spells4.Redraw();
     spells5.Redraw();
-    
-    // button exit
-    dst_pt.x = cur_pt.x + 578;
-    dst_pt.y = cur_pt.y + 461;
-    Button buttonExit(dst_pt, ICN::WELLXTRA, 0, 1);
 
+    // button exit
+    Button buttonExit(cur_pt.x + 578, cur_pt.y + 461, ICN::WELLXTRA, 0, 1);
     buttonExit.Draw();
 
     cursor.Show();
     display.Flip();
 
     LocalEvent & le = LocalEvent::Get();
-   
+
     // message loop
     while(le.HandleEvents())
     {
@@ -216,6 +198,6 @@ void Castle::OpenMageGuild(void)
     	    spells2.QueueEventProcessing() ||
     	    spells3.QueueEventProcessing() ||
     	    spells4.QueueEventProcessing() ||
-    	    spells5.QueueEventProcessing());
+    	    spells5.QueueEventProcessing()){}
     }
 }

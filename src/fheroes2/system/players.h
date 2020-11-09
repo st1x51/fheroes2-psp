@@ -25,11 +25,11 @@
 
 #include <string>
 #include <vector>
-#include "sdlnet.h"
+#include "bitmodes.h"
 #include "color.h"
 #include "gamedefs.h"
 
-namespace Maps { struct FileInfo; }
+namespace Maps { class FileInfo; }
 
 class Castle;
 class Heroes;
@@ -38,9 +38,9 @@ class Heroes;
 enum { CONTROL_NONE = 0, CONTROL_HUMAN = 1, CONTROL_AI = 4, CONTROL_REMOTE = 2 /*, CONTROL_LOCAL = CONTROL_AI | CONTROL_HUMAN */ };
 enum { FOCUS_UNSEL = 0, FOCUS_HEROES = 1, FOCUS_CASTLE = 2 };
 
-struct Focus : std::pair<u8, void*>
+struct Focus : std::pair<int, void*>
 {
-    Focus() : std::pair<u8, void*>(FOCUS_UNSEL, NULL) {}
+    Focus() : std::pair<int, void*>(FOCUS_UNSEL, NULL) {}
 
     bool	isValid(void) const { return first != FOCUS_UNSEL && second; }
 
@@ -52,32 +52,59 @@ struct Focus : std::pair<u8, void*>
     Heroes*	GetHeroes(void) { return first == FOCUS_HEROES && second ? reinterpret_cast<Heroes*>(second) : NULL; }
 };
 
-struct Player
+struct Control
 {
-    Player(u8 col = Color::NONE);
+    virtual int         GetControl(void) const = 0;
+    virtual 			~Control() {}
+    bool                isControlAI(void) const;
+    bool                isControlHuman(void) const;
+    bool                isControlRemote(void) const;
+    bool                isControlLocal(void) const;
+};
+
+class Player : public BitModes, public Control
+{
+public:
+    Player(int col = Color::NONE);
+    virtual ~Player() {}
 
     bool isID(u32) const;
-    bool isColor(u8) const;
+    bool isColor(int) const;
     bool isName(const std::string &) const;
     bool isPlay(void) const;
 
-    void SetControl(u8);
+    void SetColor(int);
+    void SetRace(int);
+    void SetControl(int);
     void SetPlay(bool);
+    void SetFriends(int);
+    void SetName(const std::string &);
 
-    bool isRemote(void) const;
-    bool isLocal(void) const;
-    bool isHuman(void) const;
-    bool isAI(void) const;
+    int  GetControl(void) const;
+    int  GetColor(void) const;
+    int  GetRace(void) const;
+    int  GetFriends(void) const;
+    int  GetID(void) const;
 
-    u8		control;
-    u8		color;
-    u8		race;
-    u8		friends;
-    u8		mode;
+    const std::string & GetName(void) const;
+    Focus & GetFocus(void);
+    const Focus & GetFocus(void) const;
+
+protected:
+    friend StreamBase & operator<< (StreamBase &, const Player &);
+    friend StreamBase & operator>> (StreamBase &, Player &);
+
+    int		control;
+    int		color;
+    int		race;
+    int		friends;
     std::string	name;
     u32		id;
     Focus	focus;
 };
+
+StreamBase & operator<< (StreamBase &, const Player &);
+StreamBase & operator>> (StreamBase &, Player &);
 
 class Players : public std::vector<Player*>
 {
@@ -85,33 +112,35 @@ public:
     Players();
     ~Players();
 
-    void Init(u8 colors);
+    void Init(int colors);
     void Init(const Maps::FileInfo &);
     void clear(void);
 
-    void	SetHumanColors(u8 colors);
     void	SetStartGame(void);
-    u8	 	GetColors(u8 control = 0xFF, bool strong = false) const;
-    u8		GetActualColors(void) const;
+    int	 	GetColors(int control = 0xFF, bool strong = false) const;
+    int		GetActualColors(void) const;
     std::string	String(void) const;
 
     Player*		GetCurrent(void);
     const Player*	GetCurrent(void) const;
 
-    static Player*	Get(u8 color);
-    static u8		GetPlayerControl(u8 color);
-    static u8		GetPlayerRace(u8 color);
-    static u8		GetPlayerFriends(u8 color);
-    static bool		GetPlayerInGame(u8 color);
-    static bool		isFriends(u8 player, u8 colors);
-    static void		SetPlayerRace(u8 color, u8 race);
-    static void		SetPlayerControl(u8 color, u8 ctrl);
-    static void		SetPlayerInGame(u8 color, bool);
-    static u8		HumanColors(void);
-    static u8 		FriendColors(void);
+    static Player*	Get(int color);
+    static int		GetPlayerControl(int color);
+    static int		GetPlayerRace(int color);
+    static int		GetPlayerFriends(int color);
+    static bool		GetPlayerInGame(int color);
+    static bool		isFriends(int player, int colors);
+    static void		SetPlayerRace(int color, int race);
+    static void		SetPlayerControl(int color, int ctrl);
+    static void		SetPlayerInGame(int color, bool);
+    static int		HumanColors(void);
+    static int		FriendColors(void);
 
-    u8		current_color;
+    int		current_color;
 };
+
+StreamBase & operator<< (StreamBase &, const Players &);
+StreamBase & operator>> (StreamBase &, Players &);
 
 namespace Interface
 {
@@ -126,10 +155,10 @@ namespace Interface
 	Rect        rect2; // class
 	Rect        rect3; // change
     };
-    
+
     struct PlayersInfo : std::vector<PlayerInfo>
     {
-	PlayersInfo(bool, bool, bool);
+	PlayersInfo(bool /* show name */, bool /* show race */, bool /* show swap button */);
 
 	void UpdateInfo(Players &, const Point & opponents, const Point & classes);
 
@@ -138,7 +167,7 @@ namespace Interface
 	Player* GetFromOpponentChangeClick(const Point & pt);
 	Player* GetFromClassClick(const Point & pt);
 
-	void RedrawInfo(void) const;
+	void RedrawInfo(bool show_play_info = false) const;
 	bool QueueEventProcessing(void);
 
 	bool show_name;

@@ -26,11 +26,13 @@
 #include "gamedefs.h"
 
 class HeroBase;
+class StreamBase;
+class StreamBase;
 
 class Spell
 {
 public:
-    enum
+    enum type_t
     {
 	NONE		= 0,
 	FIREBALL,
@@ -99,33 +101,40 @@ public:
 	SETFGUARDIAN,
 	SETWGUARDIAN,
 
+	RANDOM,
+	RANDOM1,
+	RANDOM2,
+	RANDOM3,
+	RANDOM4,
+	RANDOM5,
+
 	STONE
     };
 
-    Spell(u8 = NONE);
+    Spell(int = NONE);
 
     bool operator< (const Spell &) const;
     bool operator== (const Spell &) const;
     bool operator!= (const Spell &) const;
 
-    u8 operator() (void) const;
-    u8 GetID(void) const;
+    int operator() (void) const;
+    int GetID(void) const;
 
     const char* GetName(void) const;
     const char* GetDescription(void) const;
 
-    u8 SpellPoint(const HeroBase* hero = NULL) const;
-    u16 MovePoint(void) const;
-    u8 Level(void) const;
-    u8 Damage(void) const;
-    u8 Restore(void) const;
-    u8 Resurrect(void) const;
+    u32 SpellPoint(const HeroBase* hero = NULL) const;
+    u32 MovePoint(void) const;
+    int Level(void) const;
+    u32 Damage(void) const;
+    u32 Restore(void) const;
+    u32 Resurrect(void) const;
 
-    u8 ExtraValue(void) const;
+    u32 ExtraValue(void) const;
     payment_t GetCost(void) const;
     
     bool isValid(void) const;
-    bool isLevel(u8) const;
+    bool isLevel(int) const;
     bool isCombat(void) const;
     bool isAdventure(void) const;
     bool isDamage(void) const;
@@ -140,23 +149,29 @@ public:
     bool isApplyToFriends(void) const;
     bool isApplyToEnemies(void) const;
     bool isMassActions(void) const;
-    bool isRaceCompatible(u8 race) const;
+    bool isRaceCompatible(int race) const;
 
     /* return index sprite spells.icn */
-    u8 IndexSprite(void) const;
+    u32 IndexSprite(void) const;
     /* return index in spellinl.icn */
-    u8 InlIndexSprite(void) const;
+    u32 InlIndexSprite(void) const;
 
-    static Spell RandCombat(u8);
-    static Spell RandAdventure(u8);
-    static Spell Rand(u8, bool adv);
+    static Spell RandCombat(int lvl);
+    static Spell RandAdventure(int lvl);
+    static Spell Rand(int lvl, bool adv);
 
     static void UpdateStats(const std::string &);
-    static u8 CalculateDimensionDoorDistance(u8 current_sp, u32 total_hp);
+    static u32 CalculateDimensionDoorDistance(u32 current_sp, u32 total_hp);
 
 private:
-    u8 id;
+    friend StreamBase & operator<< (StreamBase &, const Spell &);
+    friend StreamBase & operator>> (StreamBase &, Spell &);
+
+    int id;
 };
+
+StreamBase & operator<< (StreamBase &, const Spell &);
+StreamBase & operator>> (StreamBase &, Spell &);
 
 #endif
 

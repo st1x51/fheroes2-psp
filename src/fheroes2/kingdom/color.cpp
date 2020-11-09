@@ -20,11 +20,14 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
-#include <bitset>
 #include <sstream>
+#include "players.h"
+#include "settings.h"
+#include "world.h"
+#include "game.h"
 #include "color.h"
 
-const char* Color::String(u8 color)
+const char* Color::String(int color)
 {
     const char* str_color[] = { "None", _("Blue"), _("Green"), _("Red"), _("Yellow"), _("Orange"), _("Purple"), "uknown" };
 
@@ -42,7 +45,7 @@ const char* Color::String(u8 color)
     return str_color[0];
 }
 
-u8 Color::GetIndex(u8 color)
+int Color::GetIndex(int color)
 {
     switch(color)
     {
@@ -59,29 +62,28 @@ u8 Color::GetIndex(u8 color)
     return 6;
 }
 
-u8 Color::Count(u8 colors)
+int Color::Count(int colors)
 {
-    const std::bitset<8> bset(colors);
-    return bset.count();
+    return CountBits(colors & ALL);
 }
 
-Color::color_t Color::Get(u8 index)
+int Color::FromInt(int col)
 {
-    switch(index)
+    switch(col)
     {
-        case BLUE:	return BLUE;
-        case GREEN:	return GREEN;
-        case RED:	return RED;
-        case YELLOW:	return YELLOW;
-	case ORANGE:	return ORANGE;
-	case PURPLE:	return PURPLE;
+        case BLUE:
+        case GREEN:
+        case RED:
+        case YELLOW:
+	case ORANGE:
+	case PURPLE:	return col;
 	default: break;
     }
 
     return NONE;
 }
 
-Color::color_t Color::GetFirst(u8 colors)
+int Color::GetFirst(int colors)
 {
     if(colors & BLUE) return BLUE;
     else
@@ -98,43 +100,25 @@ Color::color_t Color::GetFirst(u8 colors)
     return NONE;
 }
 
-const char* BarrierColor::String(u8 val)
+const char* BarrierColor::String(int val)
 {
     switch(val)
     {
-        case 0x01:	return _("Aqua");
-        case 0x02:	return _("Blue");
-        case 0x04:	return _("Brown");
-        case 0x08:	return _("Gold");
-        case 0x10:	return _("Green");
-        case 0x20:	return _("Orange");
-        case 0x40:	return _("Purple");
-        case 0x80:	return _("Red");
+        case AQUA:	return _("Aqua");
+        case BLUE:	return _("Blue");
+        case BROWN:	return _("Brown");
+        case GOLD:	return _("Gold");
+        case GREEN:	return _("Green");
+        case ORANGE:	return _("Orange");
+        case PURPLE:	return _("Purple");
+        case RED:	return _("Red");
         default: break;
     }
 
     return "None";
 }
 
-u8 BarrierColor::FromMP2(u8 val)
-{
-    switch(val)
-    {
-        case 0:	return AQUA;
-        case 8:	return BLUE;
-        case 16:return BROWN;
-        case 24:return GOLD;
-        case 32:return GREEN;
-        case 40:return ORANGE;
-        case 48:return PURPLE;
-        case 56:return RED;
-        default: break;
-    }
-
-    return NONE;
-}
-
-Colors::Colors(u8 colors)
+Colors::Colors(int colors)
 {
     reserve(6);
 
@@ -155,4 +139,34 @@ std::string Colors::String(void) const
 	    os << Color::String(*it) << ", ";
 
     return os.str();
+}
+
+bool ColorBase::operator== (int col) const
+{
+    return color == col;
+}
+
+bool ColorBase::isFriends(int col) const
+{
+    return (col & Color::ALL) && (color == col || Players::isFriends(color, col));
+}
+
+void ColorBase::SetColor(int col)
+{
+    color = Color::FromInt(col);
+}
+
+Kingdom & ColorBase::GetKingdom(void) const
+{
+    return world.GetKingdom(color);
+}
+
+StreamBase & operator<< (StreamBase & msg, const ColorBase & col)
+{
+    return msg << col.color;
+}
+
+StreamBase & operator>> (StreamBase & msg, ColorBase & col)
+{
+    return msg >> col.color;
 }

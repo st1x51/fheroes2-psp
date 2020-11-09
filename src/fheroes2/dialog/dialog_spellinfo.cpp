@@ -21,17 +21,18 @@
  ***************************************************************************/
 
 #include "agg.h"
+#include "text.h"
 #include "settings.h"
 #include "cursor.h"
 #include "button.h"
 #include "spell.h"
+#include "game.h"
 #include "dialog.h"
 
-void Dialog::SpellInfo(const Spell & spell, const bool ok_button)
+void Dialog::SpellInfo(const Spell & spell, bool ok_button)
 {
     std::string msg = spell.GetDescription();
-
-    u8 extra = spell.ExtraValue();
+    u32 extra = spell.ExtraValue();
 
     switch(spell())
     {
@@ -44,23 +45,20 @@ void Dialog::SpellInfo(const Spell & spell, const bool ok_button)
     }
 
     if(1 == extra)
-        String::Replace(msg, "%{count}", _("one"));
+        StringReplace(msg, "%{count}", _("one"));
     else
     if(2 == extra)
-        String::Replace(msg, "%{count}", _("two"));
+        StringReplace(msg, "%{count}", _("two"));
     else
-	String::Replace(msg, "%{count}", extra);
+	StringReplace(msg, "%{count}", extra);
 
     Dialog::SpellInfo(spell.GetName(), msg, spell, ok_button);
 }
 
-void Dialog::SpellInfo(const std::string &header, const std::string &message, const Spell & spell, const bool ok_button)
+void Dialog::SpellInfo(const std::string &header, const std::string &message, const Spell & spell, bool ok_button)
 {
     Display & display = Display::Get();
-    const ICN::icn_t system = Settings::Get().EvilInterface() ? ICN::SYSTEME : ICN::SYSTEM;
-
-    // preload
-    AGG::PreloadObject(system);
+    const int system = Settings::Get().ExtGameEvilInterface() ? ICN::SYSTEME : ICN::SYSTEM;
 
     // cursor
     Cursor & cursor = Cursor::Get();
@@ -73,10 +71,9 @@ void Dialog::SpellInfo(const std::string &header, const std::string &message, co
     Text text(spell.GetName(), Font::SMALL);
 
     const Sprite & sprite = AGG::GetICN(ICN::SPELLS, spell.IndexSprite());
-    const u8 spacer = Settings::Get().QVGA() ? 5 : 10;
+    const int spacer = Settings::Get().QVGA() ? 5 : 10;
 
-    Box box(box1.h() + spacer + box2.h() + spacer + sprite.h() + 2 + text.h(), ok_button);
-
+    FrameBox box(box1.h() + spacer + box2.h() + spacer + sprite.h() + 2 + text.h(), ok_button);
     Rect pos = box.GetArea();
 
     if(header.size()) box1.Blit(pos);
@@ -96,14 +93,14 @@ void Dialog::SpellInfo(const std::string &header, const std::string &message, co
 
     LocalEvent & le = LocalEvent::Get();
 
-    Button *button = NULL;
+    Button* button = NULL;
     Point pt;
-    
+
     if(ok_button)
     {
         pt.x = box.GetArea().x + (box.GetArea().w - AGG::GetICN(system, 1).w()) / 2;
         pt.y = box.GetArea().y + box.GetArea().h - AGG::GetICN(system, 1).h();
-	button = new Button(pt, system, 1, 2);
+	button = new Button(pt.x, pt.y, system, 1, 2);
     }
 
     if(button) (*button).Draw();
@@ -115,11 +112,8 @@ void Dialog::SpellInfo(const std::string &header, const std::string &message, co
     while(le.HandleEvents())
     {
         if(!ok_button && !le.MousePressRight()) break;
-
 	if(button) le.MousePressLeft(*button) ? button->PressDraw() : button->ReleaseDraw();
-
         if(button && le.MouseClickLeft(*button)){ break; }
-
 	if(HotKeyCloseWindow){ break; }
     }
 

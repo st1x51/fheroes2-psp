@@ -40,11 +40,12 @@ namespace ICN
 {
     struct icnmap_t
     {
-        icn_t type;
+        int type;
         const char* string;
     };
 
     const icnmap_t icnmap[] = {
+	{ UNKNOWN,	"UNKNOWN" },
 	{ ADVBORDE,	"ADVBORDE.ICN" },
 	{ ADVBORD,	"ADVBORD.ICN" },
 	{ ADVBTNS,	"ADVBTNS.ICN" },
@@ -908,49 +909,37 @@ namespace ICN
 	{ ZOMBIE2,	"ZOMBIE2.ICN" },
 	{ ZOMBIE,	"ZOMBIE.ICN" },
 
-	{ ROUTERED,	"MANUAL.ICN" },
-	{ TELEPORT1,	"MANUAL.ICN" },
-	{ TELEPORT2,	"MANUAL.ICN" },
-	{ TELEPORT3,	"MANUAL.ICN" },
-	{ FOUNTAIN,	"MANUAL.ICN" },
-	{ TREASURE,	"MANUAL.ICN" },
-	{ YELLOW_FONT,	"MANUAL.ICN" },
-	{ YELLOW_SMALFONT,"MANUAL.ICN" },
-	{ BATTLESKIP,   "MANUAL.ICN" },
-	{ BATTLEWAIT,   "MANUAL.ICN" },
-	{ BUYMAX,       "MANUAL.ICN" },
-	{ BTNCONFIG,    "MANUAL.ICN" },
-	{ BTNBATTLEONLY,"MANUAL.ICN" },
-	{ BOAT12,       "MANUAL.ICN" },
-	{ BTNGIFT,      "MANUAL.ICN" },
-
-	{ UNKNOWN,	"UNKNOWN.ICN" },
+	{ ROUTERED,	"ROUTERED.ICN" },
+	{ TELEPORT1,	"TELEPORT1.ICN" },
+	{ TELEPORT2,	"TELEPORT2.ICN" },
+	{ TELEPORT3,	"TELEPORT3.ICN" },
+	{ FOUNTAIN,	"FOUNTAIN.ICN" },
+	{ TREASURE,	"TREASURE.ICN" },
+	{ YELLOW_FONT,	"YELLOWBF.ICN" },
+	{ YELLOW_SMALFONT,"YELLOWSF.ICN" },
+	{ BATTLESKIP,   "BATTLESKIP.ICN" },
+	{ BATTLEWAIT,   "BATTLEWAIT.ICN" },
+	{ BATTLEAUTO,   "BATTLEAUTO.ICN" },
+	{ BATTLESETS,   "BATTLESETS.ICN" },
+	{ BUYMAX,       "BUYMAX.ICN" },
+	{ BTNCONFIG,    "BTNCONFIG.ICN" },
+	{ BTNBATTLEONLY,"BTNBONLY.ICN" },
+	{ BOAT12,       "BOAT12.ICN" },
+	{ BTNGIFT,      "BTNGIFT.ICN" },
+	{ BTNMIN,       "BTNMIN.ICN" },
+	{ CSLMARKER,    "CSLMARKER.ICN" }
     };
 
-    u8 missile9(float, float);
-    u8 missile7(float, float);
+    u32 missile9(float, float);
+    u32 missile7(float, float);
 }
 
-const char* ICN::GetString(const icn_t & icn)
+const char* ICN::GetString(int icn)
 {
-    return icnmap[icn].string;
+    return UNKNOWN <= icn && LASTICN > icn ? icnmap[icn].string : "CUSTOM";
 }
 
-ICN::Header::Header() : offset_x(0), offset_y(0), width(0), height(0), type(0), offset_data(0)
-{
-}
-
-void ICN::Header::Load(const u8* p)
-{
-    offset_x = ReadLE16(&p[0]);
-    offset_y = ReadLE16(&p[2]);
-    width = ReadLE16(&p[4]);
-    height= ReadLE16(&p[6]);
-    type = p[8];
-    offset_data = ReadLE32(&p[9]);
-}
-
-u16 ICN::AnimationFrame(const icn_t & icn, const u8 & start, const u32 & ticket, bool quantity)
+u32 ICN::AnimationFrame(int icn, u32 start, u32 ticket, bool quantity)
 {
     switch(icn)
     {
@@ -1119,6 +1108,7 @@ u16 ICN::AnimationFrame(const icn_t & icn, const u8 & start, const u32 & ticket,
 		case 0x76:
 		case 0x86:
 		case 0x96:
+		case 0xA6:
 		    return start + (ticket % 15) + 1;
 
 		// whirlpool
@@ -1309,7 +1299,7 @@ u16 ICN::AnimationFrame(const icn_t & icn, const u8 & start, const u32 & ticket,
 	    switch(start)
 	    {
 		// shadow of lava
-		case 0x4F:
+		case 0x4E:
 		case 0x58:
 		case 0x62:
 		    return start + (ticket % 9) + 1;
@@ -1536,9 +1526,9 @@ u16 ICN::AnimationFrame(const icn_t & icn, const u8 & start, const u32 & ticket,
     return 0;
 }
 
-ICN::icn_t ICN::PORTxxxx(u8 id)
+int ICN::PORTxxxx(int heroId)
 {
-    switch(id)
+    switch(heroId)
     {
     		case Heroes::LORDKILBURN:	return ICN::PORT0000;
     		case Heroes::SIRGALLANTH:	return ICN::PORT0001;
@@ -1621,7 +1611,7 @@ ICN::icn_t ICN::PORTxxxx(u8 id)
     return ICN::UNKNOWN;
 }
 
-bool ICN::NeedMinify4PocketPC(const icn_t & icn, const u16 & index)
+bool ICN::NeedMinify4PocketPC(int icn, u32 index)
 {
     if(Settings::Get().ExtBattleSoftWait() &&
 	icn == TEXTBAR && (index == 0 || index == 1)) return false;
@@ -1776,11 +1766,13 @@ bool ICN::NeedMinify4PocketPC(const icn_t & icn, const u16 & index)
 
 	case BATTLESKIP:
 	case BATTLEWAIT:
+	case BATTLEAUTO:
+	case BATTLESETS:
 
 	    return true;
 
 	case TEXTBAR:
-	    if(index < 10) return true;
+	    if(0 == index || 1 == index || 8 == index || 9 == index) return true;
 	    break;
 
 	default: break;
@@ -1791,7 +1783,7 @@ bool ICN::NeedMinify4PocketPC(const icn_t & icn, const u16 & index)
     return false;
 }
 
-u8 ICN::missile9(float dx, float dy)
+u32 ICN::missile9(float dx, float dy)
 {
     if(0 == dx)		return dy > 0 ? 0 : 8;
     else
@@ -1809,7 +1801,7 @@ u8 ICN::missile9(float dx, float dy)
     return dy > 0 ? 2 : 6;
 }
 
-u8 ICN::missile7(float dx, float dy)
+u32 ICN::missile7(float dx, float dy)
 {
     if(0 == dx)		return dy > 0 ? 0 : 6;
     else
@@ -1824,7 +1816,7 @@ u8 ICN::missile7(float dx, float dy)
     return dy > 0 ? 1 : 5;
 }
 
-u8 ICN::GetMissIndex(const icn_t & icn, const s16 & dx, const s16 & dy)
+u32 ICN::GetMissIndex(int icn, s32 dx, s32 dy)
 {
     switch(icn)
     {
@@ -1845,33 +1837,7 @@ u8 ICN::GetMissIndex(const icn_t & icn, const s16 & dx, const s16 & dy)
     return 0;
 }
 
-bool ICN::isModifiedSprite(const ICN::icn_t & icn)
-{
-    switch(icn)
-    {
-	case YELLOW_FONT:
-        case YELLOW_SMALFONT:
-        case ROUTERED:
-        case TELEPORT1:
-        case TELEPORT2:
-        case TELEPORT3:
-        case FOUNTAIN:
-        case TREASURE:
-	case BATTLESKIP:
-	case BATTLEWAIT:
-	case BUYMAX:
-	case BTNCONFIG:
-	case BTNGIFT:
-	case BTNBATTLEONLY:
-	case BOAT12:
-	    return true;
-
-	default: break;
-    }
-    return false;
-}
-
-bool ICN::isBattleMonsterICN(u16 icn)
+bool ICN::isBattleMonsterICN(int icn)
 {
     switch(icn)
     {
@@ -1949,29 +1915,14 @@ bool ICN::isBattleMonsterICN(u16 icn)
     return false;
 }
 
-bool ICN::SkipRegistryFree(ICN::icn_t icn)
-{
-    switch(icn)
-    {
-	case SPELCO:
-	case CMSECO:
-	case ADVMCO:
-	    return true;
-
-	default: break;
-    }
-
-    return false;
-}
-
-ICN::icn_t ICN::FromString(const char* str)
+int ICN::FromString(const char* str)
 {
     const icnmap_t* ptr = &icnmap[0];
     while(ptr->type != ICN::UNKNOWN && str && 0 != std::strcmp(str, ptr->string)) ++ptr;
     return ptr->type;
 }
 
-bool ICN::HighlyObjectSprite(const ICN::icn_t & icn, const u8 & index)
+bool ICN::HighlyObjectSprite(int icn, u32 index)
 {
     switch(icn)
     {
@@ -2035,7 +1986,7 @@ bool ICN::HighlyObjectSprite(const ICN::icn_t & icn, const u8 & index)
     return false;
 }
 
-ICN::icn_t ICN::Get4Captain(u8 race)
+int ICN::Get4Captain(int race)
 {
     switch(race)
     {
@@ -2051,7 +2002,7 @@ ICN::icn_t ICN::Get4Captain(u8 race)
     return UNKNOWN;
 }
 
-ICN::icn_t ICN::Get4Building(u8 race)
+int ICN::Get4Building(int race)
 {
     switch(race)
     {
@@ -2067,7 +2018,7 @@ ICN::icn_t ICN::Get4Building(u8 race)
     return UNKNOWN;
 }
 
-ICN::icn_t ICN::Get4Castle(u8 race)
+int ICN::Get4Castle(int race)
 {
     switch(race)
     {
@@ -2081,4 +2032,24 @@ ICN::icn_t ICN::Get4Castle(u8 race)
     }
 
     return UNKNOWN;
+}
+
+bool ICN::SkipLocalAlpha(int icn)
+{
+    switch(icn)
+    {
+        case SYSTEM:
+        case SYSTEME:
+        case BUYBUILD:
+        case BUYBUILE:
+        case BOOK:
+        case CSPANBKE:
+        case CPANBKGE:
+        case CAMPBKGE:
+            return true;
+
+        default: break;
+    }
+
+    return false;
 }

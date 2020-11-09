@@ -23,9 +23,10 @@
 #include "agg.h"
 #include "settings.h"
 #include "gamedefs.h"
-#include "battle2.h"
+#include "battle.h"
 #include "world.h"
 #include "army.h"
+#include "game.h"
 #include "castle.h"
 #include "kingdom.h"
 #include "heroes.h"
@@ -65,97 +66,94 @@ void RunTest2(void)
     Display & display = Display::Get();
     LocalEvent & le = LocalEvent::Get();
 
-    display.Fill(0x85, 0x85, 0x85);
+    display.Fill(RGBA(0x85, 0x85, 0x85));
     Point pt;
 
-    // test alpha (without amask)
-    const Sprite & sprite1 = AGG::GetICN(ICN::BTNSHNGL, 1);
+    // test alpha sprite
+    Sprite sp1 = AGG::GetICN(ICN::BTNSHNGL, 1);
 
-    sprite1.Blit(pt);
-    pt.x += sprite1.w() + 20;
+    sp1.Blit(pt);
+    pt.x += sp1.w() + 20;
 
-    Surface sf1;
-    sf1.Set(sprite1);
-    sf1.SetAlpha(50);
+    Surface sf1 = sp1.GetSurface();
+    sf1.SetAlphaMod(50);
 
     sf1.Blit(pt, display);
     pt.x += sf1.w() + 20;
 
-    // test alpha (with amask, shadow)
-    const Sprite & sprite2 = AGG::GetICN(ICN::DRAGBLAK, 1);
+    // test alpha sprite with shadow
+    Sprite sp2 = AGG::GetICN(ICN::DRAGBLAK, 1);
+    pt.y = 130;
+    pt.x = 0;
 
-    sprite2.Blit(pt, display);
-    pt.x += sprite2.w() + 20;
+    sp2.Blit(pt, display);
+    pt.x += sp2.w() + 20;
 
-    Surface sf2(sprite2.w(), sprite2.h(), false);
-    //sf2.Fill(0, 0, 0xFF);
-
-    //sprite2.SetColorKey(sprite2.MapRGB(0, 0, 0));
-    sprite2.Blit(sf2);
-    sf2.SetAlpha(50);
-
+    Surface sf2 = sp2.GetSurface();
     sf2.Blit(pt, display);
     pt.x += sf2.w() + 20;
 
-    // stensil
-    Surface sf3;
-    Surface::MakeStencil(sf3, sprite2, sprite2.MapRGB(0x80, 0x50, 0x30));
-    VERBOSE(sf3.Info());
+    VERBOSE(sp2.Info());
+    VERBOSE(sf2.Info());
+
+    sf2.SetAlphaMod(50);
+    sf2.Blit(pt, display);
+    pt.x += sf2.w() + 20;
+
+    // contour, stensil, change color
+    Surface sf3 = sp2.RenderContour(RGBA(0xFF, 0xFF, 0));
     pt.x = 0;
-    pt.y = 150;
+    pt.y = 260;
 
     sf3.Blit(pt, display);
+    pt.x += sf3.w() + 20;
 
-    // contour
-    Surface sf4;
-    Surface::MakeContour(sf4, sprite2, sprite2.MapRGB(0xFF, 0xFF, 0));
-    pt.x += sprite2.w() + 20;
-
+    RGBA color = RGBA(0x80, 0x50, 0x30);
+    Surface sf4 = sp2.RenderStencil(color);
     sf4.Blit(pt, display);
+    pt.x += sf4.w() + 20;
 
-    //sf2.Set(sprite2.w(), sprite2.h(), false);
-    //VERBOSE("sf2: " << sf2.Info());
-    //sf2.Blit(sprite2);
-    //sf2.SetAlpha(50);
+    Surface sf5 = sf4.RenderChangeColor(color, RGBA(0x30, 0x90, 0x30));
+    sf5.Blit(pt, display);
+    pt.x += sf5.w() + 20;
 
-    //sf2.Blit(pt);
-    //pt.x += sf2.w() + 20;
-
-    //Surface::MakeStencil(sf, sprite2, sprite.MapRGB(0xFF, 0xFF, 0));
-
-    //sf1.SetAlpha(100);
-
-    //VERBOSE("sprite1: " << sprite.Info());
-    //VERBOSE("sprite2: " << sprite.Info());
-    //VERBOSE("sf: " << sf.Info());
-
-
-
+    //
     display.Flip();
 
     while(le.HandleEvents())
     {
-        if(Game::HotKeyPress(Game::EVENT_DEFAULT_EXIT)) break;
+        if(Game::HotKeyPressEvent(Game::EVENT_DEFAULT_EXIT)) break;
     }
 }
+
+ListFiles GetMapsFiles(const char*);
 
 void RunTest3(void)
 {
     VERBOSE("Run Test3");
-    const std::string amap("/opt/projects/fh2/maps/beltway.mp2");
+
+    ListFiles maps = GetMapsFiles(".mp2");
+    if(maps.empty()) return;
+
+    const std::string & amap = maps.front();
     Settings & conf = Settings::Get();
 
-    if(! conf.SetCurrentFileInfo(amap)) return;
-
-    world.LoadMaps(amap);
+    Maps::FileInfo fi;
+    if(!fi.ReadMP2(amap)) return;
+    
+    conf.SetCurrentFileInfo(fi);
+    world.LoadMapMP2(amap);
 
     Heroes & hero1 = *world.GetHeroes(Heroes::SANDYSANDY);
     Heroes & hero2 = *world.GetHeroes(Heroes::BAX);
 
     Players & players = conf.GetPlayers();
 
-    const u8 mycolor = Color::GetFirst(players.GetColors(CONTROL_HUMAN));
-    const u8 aicolor = Color::GetFirst(players.GetColors((CONTROL_AI)));
+    int mycolor = Color::GetFirst(players.GetColors(CONTROL_HUMAN));
+    int aicolor = Color::GetFirst(players.GetColors((CONTROL_AI)));
+
+    players.SetPlayerControl(mycolor, CONTROL_HUMAN);
+    players.SetPlayerControl(aicolor, CONTROL_HUMAN);
 
     Kingdom & kingdom1 = world.GetKingdom(mycolor);
     Kingdom & kingdom2 = world.GetKingdom(aicolor);
@@ -167,44 +165,56 @@ void RunTest3(void)
 
     hero1.SetSpellPoints(150);
 
-    if(kingdom1.GetCastles().size())
-    hero1.Recruit(kingdom1.GetColor(), Point(20, 20));
-    hero2.Recruit(kingdom2.GetColor(), Point(20, 21));
+    int xx = world.w() / 2;
+    int yy = world.h() / 2;
 
-    Army::army_t & army1 = hero1.GetArmy();
+    if(kingdom1.GetCastles().size())
+    hero1.Recruit(kingdom1.GetColor(), Point(xx, yy));
+    hero2.Recruit(kingdom2.GetColor(), Point(xx, yy + 1));
+
+    Army & army1 = hero1.GetArmy();
 
     Castle* castle = kingdom2.GetCastles().at(0);
-    castle->BuyBuilding(BUILD_CAPTAIN);
     castle->ActionNewDay();
     castle->BuyBuilding(BUILD_MAGEGUILD1);
+    castle->ActionNewDay();
+    castle->BuyBuilding(BUILD_CAPTAIN);
+    castle->ActionNewDay();
+    castle->BuyBuilding(BUILD_MOAT);
 
-    //Army::army_t army2;
-    //Army::army_t & army2 = hero2.GetArmy();
-    Army::army_t & army2 = castle->GetArmy();
+    //Army army2;
+    //Army & army2 = hero2.GetArmy();
+    Army & army2 = castle->GetArmy();
+    if(army2.GetCommander())
+    {
+	army2.GetCommander()->SpellBookActivate();
+	army2.GetCommander()->AppendSpellToBook(Spell::SHIELD, true);
+    }
 
-    army1.Clear();
+    army1.Clean();
     //army1.JoinTroop(Monster::PHOENIX, 10);
-    //army1.JoinTroop(Monster::RANGER, 80);
-    //army1.JoinTroop(Monster::GARGOYLE, 100);
-    army1.At(0) = Army::Troop(Monster::CAVALRY, 20);
+    //army1.GetTroop(0)->Set(Monster::ARCHER, 30);
+    army1.GetTroop(1)->Set(Monster::BOAR, 20);
+    army1.GetTroop(2)->Set(Monster::OGRE_LORD, 20);
 
     //army1.JoinTroop(Monster::Rand(Monster::LEVEL1), 30);
     //army1.JoinTroop(Monster::Rand(Monster::LEVEL2), 20);
     //army1.JoinTroop(Monster::Rand(Monster::LEVEL3), 10);
 
-    army2.Clear();
-    army2.At(0) = Army::Troop(Monster::ZOMBIE, 300);
-//    army2.At(0) = Army::Troop(Monster::OGRE, 1);
-//    army2.At(1) = Army::Troop(Monster::DWARF, 2);
-//    army2.At(2) = Army::Troop(Monster::DWARF, 2);
-//    army2.At(3) = Army::Troop(Monster::DWARF, 2);
-//    army2.At(4) = Army::Troop(Monster::DWARF, 2);
+    army2.Clean();
+    army2.GetTroop(0)->Set(Monster::BOAR, 20);
+    army2.GetTroop(2)->Set(Monster::OGRE_LORD, 20);
+//    army2.at(0) = Troop(Monster::OGRE, 1);
+//    army2.at(1) = Troop(Monster::DWARF, 2);
+//    army2.at(2) = Troop(Monster::DWARF, 2);
+//    army2.at(3) = Troop(Monster::DWARF, 2);
+//    army2.at(4) = Troop(Monster::DWARF, 2);
 //    army2.JoinTroop(static_cast<Monster::monster_t>(1), 10);
 //    army2.JoinTroop(static_cast<Monster::monster_t>(4), 10);
 //    army2.JoinTroop(static_cast<Monster::monster_t>(6), 10);
 //    army2.JoinTroop(static_cast<Monster::monster_t>(8), 10);
 
-    Battle2::Loader(army1, army2, hero1.GetIndex());
+    Battle::Loader(army1, army2, army1.GetCommander()->GetIndex());
 }
 
 #endif

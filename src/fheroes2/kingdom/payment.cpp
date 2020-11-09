@@ -27,10 +27,6 @@
 #include "settings.h"
 #include "payment.h"
 
-#ifdef WITH_XML
-#include "xmlccwrap.h"
-#endif
-
 struct paymentstats_t
 {
     const char* id;
@@ -45,6 +41,7 @@ paymentstats_t _payments[] = {
     { "buy_spell_book_from_shrine3", {   750, 0, 0, 0, 0, 0, 0 } },
     { "recruit_hero",   { 2500, 0, 0, 0, 0, 0, 0 } },
     { "recruit_level",   { 500, 0, 0, 0, 0, 0, 0 } },
+    { "alchemist_payment", { 750, 0, 0, 0, 0, 0, 0 } },
 
     { NULL, { 0, 0, 0, 0, 0, 0, 0 } },
 };
@@ -91,7 +88,7 @@ void PaymentConditions::UpdateCosts(const std::string & spec)
 #endif
 }
 
-payment_t PaymentConditions::BuyBuilding(u8 race, u32 build)
+payment_t PaymentConditions::BuyBuilding(int race, u32 build)
 {
     return BuildingInfo::GetCost(build, race);
 }
@@ -107,7 +104,7 @@ payment_t PaymentConditions::BuyBoat(void)
     return result;
 }
 
-payment_t PaymentConditions::BuySpellBook(u8 shrine)
+payment_t PaymentConditions::BuySpellBook(int shrine)
 {
     payment_t result;
     paymentstats_t* ptr = &_payments[0];
@@ -127,7 +124,7 @@ payment_t PaymentConditions::BuySpellBook(u8 shrine)
     return result;
 }
 
-payment_t PaymentConditions::RecruitHero(u8 level)
+payment_t PaymentConditions::RecruitHero(int level)
 {
     payment_t result;
     paymentstats_t* ptr = &_payments[0];
@@ -150,6 +147,16 @@ payment_t PaymentConditions::RecruitHero(u8 level)
 	    if(ptr->cost.gems) result.gems += (level - 1) * ptr->cost.gems;
 	}
     }
+
+    return result;
+}
+
+payment_t PaymentConditions::ForAlchemist(int arts)
+{
+    payment_t result;
+    paymentstats_t* ptr = &_payments[0];
+    while(ptr->id && std::strcmp("alchemist_payment", ptr->id)) ++ptr;
+    if(ptr->id) result = ptr->cost;
 
     return result;
 }

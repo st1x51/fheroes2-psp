@@ -40,6 +40,7 @@
 #include "settings.h"
 #include "kingdom.h"
 #include "agg.h"
+#include "ai.h"
 #include "ai_simple.h"
 
 void AICastleTurn(Castle*);
@@ -54,7 +55,7 @@ AIKingdoms & AIKingdoms::Get(void)
     return ai_kingdoms;
 }
 
-AIKingdom & AIKingdoms::Get(Color::color_t color)
+AIKingdom & AIKingdoms::Get(int color)
 {
     return AIKingdoms::Get().at(Color::GetIndex(color));
 }
@@ -80,7 +81,7 @@ void IndexObjectMap::DumpObjects(const IndexDistance & id)
 			<< ", maps index: " << id.first << ", dist: " << id.second);
 }
 
-void WorldStoreObjects(u8 color, IndexObjectMap & store)
+void WorldStoreObjects(int color, IndexObjectMap & store)
 {
     for(s32 it = 0; it < world.w() * world.h(); ++it)
     {
@@ -126,21 +127,23 @@ void AI::KingdomTurn(Kingdom & kingdom)
     KingdomHeroes & heroes = kingdom.GetHeroes();
     KingdomCastles & castles = kingdom.GetCastles();
 
-    const Color::color_t & color = kingdom.GetColor();
+    const int color = kingdom.GetColor();
 
     if(kingdom.isLoss() || color == Color::NONE)
     {
 	kingdom.LossPostActions();
 	return;
     }
-    
+
+    DEBUG(DBG_AI, DBG_INFO, Color::String(kingdom.GetColor()) << " funds: " << kingdom.GetFunds().String());
+
     if(! Settings::Get().MusicMIDI()) AGG::PlayMusic(MUS::COMPUTER);
 
-    Interface::StatusWindow *status = Interface::NoGUI() ? NULL : &Interface::StatusWindow::Get();
+    Interface::StatusWindow & status = Interface::Basic::Get().GetStatusWindow();
     AIKingdom & ai = AIKingdoms::Get(color);
 
     // turn indicator
-    if(status) status->RedrawTurnProgress(0);
+    status.RedrawTurnProgress(0);
 
     // scan map
     ai.scans.clear();
@@ -169,7 +172,7 @@ void AI::KingdomTurn(Kingdom & kingdom)
     }
 
     // turn indicator
-    if(status) status->RedrawTurnProgress(1);
+    status.RedrawTurnProgress(1);
 
     // castles AI turn
     std::for_each(castles.begin(), castles.end(), AICastleTurn);
@@ -182,41 +185,44 @@ void AI::KingdomTurn(Kingdom & kingdom)
     if(ai.capital && ai.capital->isCastle())
     {
 	u32 modes = 0;
-	const u8 maxhero = Maps::XLARGE > world.w() ? (Maps::LARGE > world.w() ? 3 : 2) : 4;
+	const u32 maxhero = Maps::XLARGE > world.w() ? (Maps::LARGE > world.w() ? 3 : 2) : 4;
 
 	if(heroes.empty())
-	    modes = Heroes::HUNTER|Heroes::SCOUTER;
+	    modes = AI::HEROES_HUNTER|AI::HEROES_SCOUTER;
 	else
-	if((!ai.capital->GetHeroes().Guest() && heroes.size() < maxhero) ||
-	    0 == std::count_if(heroes.begin(), heroes.end(), std::bind2nd(std::mem_fun(&Heroes::Modes), Heroes::SCOUTER)))
-	    modes = Heroes::SCOUTER;
+	if(heroes.size() < maxhero ||
+	    0 == std::count_if(heroes.begin(), heroes.end(), std::bind2nd(std::mem_fun(&Heroes::Modes), AI::HEROES_SCOUTER)))
+	    modes = AI::HEROES_SCOUTER;
 
 	if(modes &&
 	    heroes.size() < Kingdom::GetMaxHeroes())
 	{
 	    Recruits & rec = kingdom.GetRecruits();
-	    Heroes* hero = NULL;
+	    Heroes* hero = ai.capital->GetHeroes().Guest();
 
-	    if(rec.GetHero1() && rec.GetHero2())
-		hero = ai.capital->RecruitHero(rec.GetHero1()->GetLevel() >= rec.GetHero2()->GetLevel() ? rec.GetHero1() : rec.GetHero2());
-	    else
-	    if(rec.GetHero1())
-		hero = ai.capital->RecruitHero(rec.GetHero1());
-	    else
-	    if(rec.GetHero2())
-		hero = ai.capital->RecruitHero(rec.GetHero2());
+	    if(!hero)
+	    {
+		if(rec.GetHero1() && rec.GetHero2())
+		    hero = ai.capital->RecruitHero(rec.GetHero1()->GetLevel() >= rec.GetHero2()->GetLevel() ? rec.GetHero1() : rec.GetHero2());
+		else
+		if(rec.GetHero1())
+		    hero = ai.capital->RecruitHero(rec.GetHero1());
+		else
+		if(rec.GetHero2())
+		    hero = ai.capital->RecruitHero(rec.GetHero2());
 
-	    if(hero)
-		hero->SetModes(modes);
+		if(hero)
+		    hero->SetModes(modes);
+	    }
 	}
     }
 
     // set hunters
     if(ai.capital)
     {
-	const size_t hunters = 
+	const size_t hunters =
 		std::count_if(heroes.begin(), heroes.end(),
-			std::bind2nd(std::mem_fun(&Heroes::Modes), Heroes::HUNTER));
+			std::bind2nd(std::mem_fun(&Heroes::Modes), AI::HEROES_HUNTER));
 
 	// every time
 	if(0 == hunters &&
@@ -233,9 +239,9 @@ void AI::KingdomTurn(Kingdom & kingdom)
 	// each month
 	if(world.BeginMonth() && 1 < world.CountDay())
 	{
-	    KingdomHeroes::iterator it = 
+	    KingdomHeroes::iterator it =
 		    std::find_if(heroes.begin(), heroes.end(),
-			std::bind2nd(std::mem_fun(&Heroes::Modes), Heroes::HUNTER));
+			std::bind2nd(std::mem_fun(&Heroes::Modes), AI::HEROES_HUNTER));
 
 	    if(it != heroes.end() &&
 		! ai.capital->GetHeroes().Guest())
@@ -245,41 +251,41 @@ void AI::KingdomTurn(Kingdom & kingdom)
 
     // update roles
     {
-	std::for_each(heroes.begin(), heroes.end(), std::bind2nd(std::mem_fun(&Heroes::ResetModes), Heroes::STUPID|Heroes::AIWAITING));
+	std::for_each(heroes.begin(), heroes.end(), std::bind2nd(std::mem_fun(&Heroes::ResetModes), AI::HEROES_STUPID|AI::HEROES_WAITING));
 
 	// init roles
 	if(heroes.end() != std::find_if(heroes.begin(), heroes.end(),
-		std::not1(std::bind2nd(std::mem_fun(&Heroes::Modes), Heroes::SCOUTER|Heroes::HUNTER))))
+		std::not1(std::bind2nd(std::mem_fun(&Heroes::Modes), AI::HEROES_SCOUTER|AI::HEROES_HUNTER))))
 	{
 	    KingdomHeroes::iterator ith, first = heroes.end();
 
 	    while(heroes.end() != (ith = std::find_if(heroes.begin(), heroes.end(),
 				std::not1(std::bind2nd(std::mem_fun(&Heroes::Modes),
 						    // also skip patrol
-						    Heroes::HUNTER|Heroes::SCOUTER|Heroes::PATROL)))))
+						    AI::HEROES_HUNTER|AI::HEROES_SCOUTER|Heroes::PATROL)))))
 	    {
 		if(first == heroes.end())
 		{
 		    first = ith;
-		    if(*ith) (*ith)->SetModes(Heroes::HUNTER|Heroes::SCOUTER);
+		    if(*ith) (*ith)->SetModes(AI::HEROES_HUNTER|AI::HEROES_SCOUTER);
 		}
 		else
-		if(*ith) (*ith)->SetModes(Heroes::SCOUTER);
+		if(*ith) (*ith)->SetModes(AI::HEROES_SCOUTER);
 	    }
 	}
     }
 
     // turn indicator
-    if(status) status->RedrawTurnProgress(2);
+    status.RedrawTurnProgress(2);
 
     // heroes turns
     std::for_each(heroes.begin(), heroes.end(), std::ptr_fun(&AIHeroesTurn));
-    std::for_each(heroes.begin(), heroes.end(), std::bind2nd(std::mem_fun(&Heroes::ResetModes), Heroes::STUPID|Heroes::AIWAITING));
+    //std::for_each(heroes.begin(), heroes.end(), std::bind2nd(std::mem_fun(&Heroes::ResetModes), AI::HEROES_STUPID|AI::HEROES_WAITING));
     std::for_each(heroes.begin(), heroes.end(), std::ptr_fun(&AIHeroesTurn));
     std::for_each(heroes.begin(), heroes.end(), std::ptr_fun(&AIHeroesEnd));
 
     // turn indicator
-    if(status) status->RedrawTurnProgress(9);
+    status.RedrawTurnProgress(9);
 
     DEBUG(DBG_AI, DBG_INFO, Color::String(color) << " moved");
 }

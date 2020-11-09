@@ -26,7 +26,6 @@
 #include "SDL.h"
 #include <SDL_thread.h>
 #include <SDL_endian.h>
-
 typedef Sint8		s8;
 typedef Uint8		u8;
 typedef Sint16		s16;
@@ -34,78 +33,32 @@ typedef Uint16		u16;
 typedef Sint32		s32;
 typedef Uint32		u32;
 
-typedef SDL_Color RGBColor;
+#define MAXU16   		0xFFFF
+#define MAXU32   		0xFFFFFFFF
 
-#define MAXU16   0xFFFF
-#define MAXU32   0xFFFFFFFF
+#define ARRAY_COUNT(A)       	sizeof(A) / sizeof(A[0])
+#define ARRAY_COUNT_END(A)   	A + ARRAY_COUNT(A)
 
-#define ARRAY_COUNT(A)       sizeof(A) / sizeof(A[0])
-#define ARRAY_COUNT_END(A)   A + ARRAY_COUNT(A)
-
-#if defined __SYMBIAN32__
-#define MKDIR(X)    mkdir(X, S_IRWXU)
-#define SEPARATOR       '\\'
-#elif defined __WIN32__
-#include <io.h>
-#define MKDIR(X)    mkdir(X)
-#define SEPARATOR       '\\'
-#else
-#define MKDIR(X)    mkdir(X, S_IRWXU)
-#define SEPARATOR       '/'
-#endif
-
-#define DELAY(X)	SDL_Delay(X)
-
-#define Swap16(X)	X=SDL_Swap16(X)
-#define Swap32(X)	X=SDL_Swap32(X)
-#define SwapLE16(X)	X=SDL_SwapLE16(X)
-#define SwapLE32(X)	X=SDL_SwapLE32(X)
-#define SwapBE16(X)	X=SDL_SwapBE16(X)
-#define SwapBE32(X)	X=SDL_SwapBE32(X)
-
-u32 ReadBE32(const u8 *p);
-u32 ReadLE32(const u8 *p);
-u16 ReadBE16(const u8 *p);
-u16 ReadLE16(const u8 *p);
-
-void WriteBE32(u8 *p, u32 x);
-void WriteBE16(u8 *p, u16 x);
-void WriteLE32(u8 *p, u32 x);
-void WriteLE16(u8 *p, u16 x);
+#define DELAY(X)		SDL_Delay(X)
 
 #if defined __SYMBIAN32__
 #define PATH_MAX FILENAME_MAX
 namespace std
 {
-    int c_abs(int x);
-    float c_abs(float x);
-    double c_abs(double x);
-    int c_isspace(char c);
+    int		c_abs(int x);
+    float	c_abs(float x);
+    double	c_abs(double x);
+    int		c_isspace(char c);
 
-#define isspace(c) c_isspace(c)
-#define abs(x) c_abs(x)
+#define isspace(c) 		c_isspace(c)
+#define abs(x) 			c_abs(x)
 }
 using namespace std;
 #endif
 
 #if defined __MINGW32CE__
-#include <cstdlib>
-#ifndef PATH_MAX
-#define PATH_MAX 255
-#endif
-#define setlocale(x,y) 0
-#define system(x) 0
-#define setenv(x, y, z) sdl_putenv(x, y, z)
-#define getenv(x) sdl_getenv(x)
-#define getopt(x, y, z) -1
-#define optarg 0
-#else
-#include <cstdlib>
-#endif
-
-#if defined __MINGW32__
-#define setenv(x, y, z) sdl_putenv(x, y, z)
-#define getenv(x) sdl_getenv(x)
+#undef PATH_MAX
+#define PATH_MAX 		255
 #endif
 
 #endif

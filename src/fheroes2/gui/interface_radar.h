@@ -23,49 +23,38 @@
 #ifndef H2INTERFACE_RADAR_H
 #define H2INTERFACE_RADAR_H
 
-#include "dialog.h"
-#include "gamedefs.h"
+#include "interface_border.h"
 
 namespace Interface
 {
-    class Radar : protected Rect
+    class Basic;
+
+    class Radar : public BorderWindow
     {
     public:
-	static Radar & Get(void);
-	~Radar();
+	Radar(Basic &);
 
-	void SetPos(s16, s16);
-	const Rect & GetArea(void) const;
-
+	void SetPos(s32, s32);
+	void SetRedraw(void) const;
 	void Build(void);
-	void Generate(void);
 	void Redraw(void);
-	void RedrawArea(const u8 color = 0xFF);
 	void SetHide(bool);
-	void RedrawCursor(void);
-
+	void ResetAreaSize(void);
 	void QueueEventProcessing(void);
 
     private:
-	Surface *GetSurfaceFromColor(const u8);
-	Radar();
+	void SavePosition(void);
+	void Generate(void);
+	void RedrawObjects(int color = 0xFF);
+	void RedrawCursor(void);
+	void ChangeAreaSize(const Size &);
 
-        Surface *spriteArea;
-	Surface *spriteCursor;
-	SpriteCursor *cursorArea;
+	Basic & interface;
 
-        Surface* sf_blue;
-	Surface* sf_green;
-        Surface* sf_red;
-	Surface* sf_yellow;
-        Surface* sf_orange;
-	Surface* sf_purple;
-        Surface* sf_gray;
-	Surface* sf_black;
-
-	Dialog::FrameBorder border;
-
-	bool hide;
+        Surface		spriteArea;
+	SpriteMove	cursorArea;
+	Point		offset;
+	bool		hide;
     };
 }
 

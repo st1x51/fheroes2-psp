@@ -23,80 +23,34 @@
 #ifndef TINYCONFIG_H
 #define TINYCONFIG_H
 
-#include <utility>
 #include <ostream>
-#include <algorithm>
 #include <string>
-#include <sstream>
 #include <list>
+#include <map>
 
-namespace Tiny
+class TinyConfig : protected std::multimap<std::string, std::string>
 {
-    struct Value
-    {
-	Value();
-	Value(int);
-	Value(const char*);
+public:
+    TinyConfig(char sep = '=', char com = ';');
 
-	Value & operator= (int);
-	Value & operator= (const char*);
+    bool	Load(const std::string &);
+    bool	Save(const std::string &) const;
+    void	Clear(void);
 
-	int ival;
-	std::string sval;
-    };
+    void	AddEntry(const std::string &, const std::string &, bool uniq = true);
+    void	AddEntry(const std::string &, int, bool uniq = true);
 
-    struct Entry : public std::pair<std::string, Value>
-    {
-	Entry();
-	Entry(const char*, const char*);
-	Entry(const char*, int);
+    bool	Exists(const std::string &) const;
 
-	const std::string & StrParams(void) const;
-	int IntParams(void) const;
-	
-	bool IsKey(const char*) const;
-	bool IsValue(const char*) const;
-	bool IsValue(int) const;
-    };
+    int		IntParams(const std::string &) const;
+    std::string StrParams(const std::string &) const;
 
-    std::ostream & operator<< (std::ostream &, const Entry &);
+    std::list<std::string> ListStr(const std::string &) const;
+    std::list<int>         ListInt(const std::string &) const;
 
-    typedef std::list<Entry> Entries;
-    typedef std::list<Entry>::iterator EntryIterator;
-    typedef std::list<Entry>::const_iterator EntryConstIterator;
-
-    class Config
-    {
-    public:
-	Config();
-	~Config();
-
-	bool Load(const char*);
-	bool Save(const char*);
-	void Dump(std::ostream &);
-	void Clear(void);
-
-	void SetSeparator(char);
-	void SetComment(char);
-
-	int IntParams(const char*) const;
-	const char* StrParams(const char*) const;
-	void GetParams(const char*, std::list<std::string> &) const;
-
-    	void AddEntry(const char*, const char*, bool uniq = true);
-	void AddEntry(const char*, int, bool uniq = true);
-
-	const Entry* Find(const char*) const;
-	const Entries & GetEntries(void) const;
-
-    protected:
-	EntryIterator FindEntry(std::string);
-	EntryConstIterator FindEntry(std::string) const;
-
-	char separator;
-	char comment;
-	Entries entries;
-    };
-}
+protected:
+    char	separator;
+    char	comment;
+};
 
 #endif

@@ -1,23 +1,23 @@
-/*************************************************************************** 
+/***************************************************************************
  *   Copyright (C) 2010 by Andrey Afletdinov <fheroes2@gmail.com>          *
  *                                                                         *
  *   Part of the Free Heroes2 Engine:                                      *
  *   http://sourceforge.net/projects/fheroes2                              *
- *                                                                         * 
- *   This program is free software; you can redistribute it and/or modify  * 
- *   it under the terms of the GNU General Public License as published by  * 
- *   the Free Software Foundation; either version 2 of the License, or     * 
- *   (at your option) any later version.                                   * 
- *                                                                         * 
- *   This program is distributed in the hope that it will be useful,       * 
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of        * 
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         * 
- *   GNU General Public License for more details.                          * 
- *                                                                         * 
- *   You should have received a copy of the GNU General Public License     * 
- *   along with this program; if not, write to the                         * 
- *   Free Software Foundation, Inc.,                                       * 
- *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             * 
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ *   This program is distributed in the hope that it will be useful,       *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+ *   GNU General Public License for more details.                          *
+ *                                                                         *
+ *   You should have received a copy of the GNU General Public License     *
+ *   along with this program; if not, write to the                         *
+ *   Free Software Foundation, Inc.,                                       *
+ *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
 #include "monster.h"
@@ -29,7 +29,6 @@
 #include "castle.h"
 #include "spell.h"
 #include "settings.h"
-#include "game_focus.h"
 #include "game_interface.h"
 #include "interface_list.h"
 #include "heroes.h"
@@ -49,14 +48,14 @@ bool ActionSpellDimensionDoor(Heroes &);
 bool ActionSpellTownGate(Heroes &);
 bool ActionSpellTownPortal(Heroes &);
 bool ActionSpellVisions(Heroes &);
-bool ActionSpellSetGuardian(Heroes &, const Spell &, u8 id);
+bool ActionSpellSetGuardian(Heroes &, const Spell &, int mons);
 
 class CastleIndexListBox : public Interface::ListBox<s32>
 {
 public:
-    CastleIndexListBox(const Point & pt, u16 & res) : Interface::ListBox<s32>(pt), result(res) {};
+    CastleIndexListBox(const Point & pt, int & res) : Interface::ListBox<s32>(pt), result(res) {};
 
-    void RedrawItem(const s32 &, s16, s16, bool);
+    void RedrawItem(const s32 &, s32, s32, bool);
     void RedrawBackground(const Point &);
 
     void ActionCurrentUp(void){};
@@ -65,12 +64,12 @@ public:
     void ActionListSingleClick(s32 &){};
     void ActionListPressRight(s32 &){};
 
-    u16 & result;
+    int & result;
 };
 
-void CastleIndexListBox::RedrawItem(const s32 & index, s16 dstx, s16 dsty, bool current)
+void CastleIndexListBox::RedrawItem(const s32 & index, s32 dstx, s32 dsty, bool current)
 {
-    const Castle* castle =world.GetCastle(index);
+    const Castle* castle = world.GetCastle(Maps::GetPoint(index));
 
     if(castle)
     {
@@ -88,12 +87,12 @@ void CastleIndexListBox::RedrawBackground(const Point & dst)
     text.Blit(dst.x + 140 - text.w() / 2, dst.y + 30);
 
     AGG::GetICN(ICN::LISTBOX, 0).Blit(dst.x + 2, dst.y + 55);
-    for(u8 ii = 1; ii < 5; ++ii)
+    for(u32 ii = 1; ii < 5; ++ii)
 	AGG::GetICN(ICN::LISTBOX, 1).Blit(dst.x + 2, dst.y + 55 + (ii * 19));
     AGG::GetICN(ICN::LISTBOX, 2).Blit(dst.x + 2, dst.y + 145);
 
     AGG::GetICN(ICN::LISTBOX, 7).Blit(dst.x + 256, dst.y + 75);
-    for(u8 ii = 1; ii < 3; ++ii)
+    for(u32 ii = 1; ii < 3; ++ii)
 	AGG::GetICN(ICN::LISTBOX, 8).Blit(dst.x + 256, dst.y + 74 + (ii * 19));
     AGG::GetICN(ICN::LISTBOX, 9).Blit(dst.x + 256, dst.y + 126);
 }
@@ -166,8 +165,8 @@ bool HeroesTownGate(Heroes & hero, const Castle* castle)
 	Cursor::Get().Hide();
 	hero.Move2Dest(dst);
 
-	I.gameArea.SetCenter(hero.GetCenter());
-	GameFocus::SetRedraw();
+	I.GetGameArea().SetCenter(hero.GetCenter());
+	I.RedrawFocus();
 	I.Redraw();
 
 	AGG::PlaySound(M82::KILLFADE);
@@ -175,7 +174,7 @@ bool HeroesTownGate(Heroes & hero, const Castle* castle)
 	hero.FadeIn();
 
 	// educate spells
-	if(! Settings::Get().ExtLearnSpellsWithDay()) castle->MageGuildEducateHero(hero);
+	if(! Settings::Get().ExtHeroLearnSpellsWithDay()) castle->MageGuildEducateHero(hero);
 
 	return true;
     }
@@ -185,14 +184,14 @@ bool HeroesTownGate(Heroes & hero, const Castle* castle)
 void DialogSpellFailed(const Spell & spell)
 {
     // failed
-    std::string str = "%{spell} failed!!!";
-    String::Replace(str, "%{spell}", spell.GetName());
+    std::string str = _("%{spell} failed!!!");
+    StringReplace(str, "%{spell}", spell.GetName());
     Dialog::Message("", str, Font::BIG, Dialog::OK);
 }
 
 void DialogNotAvailable(void)
 {
-    Dialog::Message("", "Not availble for current version", Font::BIG, Dialog::OK);
+    Dialog::Message("", "Not available for current version", Font::BIG, Dialog::OK);
 }
 
 bool ActionSpellViewMines(Heroes & hero)
@@ -233,7 +232,7 @@ bool ActionSpellViewAll(Heroes & hero)
 
 bool ActionSpellIdentifyHero(Heroes & hero)
 {
-    world.GetKingdom(hero.GetColor()).SetModes(Kingdom::IDENTIFYHERO);
+    hero.GetKingdom().SetModes(Kingdom::IDENTIFYHERO);
     Message("", _("Enemy heroes are now fully identifiable."), Font::BIG, Dialog::OK);
 
     return true;
@@ -241,7 +240,7 @@ bool ActionSpellIdentifyHero(Heroes & hero)
 
 bool ActionSpellSummonBoat(Heroes & hero)
 {
-    u8 chance = 0;
+    u32 chance = 0;
 
     switch(hero.GetLevelSkill(Skill::Secondary::WISDOM))
     {
@@ -255,41 +254,47 @@ bool ActionSpellSummonBoat(Heroes & hero)
 
     // find water
     s32 dst_water = -1;
-    const MapsIndexes & v = Maps::ScanAroundObjectV(center, MP2::OBJ_ZERO);
+    const MapsIndexes & v = Maps::ScanAroundObject(center, MP2::OBJ_ZERO);
     for(MapsIndexes::const_iterator
 	it = v.begin(); it != v.end(); ++it)
     {
         if(world.GetTiles(*it).isWater()){ dst_water = *it; break; }
     }
 
-    // find boat
-    const s32 src = world.GetNearestObject(center, MP2::OBJ_BOAT);
-    if(src < 0)
-	DEBUG(DBG_GAME, DBG_WARN, "free boat: " << "not found");
+    const MapsIndexes & boats = Maps::GetObjectPositions(center, MP2::OBJ_BOAT, false);
 
-    if(Rand::Get(1, 100) <= chance &&
-	Maps::isValidAbsIndex(src) && Maps::isValidAbsIndex(dst_water))
+    if(boats.empty())
     {
-	world.GetTiles(src).SetObject(MP2::OBJ_ZERO);
-	world.GetTiles(dst_water).SetObject(MP2::OBJ_BOAT);
+	DEBUG(DBG_GAME, DBG_WARN, "free boat: " << "not found");
     }
     else
-	DialogSpellFailed(Spell::SUMMONBOAT);
+    {
+	const s32 & src = boats.front();
+
+	if(Rand::Get(1, 100) <= chance &&
+	    Maps::isValidAbsIndex(src) && Maps::isValidAbsIndex(dst_water))
+	{
+	    world.GetTiles(src).SetObject(MP2::OBJ_ZERO);
+	    world.GetTiles(dst_water).SetObject(MP2::OBJ_BOAT);
+	}
+	else
+	    DialogSpellFailed(Spell::SUMMONBOAT);
+    }
 
     return true;
 }
 
 bool ActionSpellDimensionDoor(Heroes & hero)
 {
-    const u8 distance = Spell::CalculateDimensionDoorDistance(hero.GetPower(), hero.GetArmy().GetHitPoints());
+    const u32 distance = Spell::CalculateDimensionDoorDistance(hero.GetPower(), hero.GetArmy().GetHitPoints());
 
     Interface::Basic & I = Interface::Basic::Get();
     Cursor & cursor = Cursor::Get();
 
     // center hero
     cursor.Hide();
-    I.gameArea.SetCenter(hero.GetCenter());
-    GameFocus::SetRedraw();
+    I.GetGameArea().SetCenter(hero.GetCenter());
+    I.RedrawFocus();
     I.Redraw();
 
     const s32 src = hero.GetIndex();
@@ -307,8 +312,8 @@ bool ActionSpellDimensionDoor(Heroes & hero)
 	cursor.Hide();
 	hero.Move2Dest(dst, true);
 
-	I.gameArea.SetCenter(hero.GetCenter());
-	GameFocus::SetRedraw();
+	I.GetGameArea().SetCenter(hero.GetCenter());
+	I.RedrawFocus();
 	I.Redraw();
 
 	AGG::PlaySound(M82::KILLFADE);
@@ -324,7 +329,7 @@ bool ActionSpellDimensionDoor(Heroes & hero)
 
 bool ActionSpellTownGate(Heroes & hero)
 {
-    const Kingdom & kingdom = world.GetKingdom(hero.GetColor());
+    const Kingdom & kingdom = hero.GetKingdom();
     const KingdomCastles & castles = kingdom.GetCastles();
     KingdomCastles::const_iterator it;
 
@@ -335,7 +340,7 @@ bool ActionSpellTownGate(Heroes & hero)
     // find the nearest castle
     for(it = castles.begin(); it != castles.end(); ++it) if(*it && !(*it)->GetHeroes().Guest())
     {
-	const u16 min2 = Maps::GetApproximateDistance(center, (*it)->GetIndex());
+	int min2 = Maps::GetApproximateDistance(center, (*it)->GetIndex());
 	if(0 > min || min2 < min)
 	{
 	    min = min2;
@@ -348,8 +353,8 @@ bool ActionSpellTownGate(Heroes & hero)
 
     // center hero
     cursor.Hide();
-    I.gameArea.SetCenter(hero.GetCenter());
-    GameFocus::SetRedraw();
+    I.GetGameArea().SetCenter(hero.GetCenter());
+    I.RedrawFocus();
     I.Redraw();
 
     if(!castle)
@@ -363,7 +368,7 @@ bool ActionSpellTownGate(Heroes & hero)
 
 bool ActionSpellTownPortal(Heroes & hero)
 {
-    const Kingdom & kingdom = world.GetKingdom(hero.GetColor());
+    const Kingdom & kingdom = hero.GetKingdom();
     std::vector<s32> castles;
 
     Display & display = Display::Get();
@@ -382,18 +387,10 @@ bool ActionSpellTownPortal(Heroes & hero)
 	return false;
     }
 
-    const u16 window_w = 280;
-    const u16 window_h = 200;
-
-    Dialog::FrameBorder* frameborder = new Dialog::FrameBorder();
-    frameborder->SetPosition((display.w() - window_w) / 2 - BORDERWIDTH, (display.h() - window_h) / 2 - BORDERWIDTH, window_w, window_h);
-    frameborder->Redraw();
+    Dialog::FrameBorder* frameborder = new Dialog::FrameBorder(Size(280, 200));
 
     const Rect & area = frameborder->GetArea();
-    const Sprite & background = AGG::GetICN(ICN::STONEBAK, 0);
-    background.Blit(Rect(0, 0, window_w, window_h), area);
-
-    u16 result = Dialog::ZERO;
+    int result = Dialog::ZERO;
 
     CastleIndexListBox listbox(area, result);
 
@@ -415,7 +412,6 @@ bool ActionSpellTownPortal(Heroes & hero)
     while(result == Dialog::ZERO && le.HandleEvents())
     {
         result = btnGroups.QueueEventProcessing();
-
         listbox.QueueEventProcessing();
 
         if(!cursor.isVisible())
@@ -430,15 +426,15 @@ bool ActionSpellTownPortal(Heroes & hero)
 
     // store
     if(result == Dialog::OK)
-	return HeroesTownGate(hero, world.GetCastle(listbox.GetCurrent()));
+	return HeroesTownGate(hero, world.GetCastle(Maps::GetPoint(listbox.GetCurrent())));
 
     return false;
 }
 
 bool ActionSpellVisions(Heroes & hero)
 {
-    const u16 dist = hero.GetVisionsDistance();
-    const MapsIndexes & monsters = Maps::ScanDistanceObject(hero.GetIndex(), MP2::OBJ_MONSTER, dist);
+    const u32 dist = hero.GetVisionsDistance();
+    const MapsIndexes & monsters = Maps::ScanAroundObject(hero.GetIndex(), dist, MP2::OBJ_MONSTER);
 
     if(monsters.size())
     {
@@ -446,41 +442,40 @@ bool ActionSpellVisions(Heroes & hero)
 	    it = monsters.begin(); it != monsters.end(); ++it)
 	{
 	    const Maps::Tiles & tile = world.GetTiles(*it);
-	    const Army::Troop & troop = tile.QuantityTroop();
+	    MapMonster* map_troop = static_cast<MapMonster*>(world.GetMapObject(tile.GetObjectUID(MP2::OBJ_MONSTER)));
+	    Troop troop = map_troop ? map_troop->QuantityTroop() : tile.QuantityTroop();
+	    JoinCount join = Army::GetJoinSolution(hero, tile, troop);
 
-    	    u32 join = troop.GetCount();
     	    Funds cost;
-
-	    const u8 reason = Army::GetJoinSolution(hero, tile, join, cost.gold);
 	    std::string hdr, msg;
 
-	    hdr = std::string("%{count} ") + String::Lower(troop.GetPluralName(join));
-	    String::Replace(hdr, "%{count}", join);
+	    hdr = std::string("%{count} ") + StringLower(troop.GetPluralName(join.second));
+	    StringReplace(hdr, "%{count}", join.second);
 
-	    switch(reason)
+	    switch(join.first)
 	    {
-		case 0:
+		default:
 		    msg = _("I fear these creatures are in the mood for a fight.");
 		    break;
 
-		case 1:
+		case JOIN_FREE:
 		    msg = _("The creatures are willing to join us!");
 		    break;
 
-		case 2:
-		    if(join == troop.GetCount())
+		case JOIN_COST:
+		    if(join.second == troop.GetCount())
 			msg = _("All the creatures will join us...");
 		    else
 		    {
-			msg = ngettext("The creature will join us...", "%{count} of the creatures will join us...", join);
-			String::Replace(msg, "%{count}", join);
+			msg = _n("The creature will join us...", "%{count} of the creatures will join us...", join.second);
+			StringReplace(msg, "%{count}", join.second);
 		    }
 		    msg.append("\n");
 		    msg.append("\n for a fee of %{gold} gold.");
-		    String::Replace(msg, "%{gold}", cost.gold);
+		    StringReplace(msg, "%{gold}", troop.GetCost().gold);
 		    break;
 
-		default:
+		case JOIN_FLEE:
 		    msg = _("These weak creatures will surely flee before us.");
 		    break;
 	    }
@@ -491,7 +486,7 @@ bool ActionSpellVisions(Heroes & hero)
     else
     {
 	std::string msg = _("You must be within %{count} spaces of a monster for the Visions spell to work.");
-	String::Replace(msg, "%{count}", dist);
+	StringReplace(msg, "%{count}", dist);
 	Dialog::Message("", msg, Font::BIG, Dialog::OK);
 	return false;
     }
@@ -501,7 +496,7 @@ bool ActionSpellVisions(Heroes & hero)
     return true;
 }
 
-bool ActionSpellSetGuardian(Heroes & hero, const Spell & spell, u8 id)
+bool ActionSpellSetGuardian(Heroes & hero, const Spell & spell, int mons)
 {
     Maps::Tiles & tile = world.GetTiles(hero.GetIndex());
 
@@ -511,7 +506,7 @@ bool ActionSpellSetGuardian(Heroes & hero, const Spell & spell, u8 id)
 	return false;
     }
 
-    const u16 count = hero.GetPower() * spell.ExtraValue();
+    const u32 count = hero.GetPower() * spell.ExtraValue();
 
     if(count)
     {
@@ -526,8 +521,8 @@ bool ActionSpellSetGuardian(Heroes & hero, const Spell & spell, u8 id)
 	    tile.SetObject(MP2::OBJ_ABANDONEDMINE);
 	}
 
-	Army::Troop troop = world.GetCapturedObject(tile.GetIndex()).GetTroop();
-	troop.Set(Monster(spell), count);
+	world.GetCapturedObject(tile.GetIndex()).GetTroop().Set(Monster(spell), count);
+	return true;
     }
 
     return false;

@@ -25,16 +25,18 @@
 #include "button.h"
 #include "cursor.h"
 #include "speed.h"
+#include "dialog.h"
 #include "settings.h"
 #include "resource.h"
 #include "castle.h"
 #include "kingdom.h"
+#include "game.h"
 #include "world.h"
 #include "text.h"
 
-struct dwelling_t : public std::pair<u32, u16>
+struct dwelling_t : public std::pair<u32, u32>
 {
-    dwelling_t(u32 type, u16 count) : std::pair<u32, u16>(type, count){};
+    dwelling_t(u32 type, u32 count) : std::pair<u32, u32>(type, count){};
 };
 
 struct dwellings_t : public std::vector<dwelling_t>
@@ -42,14 +44,14 @@ struct dwellings_t : public std::vector<dwelling_t>
     dwellings_t() { reserve(6); };
 };
 
-u16 HowManyRecruitMonster(const Castle & castle, u32 dw, const Funds & add, Funds & res)
+u32 HowManyRecruitMonster(const Castle & castle, u32 dw, const Funds & add, Funds & res)
 {
     const Monster ms(castle.GetRace(), castle.GetActualDwelling(dw));
-    const Kingdom & kingdom = world.GetKingdom(castle.GetColor());
+    const Kingdom & kingdom = castle.GetKingdom();
 
     if(! castle.GetArmy().CanJoinTroop(ms)) return 0;
-                                                                                                                         
-    u16 count = castle.GetDwellingLivedCount(dw);
+
+    u32 count = castle.GetDwellingLivedCount(dw);
     payment_t payment;
 
     while(count)
@@ -68,40 +70,34 @@ void Castle::OpenWell(void)
 {
     const Settings & conf = Settings::Get();
     Display & display = Display::Get();
-    // cursor
     Cursor & cursor = Cursor::Get();
-
     cursor.Hide();
 
-    Dialog::FrameBorder frameborder;
-    frameborder.SetPosition((display.w() - 640 - BORDERWIDTH * 2) / 2, (display.h() - 480 - BORDERWIDTH * 2) / 2, 640, 480);
-    frameborder.Redraw();
-    
-    const Point cur_pt(frameborder.GetArea().x, frameborder.GetArea().y);
-
+    Dialog::FrameBorder frameborder(Size(640, 480));
+    const Point cur_pt = frameborder.GetArea();
     Point dst_pt(cur_pt);
 
     // button exit
     dst_pt.x = cur_pt.x + 578;
     dst_pt.y = cur_pt.y + 461;
-    Button buttonExit(dst_pt, ICN::WELLXTRA, 0, 1);
+    Button buttonExit(dst_pt.x, dst_pt.y, ICN::WELLXTRA, 0, 1);
 
     dst_pt.x = cur_pt.x;
     dst_pt.y = cur_pt.y + 461;
-    Button buttonMax(dst_pt, ICN::BUYMAX, 0, 1);
-    
+    Button buttonMax(dst_pt.x, dst_pt.y, ICN::BUYMAX, 0, 1);
+
     const Rect rectMonster1(cur_pt.x + 20, cur_pt.y + 18, 288, 124);
     const Rect rectMonster2(cur_pt.x + 20, cur_pt.y + 168, 288, 124);
     const Rect rectMonster3(cur_pt.x + 20, cur_pt.y + 318, 288, 124);
     const Rect rectMonster4(cur_pt.x + 334, cur_pt.y + 18, 288, 124);
     const Rect rectMonster5(cur_pt.x + 334, cur_pt.y + 168, 288, 124);
     const Rect rectMonster6(cur_pt.x + 334, cur_pt.y + 318, 288, 124);
-    
+
     buttonExit.Draw();
 
     WellRedrawInfoArea(cur_pt);
 
-    if(! conf.ExtAllowBuyFromWell())
+    if(! conf.ExtCastleAllowBuyFromWell())
 	buttonMax.SetDisable(true);
     else
     {
@@ -134,13 +130,13 @@ void Castle::OpenWell(void)
         if(le.MouseClickLeft(buttonExit) || HotKeyCloseWindow) break;
 
         // extended version (click - buy dialog monster)
-        if(conf.ExtAllowBuyFromWell())
+        if(conf.ExtCastleAllowBuyFromWell())
         {
 	    if(buttonMax.isEnable() && le.MouseClickLeft(buttonMax))
 	    {
 		dwellings_t results;
 		Funds cur, total;
-		u16 can_recruit;
+		u32 can_recruit;
 		std::string str;
 
 		for(std::vector<u32>::const_iterator
@@ -152,7 +148,7 @@ void Castle::OpenWell(void)
 		    const Monster ms(race, GetActualDwelling(*it));
 		    str.append(ms.GetPluralName(can_recruit));
 		    str.append(" - ");
-		    String::AddInt(str, can_recruit);
+		    str.append(GetString(can_recruit));
 		    str.append("\n");
 		}
 
@@ -165,35 +161,35 @@ void Castle::OpenWell(void)
 			it = results.begin(); it != results.end(); ++it)
 		    {
 			const dwelling_t & dw = *it;
-			RecruitMonster(dw.first, dw.second);
+			RecruitMonsterFromDwelling(dw.first, dw.second);
 		    }
 		    redraw = true;
 		}
 	    }
 
-    	    if(building & DWELLING_MONSTER1 && dwelling[0] && le.MouseClickLeft(rectMonster1) &&
-    		RecruitMonster(DWELLING_MONSTER1, Dialog::RecruitMonster(
-            	    Monster(race, DWELLING_MONSTER1), dwelling[0]))) redraw = true;
+    	    if((building & DWELLING_MONSTER1) && dwelling[0] && le.MouseClickLeft(rectMonster1) &&
+    		RecruitMonster(Dialog::RecruitMonster(
+    		    Monster(race, DWELLING_MONSTER1), dwelling[0], false))) redraw = true;
     	    else
-    	    if(building & DWELLING_MONSTER2 && dwelling[1] && le.MouseClickLeft(rectMonster2) &&
-    		RecruitMonster(DWELLING_MONSTER2, Dialog::RecruitMonster(
-            	    Monster(race, GetActualDwelling(DWELLING_MONSTER2)), dwelling[1]))) redraw = true;
+    	    if((building & DWELLING_MONSTER2) && dwelling[1] && le.MouseClickLeft(rectMonster2) &&
+    		RecruitMonster(Dialog::RecruitMonster(
+    		    Monster(race, GetActualDwelling(DWELLING_MONSTER2)), dwelling[1], true))) redraw = true;
     	    else
-    	    if(building & DWELLING_MONSTER3 && dwelling[2] && le.MouseClickLeft(rectMonster3) &&
-    		RecruitMonster(DWELLING_MONSTER3, Dialog::RecruitMonster(
-            	    Monster(race, GetActualDwelling(DWELLING_MONSTER3)), dwelling[2]))) redraw = true;
+    	    if((building & DWELLING_MONSTER3) && dwelling[2] && le.MouseClickLeft(rectMonster3) &&
+    		RecruitMonster(Dialog::RecruitMonster(
+    		    Monster(race, GetActualDwelling(DWELLING_MONSTER3)), dwelling[2], true))) redraw = true;
     	    else
-    	    if(building & DWELLING_MONSTER4 && dwelling[3] && le.MouseClickLeft(rectMonster4) &&
-    		RecruitMonster(DWELLING_MONSTER4, Dialog::RecruitMonster(
-            	    Monster(race, GetActualDwelling(DWELLING_MONSTER4)), dwelling[3]))) redraw = true;
+    	    if((building & DWELLING_MONSTER4) && dwelling[3] && le.MouseClickLeft(rectMonster4) &&
+    		RecruitMonster(Dialog::RecruitMonster(
+    		    Monster(race, GetActualDwelling(DWELLING_MONSTER4)), dwelling[3], true))) redraw = true;
     	    else
-    	    if(building & DWELLING_MONSTER5 && dwelling[4] && le.MouseClickLeft(rectMonster5) &&
-    		RecruitMonster(DWELLING_MONSTER5, Dialog::RecruitMonster(
-            	    Monster(race, GetActualDwelling(DWELLING_MONSTER5)), dwelling[4]))) redraw = true;
+    	    if((building & DWELLING_MONSTER5) && dwelling[4] && le.MouseClickLeft(rectMonster5) &&
+    		RecruitMonster(Dialog::RecruitMonster(
+    		    Monster(race, GetActualDwelling(DWELLING_MONSTER5)), dwelling[4], true))) redraw = true;
     	    else
-    	    if(building & DWELLING_MONSTER6 && dwelling[5] && le.MouseClickLeft(rectMonster6) &&
-                RecruitMonster(DWELLING_MONSTER6, Dialog::RecruitMonster(
-                    Monster(race, GetActualDwelling(DWELLING_MONSTER6)), dwelling[5]))) redraw = true;
+    	    if((building & DWELLING_MONSTER6) && dwelling[5] && le.MouseClickLeft(rectMonster6) &&
+                RecruitMonster(Dialog::RecruitMonster(
+            	    Monster(race, GetActualDwelling(DWELLING_MONSTER6)), dwelling[5], true))) redraw = true;
 
 	    if(redraw)
 	    {
@@ -215,7 +211,7 @@ void Castle::WellRedrawInfoArea(const Point & cur_pt)
     Text text;
     Point dst_pt, pt;
 
-    if(Settings::Get().ExtAllowBuyFromWell())
+    if(Settings::Get().ExtCastleAllowBuyFromWell())
     {
 	const Sprite & button = AGG::GetICN(ICN::BUYMAX, 0);
 	Rect src_rt(0, 461, button.w(), 19);
@@ -233,8 +229,8 @@ void Castle::WellRedrawInfoArea(const Point & cur_pt)
     {
 	bool present = false;
 	u32 dw_orig = DWELLING_MONSTER1;
-	u8 icnindex = 0;
-	u16 available = 0;
+	u32 icnindex = 0;
+	u32 available = 0;
 
 	switch(dw)
 	{
@@ -312,42 +308,31 @@ void Castle::WellRedrawInfoArea(const Point & cur_pt)
 	text.Blit(dst_pt);
 	// attack
 	std::string str;
-	str = _("Attack");
-	str += ": ";
-	String::AddInt(str, monster.GetAttack());
+	str = std::string(_("Attack")) + ": " + GetString(monster.GetAttack());
 	text.Set(str);
 	dst_pt.x = pt.x + 268 - text.w() / 2;
 	dst_pt.y = pt.y + 22;
 	text.Blit(dst_pt);
 	// defense
-	str = _("Defense");
-	str += ": ";
-	String::AddInt(str, monster.GetDefense());
+	str = std::string(_("Defense")) + ": " + GetString(monster.GetDefense());
 	text.Set(str);
 	dst_pt.x = pt.x + 268 - text.w() / 2;
 	dst_pt.y = pt.y + 34;
 	text.Blit(dst_pt);
 	// damage
-	str = _("Damg");
-	str += ": ";
-	String::AddInt(str, monster.GetDamageMin());
-	str += "-";
-	String::AddInt(str, monster.GetDamageMax());
+	str = std::string(_("Damage")) + ": " + GetString(monster.GetDamageMin()) + "-" + GetString(monster.GetDamageMax());
 	text.Set(str);
 	dst_pt.x = pt.x + 268 - text.w() / 2;
 	dst_pt.y = pt.y + 46;
 	text.Blit(dst_pt);
 	// hp
-	str = _("HP");
-	str += ": ";
-	String::AddInt(str, monster.GetHitPoints());
+	str = std::string(_("HP")) + ": " + GetString(monster.GetHitPoints());
 	text.Set(str);
 	dst_pt.x = pt.x + 268 - text.w() / 2;
         dst_pt.y = pt.y + 58;
 	text.Blit(dst_pt);
         // speed
-        str = _("Speed");
-        str += ": ";
+        str = std::string(_("Speed")) + ": ";
 	text.Set(str);
 	dst_pt.x = pt.x + 268 - text.w() / 2;
         dst_pt.y = pt.y + 78;
@@ -356,10 +341,10 @@ void Castle::WellRedrawInfoArea(const Point & cur_pt)
 	dst_pt.x = pt.x + 268 - text.w() / 2;
         dst_pt.y = pt.y + 90;
 	text.Blit(dst_pt);
-	
+
 	if(present)
 	{
-	    u8 grown = monster.GetGrown();
+	    u32 grown = monster.GetGrown();
 	    grown += building & BUILD_WELL ? GetGrownWell() : 0;
 	    if(DWELLING_MONSTER1 & dw) grown += building & BUILD_WEL2 ? GetGrownWel2() : 0;
 
@@ -367,29 +352,23 @@ void Castle::WellRedrawInfoArea(const Point & cur_pt)
 	    dst_pt.x = pt.x + 268 - text.w() / 2;
     	    dst_pt.y = pt.y + 110;
     	    text.Blit(dst_pt);
-	    str = "+ ";
-	    String::AddInt(str, grown);
-    	    str += " / ";
-    	    str += _("week");
+	    str = std::string("+ ") + GetString(grown) + " / " + _("week");
 	    text.Set(str);
 	    dst_pt.x = pt.x + 268 - text.w() / 2;
     	    dst_pt.y = pt.y + 122;
     	    text.Blit(dst_pt);
 
-    	    str = _("Available");
-    	    str += ": ";
+    	    str = std::string(_("Available")) + ": ";
     	    text.Set(str);
 	    dst_pt.x = pt.x + 44;
     	    dst_pt.y = pt.y + 122;
     	    text.Blit(dst_pt);
-	    str.clear();
-	    String::AddInt(str, available);
-	    text.Set(str, Font::BIG);
+	    text.Set(GetString(available), Font::BIG);
     	    dst_pt.x = pt.x + 129 - text.w() / 2;
     	    dst_pt.y = pt.y + 119;
 	    text.Blit(dst_pt);
 	}
-	
+
 	dw <<= 1;
     }
 }

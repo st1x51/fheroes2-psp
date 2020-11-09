@@ -26,16 +26,17 @@
 #include <string>
 #include "rect.h"
 #include "types.h"
+#include "gamedefs.h"
 
-class Heroes;
-class Castle;
 class Surface;
 class Kingdom;
 class Player;
+class Heroes;
+class Castle;
 
 namespace Game
 {
-    enum menu_t
+    enum
     {
 	CANCEL = 0,
 	QUITGAME,
@@ -66,15 +67,19 @@ namespace Game
 	TESTING
     };
 
-    void Init(char**);
-    std::string GetARGV(int);
+    void Init(void);
+
+    const std::string & GetLastSavename(void);
+    void		SetLastSavename(const std::string &);
+    void		SetLoadVersion(int);
+    int			GetLoadVersion(void);
 
     // type_t
     enum { TYPE_MENU = 0, TYPE_STANDARD = 0x01, TYPE_CAMPAIGN = 0x02, TYPE_HOTSEAT = 0x04, TYPE_NETWORK = 0x08, TYPE_BATTLEONLY = 0x10, TYPE_LOADFILE = 0x80, TYPE_MULTI = TYPE_HOTSEAT | TYPE_NETWORK };
     // distance_t
     enum { VIEW_TOWN  = 0, VIEW_CASTLE = 1, VIEW_HEROES = 2, VIEW_TELESCOPE = 3, VIEW_OBSERVATION_TOWER = 4, VIEW_MAGI_EYES = 5, VIEW_LIGHT_HOUSE = 6 };
 
-    enum events_t
+    enum
     {
 	EVENT_NONE,
 	EVENT_BUTTON_NEWGAME,
@@ -143,11 +148,9 @@ namespace Game
 	EVENT_LAST
     };
 
-    events_t & operator++ (events_t &);
+    bool HotKeyPressEvent(int);
 
-    bool HotKeyPress(events_t);
-
-    enum delay_t
+    enum
     {
 	SCROLL_DELAY,
 	MAIN_MENU_DELAY,
@@ -182,105 +185,69 @@ namespace Game
 	LAST_DELAY
     };
 
-    bool AnimateInfrequent(delay_t);
-    void AnimateDelayReset(delay_t);
-    void UpdateHeroesMoveSpeed(void);
-    void UpdateBattleSpeed(void);
+    bool	AnimateInfrequentDelay(int);
+    void	AnimateResetDelay(int);
+    void	UpdateHeroesMoveSpeed(void);
+    void	UpdateBattleSpeed(void);
+    int		MainMenu(void);
+    int		NewGame(void);
+    int		LoadGame(void);
+    int		HighScores(bool);
+    int		Credits(void);
+    int		NewStandard(void);
+    int		NewCampain(void);
+    int		NewMulti(void);
+    int		NewHotSeat(void);
+    int		NewNetwork(void);
+    int		NewBattleOnly(void);
+    int		LoadStandard(void);
+    int		LoadCampain(void);
+    int		LoadMulti(void);
+    int		ScenarioInfo(void);
+    int		SelectScenario(void);
+    int		StartGame(void);
+    int		StartBattleOnly(void);
+    int		NetworkHost(void);
+    int		NetworkGuest(void);
+    int		Testing(int);
 
-    menu_t MainMenu(void);
-    menu_t NewGame(void);
-    menu_t LoadGame(void);
-    menu_t HighScores(void);
-    menu_t Credits(void);
-    menu_t NewStandard(void);
-    menu_t NewCampain(void);
-    menu_t NewMulti(void);
-    menu_t NewHotSeat(void);
-    menu_t NewNetwork(void);
-    menu_t NewBattleOnly(void);
-    menu_t LoadStandard(void);
-    menu_t LoadCampain(void);
-    menu_t LoadMulti(void);
-    menu_t ScenarioInfo(void);
-    menu_t SelectScenario(void);
-    menu_t StartGame(void);
-    menu_t StartBattleOnly(void);
-
-    menu_t NetworkHost(void);
-    menu_t NetworkGuest(void);
-
-    menu_t Testing(u8);
-
-    void DrawInterface(void);
-    
-    void SetFixVideoMode(void);
-    
-    void EnvironmentSoundMixer(void);
-
-    u8  GetKingdomColors(void);
-    u8  GetActualKingdomColors(void);
-    void DialogPlayers(u8, std::string);
-
-    void SetCurrentMusic(u8);
-    u8   CurrentMusic(void);
-
-    u32 & CastleAnimationFrame(void);
-    u32 & MapsAnimationFrame(void);
-
-    u8  GetRating(void);
-    u16 GetGameOverScores(void);
-    u8  GetLostTownDays(void);
-    u8  GetViewDistance(u8);
-    u8  GetWhirlpoolPercent(void);
-    u8  SelectCountPlayers(void);
-
-    void ShowLoadMapsText(void);
-
-    void EventSwitchHeroSleeping(void);
-    void EventEndTurn(menu_t &);
-    void EventExit(menu_t &);
-    void EventNextHero(void);
-    void EventNextTown(void);
-    void EventDefaultAction(void);
-    void EventOpenFocus(void);
-    void EventSaveGame(void);
-    void EventLoadGame(menu_t &);
-    void EventContinueMovement(void);
-    void EventKingdomInfo(void);
-    void EventCastSpell(void);
-    void EventPuzzleMaps(void);
-    void EventGameInfo(void);
-    void EventDigArtifact(menu_t &);
-    void EventAdventureDialog(menu_t &);
-    void EventFileDialog(menu_t &);
-    void EventSystemDialog(void);
-    void EventSwitchShowRadar(void);
-    void EventSwitchShowStatus(void);
-    void EventSwitchShowButtons(void);
-    void EventSwitchShowIcons(void);
-    void EventSwitchShowControlPanel(void);
-
-    void DisableChangeMusic(bool);
-    bool ChangeMusicDisabled(void);
-
-    void OpenHeroesDialog(Heroes*);
-    void OpenCastleDialog(Castle*);
-
-    std::string GetEncodeString(const char*);
+    void	DrawInterface(void);
+    void	SetFixVideoMode(void);
+    void	EnvironmentSoundMixer(void);
+    int		GetKingdomColors(void);
+    int		GetActualKingdomColors(void);
+    void	DialogPlayers(int color, std::string);
+    void	SetCurrentMusic(int);
+    int		CurrentMusic(void);
+    u32 &	CastleAnimationFrame(void);
+    u32 &	MapsAnimationFrame(void);
+    u32		GetRating(void);
+    u32		GetGameOverScores(void);
+    u32		GetLostTownDays(void);
+    u32		GetViewDistance(u32);
+    u32		GetWhirlpoolPercent(void);
+    u32		SelectCountPlayers(void);
+    void	ShowLoadMapsText(void);
+    void	PlayPickupSound(void);
+    void	DisableChangeMusic(bool);
+    bool	ChangeMusicDisabled(void);
+    void	OpenHeroesDialog(Heroes &);
+    void	OpenCastleDialog(Castle &);
+    std::string GetEncodeString(const std::string &);
 
     namespace Editor
     {
-	Game::menu_t MainMenu(void);
-	Game::menu_t NewMaps(void);
-	Game::menu_t LoadMaps(void);
-	Game::menu_t StartGame(void);
-	Game::menu_t StartGame(void);
+	int	MainMenu(void);
+	int	NewMaps(void);
+	int	LoadMaps(void);
+	int	StartGame(void);
+	int	StartGame(void);
     }
 
-    u16 GetStep4Player(u16, u16, u16);
-    std::string CountScoute(u32 count, u8 scoute);
+    u32		GetStep4Player(u32, u32, u32);
+    std::string CountScoute(u32 count, int scoute, bool shorts = false);
 }
 
-#define HotKeyCloseWindow (Game::HotKeyPress(Game::EVENT_DEFAULT_EXIT) || Game::HotKeyPress(Game::EVENT_DEFAULT_READY))
+#define HotKeyCloseWindow (Game::HotKeyPressEvent(Game::EVENT_DEFAULT_EXIT) || Game::HotKeyPressEvent(Game::EVENT_DEFAULT_READY))
 
 #endif
