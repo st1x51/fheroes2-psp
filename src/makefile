@@ -69,7 +69,11 @@ fheroes2\agg\mus.o \
 fheroes2\agg\sprite.o \
 fheroes2\agg\til.o \
 fheroes2\agg\xmi.o \
-fheroes2\ai\empty\ai_empty.o \
+fheroes2\ai\simple\ai_battle.o \
+fheroes2\ai\simple\ai_castle.o \
+fheroes2\ai\simple\ai_heroes.o \
+fheroes2\ai\simple\ai_kingdom.o \
+fheroes2\ai\simple\ai_simple.o \
 fheroes2\ai\ai_action.o \
 fheroes2\army\army.o \
 fheroes2\army\army_bar.o \
